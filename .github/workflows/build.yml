@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # build.sh references two Windows SDK winmd files from libs/pkg/ref/netstandard2.0/.
       # They are not committed (that folder is gitignored), so restore them from NuGet.
@@ -55,7 +55,7 @@ jobs:
           Write-Host ("Lyricard.exe {0:N0} bytes" -f $exe.Length)
           if ($exe.Length -lt 100000) { Write-Error 'output looks too small'; exit 1 }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: Lyricard-exe
           path: |

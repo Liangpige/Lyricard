@@ -2,6 +2,7 @@
 
 **一个浮在桌面上的歌词卡片** —— 默认只盯 Apple Music，也能跟网易云 / QQ 音乐 / Spotify 等 10 家播放器，谁在播就显示谁。
 
+[![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
 [![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
