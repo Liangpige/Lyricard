@@ -1,0 +1,18 @@
+# build output
+bin/
+dist/
+*.exe
+*.pdb
+*.obj
+*.dll
+
+# local test harnesses
+probe/
+tools/icon.exe
+src/smoke.exe
+
+# Windows SDK metadata + the nuget it comes from (see README "重新编译")
+libs/
+
+# runtime data (config, logs, cached lyrics)
+data/

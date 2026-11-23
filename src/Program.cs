@@ -1,0 +1,342 @@
+using System;
+using System.Threading;
+using System.Windows;
+
+namespace Amc
+{
+    /// <summary>
+    /// Entry point plus the command line modes: normal run, <c>--ensure</c>, <c>--smtcdump</c>,
+    /// <c>--lyrtest</c>, <c>--proccount</c> and <c>--uninstall</c>.
+    /// </summary>
+    static class Program
+    {
+        [STAThread]
+        static void Main(string[] args)
+        {
+            if (args != null && args.Length >= 3 && args[0] == "--lyrtest")
+            {
+                RunLyricTest(args);
+                return;
+            }
+
+            if (args != null && args.Length >= 1 && args[0] == "--ensure")
+            {
+                RunEnsure();
+                return;
+            }
+
+            if (args != null && args.Length >= 1 && args[0] == "--smtcdump")
+            {
+                RunSmtcDump();
+                return;
+            }
+
+            if (args != null && args.Length >= 1 && args[0] == "--proccount")
+            {
+                RunProcCount();
+                return;
+            }
+
+            // Uninstall runs before the single-instance guard: it has to be able to run while a
+            // normal copy is still alive, and it kills that copy itself.
+            if (args != null && args.Length >= 1 && args[0] == "--shortcut")
+            {
+                // Create a shortcut where the user can find it, then exit.
+                string where = args.Length >= 2 ? args[1] : "desktop";
+                string made = (where == "startmenu") ? Shortcut.CreateStartMenu() : Shortcut.CreateDesktop();
+                LyricsService.Log("shortcut: --shortcut " + where + " -> " + (made == null ? "failed" : made));
+                return;
+            }
+
+            if (args != null && args.Length >= 1 && args[0] == "--uninstall")
+            {
+                bool silent = HasArg(args, "--silent");
+                try { Config c0 = Config.Load(); Strings.Resolve(c0.Lang); } catch { }
+                Uninstall.Run(false, silent);
+                return;
+            }
+
+            bool createdNew;
+            using (var mutex = new Mutex(true, "Local\\Lyricard-m7Q2", out createdNew))
+            {
+                if (!createdNew)
+                {
+                    // Already running: if this launch was a plain double-click (not the logon
+                    // --background entry), ask the live instance to raise its main page instead of
+                    // silently exiting. That is what makes the shortcut feel like it works.
+                    if (!HasArg(args, "--background"))
+                    {
+                        try
+                        {
+                            using (var ev = System.Threading.EventWaitHandle.OpenExisting("Local\\Lyricard-show"))
+                                ev.Set();
+                        }
+                        catch { }
+                    }
+                    return;
+                }
+
+                // Created by the first instance, waited on by a background thread below.
+                System.Threading.EventWaitHandle showEvent = null;
+                try
+                {
+                    showEvent = new System.Threading.EventWaitHandle(
+                        false, System.Threading.EventResetMode.AutoReset, "Local\\Lyricard-show");
+                }
+                catch { }
+
+                var app = new Application();
+                app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+                AppDomain.CurrentDomain.UnhandledException += delegate(object s2, UnhandledExceptionEventArgs e2)
+                {
+                    LyricsService.Log("UNHANDLED " + e2.ExceptionObject);
+                };
+                app.DispatcherUnhandledException += delegate(object s2, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e2)
+                {
+                    LyricsService.Log("UI-EX " + e2.Exception.GetType().Name + ": " + e2.Exception.Message);
+                    e2.Handled = true;
+                };
+
+                LyricsService.Log("=== app start ===");
+
+                var cfg = Config.Load();
+            // Player bindings: when the user bound at least one player, only those players may
+            // drive the card (that is also what keeps browsers out of it).
+            Players.ApplyBindings(cfg);
+            Strings.Resolve(cfg.Lang);
+
+                // Portable entry point: a shortcut with the app icon next to the exe.
+                // Created on first start because a build-time .lnk would point at the build machine.
+                Shortcut.EnsureFolderShortcut();
+
+                // Only the integrity level and elevation are logged: they are what actually explains
+                // "the card cannot see Apple Music". The account and machine name are deliberately
+                // left out, because users paste this log into bug reports.
+                try
+                {
+                    var wi = System.Security.Principal.WindowsIdentity.GetCurrent();
+                    bool admin = new System.Security.Principal.WindowsPrincipal(wi)
+                        .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+                    LyricsService.Log("token intg=" + TokenInfo.IntegrityLevel() + " admin=" + admin);
+                }
+                catch { }
+
+                try
+                {
+                    AutoStart.RemoveLegacy();
+                    if (cfg.AutoStart != AutoStart.IsEnabled()) AutoStart.Set(cfg.AutoStart);
+                    LyricsService.Log("autostart=" + cfg.AutoStart + " reg=" + AutoStart.IsEnabled() + " err=" + AutoStart.LastError);
+                }
+                catch { }
+
+                var smtc = new SmtcService();
+                smtc.ListenAll = cfg.ListenAll;
+                smtc.Start();
+
+                var win = new CardWindow(cfg, smtc);
+                // Launching the exe means 'open the app': show the main page, and keep the
+                // card on the desktop as before. Logon launches pass --background and stay quiet.
+                if (!HasArg(args, "--background")) MainWindow.Open(cfg, win);
+                // Logon launch: no main window, and the card waits for a player.
+                win.HideWhenIdle = HasArg(args, "--background");
+
+                // A second launch (shortcut double-click while we are already running) pings this
+                // event; hop back to the UI thread and show the page.
+                if (showEvent != null)
+                {
+                    var waiter = new System.Threading.Thread(delegate()
+                    {
+                        while (true)
+                        {
+                            try { if (!showEvent.WaitOne()) break; }
+                            catch { break; }
+                            try
+                            {
+                                app.Dispatcher.BeginInvoke((Action)delegate { MainWindow.Open(cfg, win); });
+                            }
+                            catch { }
+                        }
+                    });
+                    waiter.IsBackground = true;
+                    waiter.Name = "lyricard-show-watch";
+                    waiter.Start();
+                }
+                if (HasArg(args, "--settings")) CardWindow.OpenSettingsOnStart = true;
+                var tray = new Tray(win, smtc);
+                win.TrayRef = tray;
+
+                app.Exit += delegate
+                {
+                    tray.Dispose();
+                    smtc.Stop();
+                };
+
+                app.Run();
+                GC.KeepAlive(mutex);
+            }
+        }
+
+        static void RunProcCount()
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                var all = System.Diagnostics.Process.GetProcesses();
+                sb.AppendLine("all=" + all.Length);
+                var am = System.Diagnostics.Process.GetProcessesByName("AppleMusic");
+                sb.AppendLine("am=" + am.Length);
+                for (int i = 0; i < all.Length; i++)
+                {
+                    string nm = "";
+                    try { nm = all[i].ProcessName; } catch { continue; }
+                    if (nm.IndexOf("Apple", StringComparison.OrdinalIgnoreCase) >= 0)
+                        sb.AppendLine("  hit " + nm + " " + all[i].Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("err " + ex.GetType().Name + ": " + ex.Message);
+            }
+            string path = System.IO.Path.Combine(Config.Dir, "proccount.txt");
+            try { System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8); } catch { }
+        }
+
+        static void RunSmtcDump()
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                var mgr = SmtcService.Wait(Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
+                var list = mgr.GetSessions();
+                sb.AppendLine("sessions=" + list.Count);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var s = list[i];
+                    string aumid = s.SourceAppUserModelId;
+                    string info = "";
+                    try
+                    {
+                        var mp = SmtcService.Wait(s.TryGetMediaPropertiesAsync());
+                        info = mp.Title + " | " + mp.Artist;
+                    }
+                    catch (Exception ex)
+                    {
+                        info = "media fail " + ex.GetType().Name + ": " + ex.Message;
+                    }
+                    string pb = "";
+                    bool canSeek = false, canRate = false;
+                    try
+                    {
+                        var pi = s.GetPlaybackInfo();
+                        // PlaybackType is how Windows tells music from video; browsers report it too.
+                        pb = pi.PlaybackStatus + " type=" + pi.PlaybackType;
+                        var ctl = pi.Controls;
+                        canSeek = ctl.IsPlaybackPositionEnabled;
+                        canRate = ctl.IsPlaybackRateEnabled;
+                    }
+                    catch { }
+                    string tl = "";
+                    try
+                    {
+                        var t = s.GetTimelineProperties();
+                        tl = " pos=" + t.Position.TotalSeconds.ToString("0.0") + " end=" + t.EndTime.TotalSeconds.ToString("0.0");
+                    }
+                    catch { }
+                    sb.AppendLine("  [" + i + "] " + aumid + " :: " + pb + " :: seek=" + canSeek + " rate=" + canRate + tl + " :: " + info);
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("dump fail " + ex.GetType().Name + ": " + ex.Message);
+            }
+            string path = System.IO.Path.Combine(Config.Dir, "smtc.txt");
+            try { System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8); }
+            catch { }
+            LyricsService.Log("smtcdump -> " + path);
+        }
+
+        static bool HasArg(string[] args, string name)
+        {
+            if (args == null) return false;
+            for (int i = 0; i < args.Length; i++) if (args[i] == name) return true;
+            return false;
+        }
+
+        static void RunEnsure()
+        {
+            LyricsService.Log("ensure: start");
+            bool am = false;
+            try
+            {
+                var ps = System.Diagnostics.Process.GetProcessesByName("AppleMusic");
+                am = ps != null && ps.Length > 0;
+                LyricsService.Log("ensure: found=" + (ps == null ? -1 : ps.Length));
+            }
+            catch (Exception ex)
+            {
+                LyricsService.Log("ensure scan fail " + ex.GetType().Name + ": " + ex.Message);
+            }
+            if (!am) return;
+            bool createdNew;
+            using (var mutex = new Mutex(true, "Local\\AppleMusicLyricCard-m7Q2", out createdNew))
+            {
+                if (!createdNew) return;
+                try { mutex.ReleaseMutex(); } catch { }
+            }
+
+            try
+            {
+                string exe = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var psi = new System.Diagnostics.ProcessStartInfo(exe);
+                psi.UseShellExecute = false;
+                psi.WorkingDirectory = System.IO.Path.GetDirectoryName(exe);
+                System.Diagnostics.Process.Start(psi);
+                LyricsService.Log("ensure: Apple Music is running, card launched");
+            }
+            catch (Exception ex)
+            {
+                LyricsService.Log("ensure fail " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
+        static void RunLyricTest(string[] args)
+        {
+            string title = args[1];
+            string artist = args[2];
+            double dur = 0;
+            if (args.Length > 3) double.TryParse(args[3], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out dur);
+            var svc = new LyricsService();
+            var doc = svc.Get(title, artist, dur, true);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("query=" + title + " | " + artist + " | " + dur);
+            if (doc == null)
+            {
+                sb.AppendLine("RESULT=NULL");
+            }
+            else
+            {
+                sb.AppendLine("RESULT src=" + doc.Source + " lines=" + doc.Lines.Count + " instr=" + doc.Instrumental + " matched=" + doc.Matched);
+                if (doc.Lines.Count > 0)
+                {
+                    sb.AppendLine("first=" + doc.Lines[0].Time.ToString("0.00") + " " + doc.Lines[0].Text);
+                    sb.AppendLine("last=" + doc.Lines[doc.Lines.Count - 1].Time.ToString("0.00") + " " + doc.Lines[doc.Lines.Count - 1].Text);
+                    sb.AppendLine("--- all ---");
+                    foreach (var l in doc.Lines) sb.AppendLine(l.Time.ToString("0.00") + "  " + l.Text);
+                }
+            }
+            try
+            {
+                var outp = System.IO.Path.Combine(Config.Dir, "lyrtest.txt");
+                System.IO.File.WriteAllText(outp, sb.ToString(), System.Text.Encoding.UTF8);
+            }
+            catch { }
+            try
+            {
+                Console.WriteLine(sb.ToString());
+            }
+            catch { }
+        }
+    }
+}
