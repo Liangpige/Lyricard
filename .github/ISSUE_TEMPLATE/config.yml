@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 先读 README 的「已知限制」
+    url: https://github.com/Liangpige/Lyricard#已知限制
+    about: 浏览器标签不算播放器、网易云位置不上报、关窗口是收进托盘……这些是设计如此。
+  - name: 安装与常见问题
+    url: https://github.com/Liangpige/Lyricard/blob/main/INSTALL.md
+    about: 装不上、没有卡片、SmartScreen 提示蓝框，先看 INSTALL 的 FAQ。

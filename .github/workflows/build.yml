@@ -1,0 +1,66 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build with in-box csc
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # build.sh references two Windows SDK winmd files from libs/pkg/ref/netstandard2.0/.
+      # They are not committed (that folder is gitignored), so restore them from NuGet.
+      - name: Restore Windows SDK metadata (winmd)
+        shell: pwsh
+        run: |
+          $version = '10.0.22621.3233'
+          $pkg = Join-Path $env:RUNNER_TEMP 'sdk-contracts.nupkg'
+          Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Windows.SDK.Contracts/$version" -OutFile $pkg
+          Copy-Item $pkg "$pkg.zip"
+          Expand-Archive "$pkg.zip" -DestinationPath 'libs/pkg' -Force
+          Get-ChildItem 'libs/pkg/ref/netstandard2.0' -Filter '*FoundationContract.winmd' |
+            Select-Object -ExpandProperty Name
+
+      # The runnable csc.exe ships with .NET Framework 4.x on the image, but the
+      # 4.7.2 reference assemblies are not guaranteed; build.sh only needs
+      # Facades/System.Runtime.dll from there, so borrow it from any 4.x folder.
+      - name: Provide .NET Framework reference assemblies if missing
+        shell: pwsh
+        run: |
+          $dst = 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2'
+          if (Test-Path "$dst\Facades\System.Runtime.dll") { Write-Host "4.7.2 refs already present"; exit 0 }
+          $root = Split-Path $dst
+          $src = Get-ChildItem $root -Directory |
+                 Where-Object { Test-Path (Join-Path $_.FullName 'Facades\System.Runtime.dll') } |
+                 Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $src) { Write-Error 'no .NET Framework reference assemblies with Facades found'; exit 1 }
+          Write-Host "copying Facades from $($src.Name) -> v4.7.2"
+          New-Item -ItemType Directory -Force "$dst\Facades" | Out-Null
+          Copy-Item (Join-Path $src.FullName 'Facades\System.Runtime.dll') "$dst\Facades\System.Runtime.dll" -Force
+
+      - name: Build
+        shell: bash
+        run: bash build.sh
+
+      - name: Check output
+        shell: pwsh
+        run: |
+          $exe = Get-Item bin/Lyricard.exe
+          Write-Host ("Lyricard.exe {0:N0} bytes" -f $exe.Length)
+          if ($exe.Length -lt 100000) { Write-Error 'output looks too small'; exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lyricard-exe
+          path: |
+            bin/Lyricard.exe
+            LICENSE
+            README.md
+            INSTALL.md
+          if-no-files-found: error

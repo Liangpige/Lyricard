@@ -1,0 +1,65 @@
+name: 报告一个问题
+description: 卡片显示不对、歌词不同步、按钮没反应等等
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈！填得越具体，我越容易复现。**先看一遍 README 的「已知限制」**，有些现象是设计如此（比如浏览器标签不算播放器、网易云的播放位置不上报）。
+  - type: dropdown
+    id: player
+    attributes:
+      label: 哪个播放器
+      options:
+        - Apple Music
+        - 网易云音乐
+        - QQ 音乐
+        - Spotify
+        - 酷狗音乐
+        - Windows 媒体播放器
+        - 其它（在下面说明）
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Lyricard 版本
+      description: 「关于」页或托盘菜单里能看到
+      placeholder: v0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: scale
+    attributes:
+      label: 显示缩放
+      options: ["100%", "125%", "150%", "175%", "200%", "其它／多显示器"]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 你看到什么，期望是什么
+      placeholder: 暂停后进度条跳回 0:00；期望停在原处
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 网易云播放某首歌
+        2. 按 F8 暂停
+        3. 卡片进度条…
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志（可选）
+      description: exe 同目录 `data\amc.log` 里与现象时间相邻的十几行，或搜 `clock pos=` 那几行
+      render: text
+  - type: textarea
+    id: shot
+    attributes:
+      label: 截图（可选）
+      description: 直接拖图片进来即可

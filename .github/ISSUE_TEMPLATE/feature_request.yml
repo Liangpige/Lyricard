@@ -1,0 +1,36 @@
+name: 提个建议
+description: 想要新功能、或者觉得哪里可以更好
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题
+      description: 描述场景比描述方案更有用
+      placeholder: 我经常用 foobar2000，卡片抓不到它的播放位置
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你设想的做法（可选）
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 大概属于哪一块
+      options:
+        - 播放器支持
+        - 歌词来源／同步
+        - 外观／排版
+        - 主页面／设置
+        - 打包／安装
+        - 其它
+    validations:
+      required: true
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: 参与意愿
+      options:
+        - label: 我愿意提 PR 实现它
