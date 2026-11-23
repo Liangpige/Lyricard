@@ -8,6 +8,12 @@
 #   bash build.sh desktop    dist + copy the zip onto the Desktop
 set -u
 
+# Git-Bash on CI (and any MSYS shell) rewrites arguments that start with "/" into
+# Windows paths, which turns "/nologo" into "C:/Program Files/Git/nologo". csc.exe
+# wants the raw switch, so opt out of that conversion for everything below.
+export MSYS2_ARG_CONV_EXCL="*"
+export MSYS_NO_PATHCONV=1
+
 PROJ="$(cd "$(dirname "$0")" && pwd)"   # MSYS path; PowerShell calls go through cygpath -w
 CSC="C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
 WPF="C:/Windows/Microsoft.NET/Framework64/v4.0.30319/WPF"
