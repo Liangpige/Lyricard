@@ -180,6 +180,16 @@ namespace Amc
                         catch (Exception ex) { LyricsService.Log("settings startup failed: " + ex.Message); }
                     });
                 }
+                // --pick: jump straight to the manual lyric picker (debugging aid, and handy
+                // when the card is not on screen because nothing is playing right now).
+                if (HasArg(args, "--pick"))
+                {
+                    app.Dispatcher.BeginInvoke((Action)delegate
+                    {
+                        try { win.OpenCandidates(); LyricsService.Log("picker -> startup"); }
+                        catch (Exception ex) { LyricsService.Log("picker startup failed: " + ex.Message); }
+                    });
+                }
                 var tray = new Tray(win, smtc);
                 win.TrayRef = tray;
 

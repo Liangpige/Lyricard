@@ -208,6 +208,17 @@ namespace Amc
     /// first acceptable result wins (with a short grace window for a better one), everything is
     /// sanitised and cached under <c>data\lyrics</c>.
     /// </summary>
+    /// <summary>One row in the manual lyric picker.</summary>
+    public class LyricChoice
+    {
+        public string Source = "";
+        public string Id = "";
+        public string Title = "";
+        public string Artist = "";
+        public double Dur;
+        public double Score;
+    }
+
     public class LyricsService
     {
         static readonly object LogLock = new object();
@@ -280,6 +291,81 @@ namespace Amc
 
         // Set by the "换一个歌词源" menu item: one-shot, ignored after this call.
         public static string SkipSource;
+
+        /// <summary>
+        /// Search every source for the current track and hand back the ranked candidates instead
+        /// of silently picking one. The card only shows a single line, so when the guess is wrong
+        /// the user has no way to tell which song we actually matched - this list is that view.
+        /// </summary>
+        public List<LyricChoice> Candidates(string title, string artist, double duration)
+        {
+            // Both sources are queried in parallel: each one may need a second, looser attempt,
+            // and doing them one after another kept the picker on "searching" for ~8 seconds.
+            var results = new List<Cand>[2];
+            var threads = new System.Threading.Thread[2];
+            string[] sources = new string[] { "qq", "netease" };
+            for (int i = 0; i < sources.Length; i++)
+            {
+                int slot = i;
+                string src = sources[i];
+                threads[i] = new System.Threading.Thread(delegate()
+                {
+                    try { results[slot] = Search(src, title, artist, duration); }
+                    catch (Exception ex) { Log("  " + src + " search fail " + ex.GetType().Name); results[slot] = new List<Cand>(); }
+                });
+                threads[i].IsBackground = true;
+                threads[i].Start();
+            }
+            var outp = new List<LyricChoice>();
+            for (int i = 0; i < threads.Length; i++)
+            {
+                threads[i].Join(3500);
+                List<Cand> list = results[i];
+                if (list == null) continue;
+                foreach (Cand c in list)
+                {
+                    // Below this the entry is noise (same word in an unrelated title); keeping it
+                    // would only make the list longer, not more useful.
+                    if (c.Score < 0.35) continue;
+                    outp.Add(new LyricChoice
+                    {
+                        Source = sources[i],
+                        Id = c.Id,
+                        Title = c.Name,
+                        Artist = c.Artist,
+                        Dur = c.Dur,
+                        Score = c.Score
+                    });
+                }
+            }
+            outp.Sort(delegate (LyricChoice x, LyricChoice y) { return y.Score.CompareTo(x.Score); });
+            // The same recording is usually offered by both sources; keep the higher score once.
+            var seen = new Dictionary<string, bool>();
+            var dedup = new List<LyricChoice>();
+            foreach (LyricChoice c in outp)
+            {
+                string k = TextUtil.Clean(c.Title) + "|" + TextUtil.Clean(c.Artist);
+                if (seen.ContainsKey(k)) continue;
+                seen[k] = true;
+                dedup.Add(c);
+            }
+            if (dedup.Count > 12) dedup.RemoveRange(12, dedup.Count - 12);
+            Log("  candidates " + dedup.Count + " for " + title);
+            return dedup;
+        }
+
+        /// <summary>Fetch the body for one explicit candidate (the user picked it).</summary>
+        public LyricDoc Fetch(LyricChoice ch, string title, string artist, double duration)
+        {
+            if (ch == null) return null;
+            var c = new Cand { Src = ch.Source, Id = ch.Id, Name = ch.Title, Artist = ch.Artist, Dur = ch.Dur };
+            LyricDoc doc = FetchLyric(c);
+            if (doc == null) return null;
+            doc = Sanitize(doc, title, artist, duration);
+            doc.Matched = ch.Title + " - " + ch.Artist;
+            Log("  manual pick " + ch.Source + " " + doc.Matched + " lines=" + doc.Lines.Count);
+            return doc;
+        }
 
         public LyricDoc Get(string title, string artist, double duration, bool force)
         {

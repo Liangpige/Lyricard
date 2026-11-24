@@ -1148,6 +1148,7 @@ namespace Amc
                 LyricsService.SkipSource = (_doc != null) ? _doc.Source : "";
                 Refetch();
             }));
+            m.Items.Add(Item(Strings.T("menu.pickLyric"), delegate { OpenCandidates(); }));
             m.Items.Add(new Separator());
             m.Items.Add(Item(Strings.T("menu.lyricEarly"), delegate { NudgeOffset(0.1); }));
             m.Items.Add(Item(Strings.T("menu.lyricLate"), delegate { NudgeOffset(-0.1); }));
@@ -1225,6 +1226,64 @@ namespace Amc
             var mi = new MenuItem { Header = text };
             if (act != null) mi.Click += delegate { act(); };
             return mi;
+        }
+
+        /// <summary>
+        /// Show the ranked candidates for the current track and let the user override the pick.
+        /// Searching is a network round-trip, so the window opens immediately with a "searching"
+        /// line and fills itself from a worker thread.
+        /// </summary>
+        public void OpenCandidates()
+        {
+            Snapshot np = _smtc.Current;
+            LyricsService.Log("picker requested title=" + (np == null ? "null" : np.Title) + " artist=" + (np == null ? "" : np.Artist));
+            if (np == null || string.IsNullOrEmpty(np.Title)) return;
+            string t = np.Title;
+            string a = np.Artist;
+            double d = np.Dur.TotalSeconds;
+            string sub = string.IsNullOrEmpty(a) ? t : t + " — " + a;
+
+            CandidateWindow win;
+            try
+            {
+                win = new CandidateWindow(Strings.T("menu.pickLyric"), sub);
+            }
+            catch (Exception ex)
+            {
+                LyricsService.Log("picker ctor fail " + ex.GetType().Name + ": " + ex.Message);
+                return;
+            }
+            win.Pick = delegate(LyricChoice ch)
+            {
+                var doc = _lyr.Fetch(ch, t, a, d);
+                if (doc == null || doc.Lines == null || doc.Lines.Count < 3) return;
+                _doc = doc;
+                _lineIdx = -1;
+                _lineText = "";
+                UpdateLyric();
+                LyricsService.Log("lyric picker chose " + ch.Source + " " + doc.Matched);
+            };
+            try
+            {
+                win.Show();
+                win.Activate();
+                LyricsService.Log("picker shown");
+            }
+            catch (Exception ex)
+            {
+                LyricsService.Log("picker show fail " + ex.GetType().Name + ": " + ex.Message);
+                return;
+            }
+
+            var worker = new System.Threading.Thread(delegate()
+            {
+                List<LyricChoice> list = null;
+                try { list = _lyr.Candidates(t, a, d); }
+                catch (Exception ex) { LyricsService.Log("cand fail " + ex.GetType().Name); }
+                Dispatcher.BeginInvoke(new Action(delegate { win.SetCandidates(list); }));
+            });
+            worker.IsBackground = true;
+            worker.Start();
         }
 
         public void UserToggle()

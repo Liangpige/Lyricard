@@ -88,6 +88,12 @@ namespace Amc
             Both("menu.refetch", "重新获取歌词", "Fetch lyrics again");
             Both("menu.export", "导出歌词（分享用）", "Export lyrics (for sharing)");
             Both("menu.switchSrc", "换一个歌词源", "Try another source");
+            Both("menu.pickLyric", "选择歌词…", "Pick lyrics…");
+            Both("page.lyr.pick", "选择当前歌曲的歌词…", "Pick lyrics for this song…");
+            Both("cand.loading", "正在搜索…", "Searching…");
+            Both("cand.empty", "没有找到候选歌词", "No candidates found");
+            Both("cand.count", "共 {0} 个候选，按匹配度排序", "{0} candidates, best match first");
+            Both("cand.unknownArtist", "未知艺人", "Unknown artist");
             Both("menu.lyricEarly", "歌词提前 0.1s", "Lyrics 0.1s earlier");
             Both("menu.lyricLate", "歌词延后 0.1s", "Lyrics 0.1s later");
             Both("menu.bigger", "放大", "Bigger");

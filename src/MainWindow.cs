@@ -1071,6 +1071,12 @@ namespace Amc
             {
                 try { Process.Start("explorer.exe", "\"" + Config.Dir + "\""); } catch { }
             }, false));
+            // Same picker as the card's context menu, surfaced here because the menu is a
+            // right-click away and easy to miss when the lyrics are simply wrong.
+            buttons.Children.Add(Pill(Strings.T("page.lyr.pick"), delegate
+            {
+                try { _card.OpenCandidates(); } catch { }
+            }, false));
             box.Children.Add(buttons);
 
             var clear = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 0) };

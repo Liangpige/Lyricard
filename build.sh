@@ -53,7 +53,7 @@ REFS+=("/r:../libs/pkg/ref/netstandard2.0/Windows.Foundation.FoundationContract.
   "${REFS[@]}" \
   /r:System.dll /r:System.Core.dll /r:System.Xml.dll \
   Program.cs Config.cs Players.cs AudioPeak.cs Json.cs Smtc.cs Lyrics.cs CardWindow.cs Native.cs Tray.cs \
-  AmProbe.cs MenuTheme.cs NetEaseQueue.cs Strings.cs SettingsWindow.cs MainWindow.cs Uninstall.cs Shortcut.cs
+  AmProbe.cs MenuTheme.cs NetEaseQueue.cs Strings.cs SettingsWindow.cs MainWindow.cs Uninstall.cs Shortcut.cs CandidateWindow.cs
 rc=$?
 echo "csc exit=$rc"
 ls -l "$PROJ/bin/$APP.exe" 2>/dev/null
