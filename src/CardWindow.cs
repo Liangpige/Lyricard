@@ -1330,7 +1330,9 @@ namespace Amc
             _inScale.ScaleY = curSc;
             _inShift.Y = curY;
             var seq = ++_visSeq;
-            AnimateCard(0.0, 0.0, 0.986, 140, delegate
+            // 47 ms: three times faster than the old 140 ms. Closing is something the user
+            // asked for, so it should feel instant -- only the entrance gets to take its time.
+            AnimateCard(0.0, 0.0, 0.990, 47, delegate
             {
                 if (seq == _visSeq) Hide();
             });
