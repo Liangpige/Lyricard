@@ -131,8 +131,12 @@ namespace Amc
             if (string.IsNullOrEmpty(aumid)) return false;
             if (IsNetEase(aumid)) return true;
             string s = aumid.ToLowerInvariant();
+            // MD3Music reports a position that only moves every 10-30 s (and jitters by a few
+            // tenths while "stuck"), so it belongs to the same "don't trust the number, run
+            // our own clock" family as NetEase and KuGou.
             return s.IndexOf("kugou", StringComparison.Ordinal) >= 0
-                || s.IndexOf("kgmusic", StringComparison.Ordinal) >= 0;
+                || s.IndexOf("kgmusic", StringComparison.Ordinal) >= 0
+                || s.IndexOf("md3music", StringComparison.Ordinal) >= 0;
         }
 
         public static PlayerInfo MatchExe(string exe)

@@ -411,7 +411,11 @@ namespace Amc
                 // drag our clock back to zero every few seconds, which looks like "lyrics never
                 // advance". Track how long the reported number has been identical and switch to
                 // free-run while it is frozen; the first change resumes normal correction.
-                if (Math.Abs(reported - _lastReported) < 0.001) _frozenPolls++;
+                // Half a second of tolerance: some clients (MD3Music) jitter by tenths while
+                // the position is actually stuck, and a 1 ms epsilon made every tick look like
+                // fresh data -- the clock then kept re-syncing to the stale value and the bar
+                // visibly snapped backwards every few seconds.
+                if (Math.Abs(reported - _lastReported) < 0.5) _frozenPolls++;
                 else { _frozenPolls = 0; _lastReported = reported; }
                 frozen = _frozenPolls > 15;   // ~3s at the 200ms poll rate
 
@@ -448,15 +452,18 @@ namespace Amc
                     _anchorPos = TimeSpan.FromSeconds(predicted);
                     _anchorAt = nowLocal;
                 }
-                else if (ad > 4.0)
+                else if (ad > 4.0 && !Players.IsLaggyTimeline(np.Aumid))
                 {
+                    // Not for NetEase / KuGou / MD3Music: their "position" wanders (0.35 for a
+                    // while, then a jump to a number tens of seconds off), and re-anchoring to
+                    // it made the bar - and the lyric line - snap backwards mid-song.
                     LyricsService.Log("smtc resync seek delta=" + delta.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
                         + " reported=" + reported.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
                         + " frozen=" + frozen + " play=" + np.Playing);
                     _anchorPos = tl.Position + TimeSpan.FromSeconds(0.35);
                     _anchorAt = nowLocal;
                 }
-                else if (ad > 2.0)
+                else if (ad > 2.0 && !Players.IsLaggyTimeline(np.Aumid))
                 {
                     double fix = delta * 0.4;
                     if (fix > 1.5) fix = 1.5;

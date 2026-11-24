@@ -1705,7 +1705,8 @@ namespace Amc
                     + " target=" + target.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
                     + " err=" + (target - _pos).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
                     + " play=" + np.Playing + " smtc=" + np.Pos.TotalSeconds.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
-                    + " frozen=" + np.PosFrozen + " dur=" + np.Dur.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                    + " frozen=" + np.PosFrozen + " dur=" + np.Dur.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                    + " untrusted=" + np.PosUntrusted + " key=" + np.Title.Substring(0, Math.Min(6, np.Title.Length)));
 
             // Some clients (NetEase Cloud Music among them) never report a duration, which used
             // to leave the progress bar pinned at zero. Fall back to the last lyric timestamp so
