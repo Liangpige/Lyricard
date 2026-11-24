@@ -518,7 +518,11 @@ namespace Amc
         {
             // padding + transparent background: without them the only clickable pixels are the
             // glyphs themselves, which makes the strip feel dead between words.
-            var inner = new StackPanel();
+            // Grid, not StackPanel: the label is centred in the 34 px strip and the underline
+            // is pinned to the bottom edge. A vertical stack would have shifted the text up by
+            // half the underline's height, which made the tabs sit visibly higher than the
+            // "Lyricard v0.2.1" lockup on the left.
+            var inner = new Grid();
             var box = new Border
             {
                 VerticalAlignment = VerticalAlignment.Center,
@@ -530,7 +534,11 @@ namespace Amc
                 Child = inner
             };
             var t = Label(text, 12.5, TextDim, FontWeights.Normal);
-            t.Margin = new Thickness(0, 0, 0, 6);
+            t.VerticalAlignment = VerticalAlignment.Center;
+            // Optical alignment with the "Lyricard v0.2.1" lockup: the 12.5 px tab text sits
+            // ~1.5 px higher than the 15.5 px wordmark when both are mathematically centred,
+            // so nudge it down by 2 DIP (a centred element shifts by half the top margin).
+            t.Margin = new Thickness(0, 2, 0, 0);
             inner.Children.Add(t);
 
             var line = new Rectangle
@@ -539,6 +547,7 @@ namespace Amc
                 RadiusX = 1,
                 RadiusY = 1,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Bottom,
                 Fill = Brushes.Transparent
             };
             inner.Children.Add(line);
