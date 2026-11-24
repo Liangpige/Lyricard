@@ -1,6 +1,6 @@
 # Lyricard · 浮声
 
-**一个浮在桌面上的歌词卡片** —— 默认只盯 Apple Music，也能跟网易云 / QQ 音乐 / Spotify 等 9 家播放器，谁在播就显示谁。
+**一个浮在桌面上的歌词卡片** —— 默认只盯 Apple Music，也能跟网易云 / QQ 音乐 / Spotify 等 10 家播放器，谁在播就显示谁。
 
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
@@ -97,7 +97,7 @@
 
 主页面「监听的播放器」里可以勾选谁有权驱动卡片（`config.ini` 的 `BoundPlayers=apple-music,spotify`）：
 
-- **内置名单 9 家**：Apple Music、Spotify、网易云、QQ 音乐、酷狗、foobar2000、MusicBee、AIMP、Windows 媒体播放器。（酷我音乐**不在名单里** —— 它从不注册媒体会话，列出来只会是个点不亮的开关。）新设备上会同时看两处 —— 正在跑的媒体会话（知道谁在运行）和开始菜单/App Paths（知道谁装了）。
+- **内置名单 10 家**：Apple Music、Spotify、网易云、QQ 音乐、酷狗、MD3Music（酷狗第三方客户端，会话比官方版还规整）、foobar2000、MusicBee、AIMP、Windows 媒体播放器。（酷我音乐**不在名单里** —— 它从不注册媒体会话，列出来只会是个点不亮的开关。）新设备上会同时看两处 —— 正在跑的媒体会话（知道谁在运行）和开始菜单/App Paths（知道谁装了）。
 - **只有勾上的播放器播放时卡片才出现**，没勾的一律忽略；浏览器永不自动入列（它们会把网页视频报成 Music）。
 - **一个都不勾**＝谁都不监听，卡片不出现（`BoundPlayers=` 空值即此意）。想回到「Apple Music 优先」的旧行为就把 Apple Music 重新勾上。
 - **名单外**：点「添加其它播放器…」，可从当前会话里直接勾，或输入程序名（如 `spotify.exe`），写成 `aumid:` / `exe:` 条目。
@@ -114,6 +114,7 @@
 | QQ 音乐 | **否** | 设置 → 常规/系统 → 打开「系统媒体控制」一类的选项 |
 | 酷狗音乐 | **否** | 设置 → 常规 → 打开「系统媒体控制」/「桌面歌词」一类的选项 |
 | 酷我音乐 | **从不发** | 不支持，**已从名单移除**（装目录里连 SMTC 的字符串都没有，绑了也不会亮） |
+| MD3Music | **是** | 实测 6.4.1：AUMID `com.md3music.md3music`，带 seek/rate 和总时长，兼容性最好的一家第三方客户端 |
 | foobar2000 / AIMP / MusicBee | **看版本** | foobar2000 从 2.x 起自带（实测 2.26.3 直接就有会话），更老的版本或精简版可能没有；AIMP / MusicBee 一般要装插件。它们通常只报「在播」和位置、**不报总时长**，这时进度条没法算比例（已知问题，见下） |
 
 > 表格里「默认就能被看见」只代表客户端会发会话；**能不能驱动卡片**还要在主页「监听的播放器」里把它勾上。

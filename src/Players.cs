@@ -66,6 +66,10 @@ namespace Amc
             // 酷我音乐 deliberately absent: its client never registers an SMTC session
             // (no SystemMediaTransportControls string anywhere in its install tree), so a
             // binding could never light the card up. Listing it only produced dead switches.
+            // MD3Music is a third-party KuGou client (Flutter + Rust). Unlike the official
+            // KuGou app it publishes a complete session -- AUMID com.md3music.md3music with
+            // real seek/rate support and an end time -- so it binds like any other player.
+            Make("md3music", "MD3Music", new string[] { "md3music", "com.md3music" }, new string[] { "md3music.exe" }),
             Make("foobar", "foobar2000", new string[] { "foobar" }, new string[] { "foobar2000.exe" }),
             Make("musicbee", "MusicBee", new string[] { "musicbee" }, new string[] { "musicbee.exe" }),
             Make("aimp", "AIMP", new string[] { "aimp" }, new string[] { "aimp.exe" }),
