@@ -5,7 +5,7 @@
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.2.1-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.2-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#重新编译)
 
 ![卡片样子](docs/card.png)
@@ -339,7 +339,7 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 
 ## 更新记录
 
-### 未发布
+### v0.2.2（2026-11-24）
 
 - **修**：放着视频/游戏音效时，一个早就退出的播放器会被「整机有声音」这条判定保活在卡片上；现在幽灵会话只看它自己的进程。
 - **修**：「有声音在播，但播放器没上报曲目」这张提示卡以前只要**整机有声音**就弹，于是你在浏览器里刷抖音它也会冒出来。现在只有在「**已知播放器**自己在发声、却没有任何会话」时（也就是它真的忘了开 SMTC）才提示，并写出是哪一家。
@@ -352,7 +352,7 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 - **动效**：页签、胶囊按钮、窗口小按钮改为颜色淡入淡出（120~170 ms）；按下有 97% 的缩放回弹；开关的滑块会滑动 160 ms 并交叉淡变而不是瞬移；切页时新内容淡入并上浮 6 px。
 - **卡片**：出现 220 ms（0.965 → 1，上浮 8 px）；关闭从 140 ms 提速到 **47 ms**（上一版的 1/3，缩放幅度收到 0.990，太短再缩会像抖一下）。
 - **播放器名单**：酷我音乐从内置名单移除（它从不发 SMTC 会话，勾了也不会亮）；名单从 10 家变 9 家。
-- **导航栏**：页签文字改用 Grid 居中 + 1 DIP 光学微调，字面与左边 `Lyricard v0.2.1` 词标上下边界完全对齐（逐像素量过：29–44 / 29–44）。
+- **导航栏**：页签文字改用 Grid 居中 + 1 DIP 光学微调，字面与左边 `Lyricard v0.2.2` 词标上下边界完全对齐（逐像素量过：29–44 / 29–44）。
 - **设置入口合并**：卡片右键「打开主页面」直接落到「外观」页，旧设置面板退役（类保留，方便回退）；`--settings` 现在没有播放器也能用（之前它只置一个卡片启动标记，卡片不显示时参数被吞）。
 - **修复**（代码审计发现）：配置文件不再写出空 `BoundPlayers=`（否则之后永远显示「未绑定」）；换歌不再沿用上一首封面；SMTC 偶发异常不再把卡片清空（连续 5 次才重置）；封面流会释放；播放/暂停/切歌命令串行执行；幽灵检测不再每 200 ms 泄漏进程句柄；总时长按 `End - Start` 计算；卸载会同时结束 `Lyricard.exe`；「打开数据目录」路径加了引号；重建设置界面时不再累积控件与拖拽命中表；托盘菜单与备用图标不再泄漏；音量计量加锁；`--ensure` 与单实例用同一个互斥量；预设的 × 不再顺带套用预设。
 

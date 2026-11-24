@@ -526,7 +526,7 @@ namespace Amc
             // Grid, not StackPanel: the label is centred in the 34 px strip and the underline
             // is pinned to the bottom edge. A vertical stack would have shifted the text up by
             // half the underline's height, which made the tabs sit visibly higher than the
-            // "Lyricard v0.2.1" lockup on the left.
+            // "Lyricard v0.x" lockup on the left.
             var inner = new Grid();
             var box = new Border
             {
@@ -540,7 +540,7 @@ namespace Amc
             };
             var t = Label(text, 12.5, TextDim, FontWeights.Normal);
             t.VerticalAlignment = VerticalAlignment.Center;
-            // Optical alignment with the "Lyricard v0.2.1" lockup: the 12.5 px tab text sits
+            // Optical alignment with the "Lyricard v0.x" lockup: the 12.5 px tab text sits
             // ~1.5 px higher than the 15.5 px wordmark when both are mathematically centred,
             // so nudge it down by 2 DIP (a centred element shifts by half the top margin).
             t.Margin = new Thickness(0, 2, 0, 0);
