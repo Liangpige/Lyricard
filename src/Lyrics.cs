@@ -714,6 +714,7 @@ namespace Amc
             }
 
             List<Cand> cands = Search(src, title, artist, duration);
+            Cand fallback = null;
             int tried = 0;
             foreach (var c in cands)
             {
@@ -723,10 +724,19 @@ namespace Amc
                 bool titleOk = c.TitleSim >= 0.80;
                 bool artistOk = c.ArtistSim >= 0.45 || (c.ArtistSim >= 0.30 && c.DurSim >= 0.9);
                 bool durOk = duration <= 20 || c.Dur <= 20 || Math.Abs(c.Dur - duration) <= 8;
-                if (!titleOk || !(artistOk || durOk))
+                // Short clips (MD3Music and KuGou previews report 60 s) and live/edited cuts
+                // share the lyrics of the full song, so a near-exact title plus a matching
+                // artist is enough on its own -- the running time must not veto it.
+                bool sameSongStrong = c.TitleSim >= 0.98 && c.ArtistSim >= 0.60;
+                if (!titleOk || (!sameSongStrong && !(artistOk || durOk)))
                 {
                     Log("  skip " + c.Src + " " + c.Name + " - " + c.Artist
                         + " ts=" + F2(c.TitleSim) + " as=" + F2(c.ArtistSim) + " dd=" + F2(c.DurSim));
+                    // Covers and obscure uploads often have no candidate with a matching
+                    // artist at all. Remember the best exact-title one so that a total miss
+                    // can still fall back to the original song's lyrics instead of nothing.
+                    if (c.TitleSim >= 0.98 && (fallback == null || c.Score > fallback.Score))
+                        fallback = c;
                     continue;
                 }
                 var doc = FetchLyric(c);
@@ -737,6 +747,28 @@ namespace Amc
                 if (doc.Lines.Count >= 3) { res.Doc = doc; res.Score = c.Score; return res; }
                 if (doc.Instrumental && res.Instr == null) res.Instr = doc;
                 Log("  reject " + c.Src + " " + c.Name + " lines=" + doc.Lines.Count + " instr=" + doc.Instrumental);
+            }
+
+            // Nothing looked like the same recording. A cover or a niche upload still plays
+            // the same song, so show the exact-title candidate we set aside instead of an
+            // empty lyric line. Logged, because this is the one path that can pair a song
+            // with a different artist's lyrics.
+            if (fallback != null)
+            {
+                var fb = FetchLyric(fallback);
+                if (fb != null)
+                {
+                    fb = Sanitize(fb, title, artist, duration);
+                    fb.Matched = fallback.Name + " - " + fallback.Artist;
+                    if (fb.Lines.Count >= 3)
+                    {
+                        Log("  fallback exact-title " + fallback.Name + " - " + fallback.Artist
+                            + " (no artist match)");
+                        res.Doc = fb;
+                        res.Score = fallback.Score - 0.15;
+                        return res;
+                    }
+                }
             }
             return res;
         }
