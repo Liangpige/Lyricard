@@ -1044,7 +1044,7 @@ namespace Amc
             box.Children.Add(Body(Strings.T("page.about.blurb"), 12));
             box.Children.Add(Section(Strings.T("page.about.license")));
             box.Children.Add(Body(Strings.T("page.about.credits"), 11.5));
-            box.Children.Add(Section(Strings.T("nav.about")));
+            box.Children.Add(Section(Strings.T("sec.entry")));
             box.Children.Add(Body(Strings.T("page.about.shortcuts"), 11.5));
             return box;
         }

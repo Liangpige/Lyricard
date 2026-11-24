@@ -108,6 +108,7 @@ namespace Amc
             Both("settings.title", "个性化设置", "Appearance");
 
             Both("sec.ui", "界面", "Interface");
+            Both("sec.entry", "入口与快捷键", "Entry & shortcuts");
             Both("sec.text", "文字", "Text");
             Both("sec.bar", "进度条", "Progress bar");
             Both("sec.art", "封面", "Artwork");
