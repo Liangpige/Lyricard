@@ -536,7 +536,18 @@ namespace Amc
             };
             inner.Children.Add(line);
             box.Height = 34;
-            HoverFill(box, 0, 18);
+            // The active tab already carries the underline, so it does not light up on
+            // hover -- only the inactive ones do.
+            var hoverBrush = new SolidColorBrush(Color.FromArgb(0, 255, 255, 255));
+            box.Background = hoverBrush;
+            box.MouseEnter += delegate
+            {
+                AnimateColor(hoverBrush, Color.FromArgb((byte)(key == _page ? 0 : 18), 255, 255, 255), 120);
+            };
+            box.MouseLeave += delegate
+            {
+                AnimateColor(hoverBrush, Color.FromArgb(0, 255, 255, 255), 170);
+            };
 
             box.MouseLeftButtonUp += delegate { SetPage(key); };
             _tabBoxes.Add(box);
@@ -811,6 +822,14 @@ namespace Amc
                         on ? FontWeights.SemiBold : FontWeights.Normal)
                 };
                 b.Cursor = Cursors.Hand;
+                var segBrush = (SolidColorBrush)b.Background;
+                Color segRest = segBrush.Color;
+                Color segHot = on
+                    ? Color.FromArgb(255, 255, 255, 255)
+                    : Color.FromArgb(34, 255, 255, 255);
+                b.MouseEnter += delegate { AnimateColor(segBrush, segHot, 120); };
+                b.MouseLeave += delegate { AnimateColor(segBrush, segRest, 170); };
+                PressScale(b);
                 b.MouseLeftButtonUp += delegate { pick(idx); };
                 row.Children.Add(b);
             }
