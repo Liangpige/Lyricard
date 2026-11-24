@@ -540,6 +540,23 @@ namespace Amc
             doc.Lines = keep;
             doc.Instrumental = instr && keep.Count < 8;
 
+            // A "synced" file whose lines all share one timestamp (or are all zero) would play
+            // as a single frozen line. Providers do ship those, so refuse them: an empty lyric
+            // line is honest, a stuck first sentence is not.
+            if (keep.Count >= 3)
+            {
+                int distinct = 1;
+                for (int i = 1; i < keep.Count; i++)
+                    if (Math.Abs(keep[i].Time - keep[0].Time) > 0.05) { distinct = 2; break; }
+                if (distinct < 2)
+                {
+                    Log("  unsynced doc (one timestamp for " + keep.Count + " lines)");
+                    doc.Lines = new List<LyricLine>();
+                    doc.Instrumental = false;
+                    return doc;
+                }
+            }
+
             if (duration > 30 && keep.Count > 0)
             {
                 double last = keep[keep.Count - 1].Time;
