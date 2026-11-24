@@ -1557,26 +1557,12 @@ namespace Amc
             _noPlayer = false;
             if (!IsVisible && !_suppressed) ShowAnimated();
             if (_artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
-            if (_controls.Visibility != Visibility.Visible)
+            if (_barRow.Visibility != Visibility.Visible)
             {
+                _barRow.Visibility = Visibility.Visible;
                 _controls.Visibility = Visibility.Visible;
+                FadeIn(_barRow, 200);
                 FadeInTo(_controls, IsMouseOver ? 1.0 : ControlsIdle, 200);
-            }
-            // A player that never reports a total length (foobar2000 sends end=0.0 for local
-            // files) cannot fill a progress bar, so an empty track line is just noise. Hide the
-            // whole row until we know the length; the next song with a real duration brings it
-            // back with the usual fade.
-            if (np.Dur.TotalSeconds > 1)
-            {
-                if (_barRow.Visibility != Visibility.Visible)
-                {
-                    _barRow.Visibility = Visibility.Visible;
-                    FadeIn(_barRow, 200);
-                }
-            }
-            else if (_barRow.Visibility != Visibility.Collapsed)
-            {
-                _barRow.Visibility = Visibility.Collapsed;
             }
 
             if (_playCmdActive)
@@ -1757,16 +1743,23 @@ namespace Amc
             // QQ Music is known to report a wrong running time for some tracks (a 7:31 song
             // came back as 21.7s), and trusting that pins the bar at 100% for the whole song.
             bool durTrusted = dur2 > 1 && _pos <= dur2 * 1.2 + 3.0;
-            if (!durTrusted && _doc != null && _doc.Lines != null && _doc.Lines.Count > 0)
+            // Guessing the length from the last lyric line only makes sense for the players we
+            // know report nothing useful (NetEase & friends). For everyone else a missing
+            // duration means the file simply has no length to report (foobar2000 local files),
+            // and guessing from possibly-wrong lyrics would invent a bogus progress.
+            if (!durTrusted && Players.IsLaggyTimeline(np.Aumid)
+                && _doc != null && _doc.Lines != null && _doc.Lines.Count > 0)
                 dur2 = _doc.Lines[_doc.Lines.Count - 1].Time + 5.0;
             else if (!durTrusted) dur2 = 0;
+            // When nothing tells us how long the track is (local files under foobar2000 / VLC
+            // report a position but no end time) the bar keeps its shape as a static, empty
+            // track -- it just never advances, which reads as "no progress information" rather
+            // than a stalled progress bar.
             double frac = dur2 > 1 ? Config.Clamp(_pos / dur2, 0, 1) : 0;
-            _barFill.Width = Math.Max(0, _barTrack.ActualWidth * frac) ;
-
-            // Nothing tells us how long the track is (local files played by foobar2000, VLC and
-            // friends report a position but no end time, and files without lyrics have no
-            // fallback either). Painting the bar at 0% looks like a stalled progress bar, so
-            // hide it instead -- opacity rather than Visibility, to keep the row height stable.
+            _barFill.Width = Math.Max(0, _barTrack.ActualWidth * frac);
+            // A zero-width rounded Border still paints a 1px nub on the left; without a length
+            // the bar is decoration only, so keep the fill out of the picture entirely.
+            _barFill.Visibility = dur2 > 1 ? Visibility.Visible : Visibility.Collapsed;
 
 
             UpdateLyric();
