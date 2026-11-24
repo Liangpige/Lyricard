@@ -341,6 +341,8 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 - 图标与界面素材为本项目自绘，随本项目一并按 MIT 授权。
 - 没有内置任何第三方库或二进制，发行包里只有 `Lyricard.exe` 和几份说明文件（不含任何 dll / winmd / 快捷方式）。
 
+- **更新检查要能访问 `api.github.com`**（有代理就走系统代理）；下载失败会在程序目录留 `update-failed.txt`。
+
 ## 更新
 
 ![「关于」页的更新区](docs/update-about.png)记录

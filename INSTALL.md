@@ -101,7 +101,18 @@ Lyricard.exe --uninstall --silent :: 静默卸载
 
 **方法三（手动）**：退出程序 → 删掉整个目录 → 如果之前开过开机自启，再删掉注册表 `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run` 下的 `Lyricard`。
 
-## 八、常见问题
+## 八、升级到新版本
+
+不用再手动下载 zip：「关于」页点 **检查更新**，发现新版会变成 **下载并安装** —— 它会下载、按 GitHub 公布的 sha256 校验、替换 exe 并自动重启，`data\` 里的配置和歌词缓存都保留。启动时默认**静默检查一次**（只查不下载），可以在同一处关掉；不想升某个版本就点「跳过这个版本」，更高版本仍会提示。
+
+## 九、常见问题
+
+### 点「下载并安装」失败/卡住怎么办？
+
+- 报 `checksum mismatch`：下载被打断或文件被改过，重试一次；
+- 报连不上：检查网络/代理（更新请求走系统代理，和浏览器一致）；
+- 重启后没换成：程序目录里会留 `update-failed.txt`（里面是失败原因），可以把它发到 issue；手动兜底就是把新 zip 解压覆盖过去，`data\` 不用动。
+
 
 **Q：卡片没出现？**
 先看 `data\amc.log`。若是 `am running=False` 且没有媒体会话 → Apple Music 没开；若是 `intg=LOW` 之类 → 程序被放在了受限目录里。

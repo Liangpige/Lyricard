@@ -156,3 +156,28 @@
 
 - 工作区里有测试残留 `bin/t.dll`（按进程音量的验证程序编出来的），不随包发布，可删。
 - `src\smoke.exe` 是自测产物，同上。
+
+## 六、第三轮审计（2026-11-24，自更新）
+
+新增 `src/Updater.cs`（约 270 行）后重新核对网络、写入与权限三件事。
+
+**新增的网络请求（唯一一处）**
+
+- `GET https://api.github.com/repos/Liangpige/Lyricard/releases/latest`，公开只读接口，匿名（不登录、无 token）。
+- 请求头只有 `User-Agent: Lyricard-Updater (+https://github.com/Liangpige/Lyricard)`、`Accept: application/vnd.github+json`；不带账号、不带机器指纹、不带任何自定义 ID。
+- 触发时机只有两个：启动时一次静默检查（可在「关于」页关闭）、用户点「检查更新」；**没有任何轮询定时器**。匿名 GitHub API 上限 60 次/小时，正常使用远低于此。
+- 沿用系统代理（`WebRequest.DefaultWebProxy`），与浏览器行为一致；不绕过、不硬编码代理。
+- 下载走 `browser_download_url`（GitHub 资源，非我方服务器），下载完成后按 Release 元数据里的 `digest`（sha256）校验，不符即删除临时文件并报错。
+
+**新增的文件写入**
+
+- `%TEMP%\Lyricard-updater\`：临时目录，放下载的 zip 与解包出的 `Lyricard.exe`，完成或失败后删除。
+- 程序目录：`Lyricard.exe` → `Lyricard.exe.old` 改名，新 exe 移入，随后删除 `.old`；失败时写 `update-failed.txt`（仅含异常文本）。这些都在用户自己的安装目录里，不触碰系统目录。
+- 不写注册表（`HKCU\...\Run` 的开机自启逻辑与之前相同，仅在用户勾选时写）。
+
+**权限**
+
+- `--apply-update` 由本进程以同样权限启动自己（`UseShellExecute=false`），不请求提权；`app.manifest` 仍是 asInvoker。
+- 未做代码签名（自知之明：这会触发 SmartScreen 提示，已在 README「更新」一节写明）。
+
+**结论**：新增代码没有引入遥测、没有第三方库、没有新的系统级权限；唯一的对外请求是公开的 GitHub Release 查询，唯一的写入是用户安装目录与临时目录。
