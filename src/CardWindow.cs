@@ -1929,6 +1929,7 @@ namespace Amc
         {
             Title = Strings.T("app.title");
             _card.ContextMenu = BuildMenu();
+            // the replaced menu and its item handlers are otherwise kept alive forever
             if (TrayRef != null) TrayRef.Relang();
             if (_settings != null) _settings.Relang();
         }

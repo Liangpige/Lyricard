@@ -1010,7 +1010,7 @@ namespace Amc
             }, true));
             buttons.Children.Add(Pill(Strings.T("page.lyr.opendir"), delegate
             {
-                try { Process.Start("explorer.exe", Config.Dir); } catch { }
+                try { Process.Start("explorer.exe", "\"" + Config.Dir + "\""); } catch { }
             }, false));
             box.Children.Add(buttons);
 

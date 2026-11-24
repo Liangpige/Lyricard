@@ -64,11 +64,20 @@ namespace Amc
             try
             {
                 int me = Process.GetCurrentProcess().Id;
-                foreach (Process p in Process.GetProcessesByName("AppleMusicCard"))
+                string[] names = { "Lyricard", "AppleMusicCard" };
+                foreach (string nm in names)
                 {
-                    if (p.Id == me) continue;
-                    try { p.Kill(); p.WaitForExit(3000); n++; }
-                    catch { }
+                    Process[] procs = Process.GetProcessesByName(nm);
+                    try
+                    {
+                        foreach (Process p in procs)
+                        {
+                            if (p.Id == me) continue;
+                            try { p.Kill(); p.WaitForExit(3000); n++; }
+                            catch { }
+                        }
+                    }
+                    finally { for (int i = 0; i < procs.Length; i++) procs[i].Dispose(); }
                 }
             }
             catch { }

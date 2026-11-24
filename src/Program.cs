@@ -10,6 +10,10 @@ namespace Amc
     /// </summary>
     static class Program
     {
+        // Both the instance guard and the --ensure probe must use this name; they had drifted
+        // apart, so --ensure always thought nothing was running and spawned a doomed copy.
+        internal const string SingleInstanceMutex = "Local\\Lyricard-m7Q2";
+
         [STAThread]
         static void Main(string[] args)
         {
@@ -57,7 +61,7 @@ namespace Amc
             }
 
             bool createdNew;
-            using (var mutex = new Mutex(true, "Local\\Lyricard-m7Q2", out createdNew))
+            using (var mutex = new Mutex(true, SingleInstanceMutex, out createdNew))
             {
                 if (!createdNew)
                 {
@@ -279,7 +283,7 @@ namespace Amc
             }
             if (!am) return;
             bool createdNew;
-            using (var mutex = new Mutex(true, "Local\\AppleMusicLyricCard-m7Q2", out createdNew))
+            using (var mutex = new Mutex(true, SingleInstanceMutex, out createdNew))
             {
                 if (!createdNew) return;
                 try { mutex.ReleaseMutex(); } catch { }

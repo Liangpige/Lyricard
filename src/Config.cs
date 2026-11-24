@@ -363,7 +363,10 @@ namespace Amc
                 sb.AppendLine("TextShadow=" + TextShadow);
                 sb.AppendLine("ControlsColor=" + ControlsColor);
                 sb.AppendLine("Lang=" + (Lang == 1 ? "zh" : Lang == 2 ? "en" : "auto"));
-                sb.AppendLine("BoundPlayers=" + string.Join(",", BoundPlayers.ToArray()));
+                // Only persist the key when the user has actually made a choice. Writing an empty
+                // list would read back as "configured, nobody bound", permanently killing the card.
+                if (BoundConfigured || BoundPlayers.Count > 0)
+                    sb.AppendLine("BoundPlayers=" + string.Join(",", BoundPlayers.ToArray()));
                 sb.AppendLine("TitleScale=" + TitleScale.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("ArtistScale=" + ArtistScale.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("LyricScale=" + LyricScale.ToString("0.###", CultureInfo.InvariantCulture));

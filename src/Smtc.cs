@@ -233,12 +233,20 @@ namespace Amc
                     }
 
                     Read(pick);
+                    _failPolls = 0;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    _mgr = null;
-                    _sess = null;
-                    if (Current.Has) Current = new Snapshot();
+                    // Hold the last good snapshot: blanking the card for a hiccup makes it flash
+                    // away and back, which is far worse than showing a stale second of metadata.
+                    _failPolls++;
+                    LyricsService.Log("smtc poll fail " + _failPolls + ": " + ex.GetType().Name + " " + ex.Message);
+                    if (_failPolls >= 5)
+                    {
+                        _mgr = null;
+                        _sess = null;
+                        if (Current.Has) Current = new Snapshot();
+                    }
                     Thread.Sleep(800);
                 }
                 Thread.Sleep(200);
@@ -258,6 +266,7 @@ namespace Amc
             return AudioPeak.IsProcessAudible(exe, 0.010);
         }
 
+        int _failPolls;
         int _ghostPolls;
         string _trustKey = "";
         bool _trusted = true;
@@ -282,7 +291,10 @@ namespace Amc
 
                 string name = System.IO.Path.GetFileNameWithoutExtension(exe);
                 if (name.Length == 0) { _ghostPolls = 0; return false; }
-                if (System.Diagnostics.Process.GetProcessesByName(name).Length > 0) { _ghostPolls = 0; return false; }
+                var procs = System.Diagnostics.Process.GetProcessesByName(name);
+                bool alive = procs.Length > 0;
+                for (int i = 0; i < procs.Length; i++) procs[i].Dispose();
+                if (alive) { _ghostPolls = 0; return false; }
 
                 _ghostPolls++;
                 return _ghostPolls >= 5;
@@ -329,7 +341,9 @@ namespace Amc
             if (!np.Playing && _audiblePolls >= 5) np.Playing = true;
 
             var tl = s.GetTimelineProperties();
-            np.Dur = tl.EndTime > tl.StartTime ? tl.EndTime : TimeSpan.Zero;
+            np.Dur = tl.EndTime > tl.StartTime
+                ? (tl.EndTime - tl.StartTime)
+                : TimeSpan.Zero;
             // NetEase reports EndTime = 0; its own play queue still knows the real length, and the
             // progress bar has no scale without it.
             if (np.Dur.TotalSeconds < 1 && Players.IsNetEase(np.Aumid))
@@ -493,18 +507,29 @@ namespace Amc
             bool newKey = newTrack;
             if (newKey)
             {
+                // The old bytes belong to the old song: without this the card shows the previous
+                // cover (and derives its backdrop colour from it) for the whole of the new track.
                 _artKey = "";
+                _artBytes = null;
             }
 
             if (_artKey != key && props.Thumbnail != null)
             {
                 try
                 {
-                    var stream = Wait(props.Thumbnail.OpenReadAsync());
-                    _artBytes = ReadAll(stream);
+                    using (var stream = Wait(props.Thumbnail.OpenReadAsync()))
+                    {
+                        _artBytes = ReadAll(stream);
+                        _artKey = key;
+                    }
+                }
+                catch
+                {
+                    // Mark it as tried -- otherwise the 200 ms poll re-opens (and re-leaks) the
+                    // stream forever for a track whose thumbnail cannot be read.
+                    _artBytes = null;
                     _artKey = key;
                 }
-                catch { _artBytes = null; }
             }
             np.Art = _artBytes;
             if (newKey)
@@ -584,9 +609,19 @@ namespace Amc
             });
         }
 
+        // Each transport click used to spawn a raw thread that can spin for seconds inside Wait();
+        // hammering next/prev/seek piled them up. One at a time is enough for a media widget --
+        // extra clicks during an in-flight command are dropped rather than queued.
+        static int _transportBusy;
+
         static void RunOnWorker(Action a)
         {
-            var th = new Thread(delegate () { a(); });
+            if (Interlocked.CompareExchange(ref _transportBusy, 1, 0) != 0) return;
+            var th = new Thread(delegate ()
+            {
+                try { a(); }
+                finally { Interlocked.Exchange(ref _transportBusy, 0); }
+            });
             th.IsBackground = true;
             th.Start();
         }

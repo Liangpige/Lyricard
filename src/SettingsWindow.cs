@@ -734,9 +734,9 @@ namespace Amc
                 _cfg.Save();
                 Rebuild();
             };
-            b.MouseLeftButtonDown += delegate
+            b.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs args)
             {
-                if (del.IsMouseOver) return;      // the × has its own handler
+                if (del.IsMouseOver) { args.Handled = true; return; }   // the × has its own handler
                 _cfg.ApplyLookPreset(p);
                 PushLook();
                 Rebuild();

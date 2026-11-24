@@ -91,6 +91,10 @@ namespace Amc
         const int CLSCTX_ALL = 23;
 
         static IAudioMeterInformation _meter;
+        // Two threads poll us (the UI tick and the smtc-poll thread) and one of them nulls the
+        // meter after a failure -- without a lock the other can grab a half-dead reference and
+        // NRE into `catch { return false; }`, i.e. silently report "silent".
+        static readonly object _meterLock = new object();
 
         static bool Ensure()
         {
@@ -182,15 +186,19 @@ namespace Amc
         /// <paramref name="threshold"/> (0..1 peak). Returns false on any failure.</summary>
         public static bool IsAudible(double threshold)
         {
-            if (!Ensure()) return false;
-            try
+            lock (_meterLock)
             {
-                float peak;
-                if (_meter.GetPeakValue(out peak) != 0) { _meter = null; return false; }
-                if (peak <= 0.00001f) return false;
-                return peak >= threshold;
+                if (!Ensure()) return false;
+                try
+                {
+                    var meter = _meter;
+                    float peak;
+                    if (meter == null || meter.GetPeakValue(out peak) != 0) { _meter = null; return false; }
+                    if (peak <= 0.00001f) return false;
+                    return peak >= threshold;
+                }
+                catch { _meter = null; return false; }
             }
-            catch { _meter = null; return false; }
         }
     }
 }

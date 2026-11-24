@@ -11,6 +11,9 @@ namespace Amc
     /// </summary>
     public class Tray : IDisposable
     {
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern bool DestroyIcon(IntPtr handle);
+
         NotifyIcon _icon;
         CardWindow _win;
         SmtcService _smtc;
@@ -34,7 +37,9 @@ namespace Amc
         public void Relang()
         {
             _icon.Text = Strings.T("app.tip");
+            var old = _icon.ContextMenuStrip;
             _icon.ContextMenuStrip = BuildMenu();
+            if (old != null) old.Dispose();   // NotifyIcon does not own it; leaks one menu per relang
         }
 
         public void Balloon(string title, string text)
@@ -163,8 +168,18 @@ namespace Amc
                     g.DrawString("\u266A", f, br, (32 - sz.Width) / 2f, (32 - sz.Height) / 2f + 1);
                 }
             }
+            // Icon.FromHandle does not own the handle: clone it and release the raw HICON, or every
+            // call leaks a GDI/user handle for the life of the process.
             IntPtr h = bmp.GetHicon();
-            return Icon.FromHandle(h);
+            try
+            {
+                using (var raw = Icon.FromHandle(h)) return (Icon)raw.Clone();
+            }
+            finally
+            {
+                DestroyIcon(h);
+                bmp.Dispose();
+            }
         }
 
         static GraphicsPath RoundRect(float x, float y, float w, float h, float r)
