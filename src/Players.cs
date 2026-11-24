@@ -258,12 +258,89 @@ namespace Amc
             catch { }
 
             // Start menu shortcuts: covers installers that never touch App Paths.
+            int apCount = set.Count;
             ScanShortcuts(set, Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu));
             ScanShortcuts(set, Environment.GetFolderPath(Environment.SpecialFolder.StartMenu));
+            int smCount = set.Count;
+
+            // Uninstall entries: plenty of players (QQ音乐 / 酷狗 / 酷我 …) register themselves
+            // here and nowhere else -- no App Paths key, and the shortcut may live in a folder
+            // whose name we never guess. DisplayIcon usually points straight at the exe.
+            ScanUninstall(set, Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+            ScanUninstall(set, Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall");
+            ScanUninstall(set, Registry.CurrentUser, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+            LyricsService.Log("players scan: apppaths=" + apCount + " shortcuts=+" + (smCount - apCount) + " uninstall=+" + (set.Count - smCount));
 
             _exeCache = set;
             _exeCacheAt = DateTime.Now;
             return set;
+        }
+
+        static void ScanUninstall(Dictionary<string, bool> set, RegistryKey root, string path)
+        {
+            try
+            {
+                using (var u = root.OpenSubKey(path))
+                {
+                    if (u == null) return;
+                    string[] names = u.GetSubKeyNames();
+                    for (int i = 0; i < names.Length; i++)
+                    {
+                        try
+                        {
+                            using (var e = u.OpenSubKey(names[i]))
+                            {
+                                if (e == null) continue;
+                                string icon = e.GetValue("DisplayIcon") as string;
+                                AddExeFromPath(set, icon);
+                                // DisplayIcon often points at uninstall.exe (AIMP does), which tells us
+                                // the install folder but not the player exe -- so scan that folder too.
+                                string dir = null;
+                                try
+                                {
+                                    string ip = CleanExePath(icon);
+                                    if (!string.IsNullOrEmpty(ip)) dir = Path.GetDirectoryName(ip);
+                                }
+                                catch { }
+                                string loc = e.GetValue("InstallLocation") as string;
+                                if (!string.IsNullOrEmpty(loc) && Directory.Exists(loc)) dir = loc;
+                                if (string.IsNullOrEmpty(dir)) continue;
+                                try
+                                {
+                                    string[] exes = Directory.GetFiles(dir, "*.exe", SearchOption.TopDirectoryOnly);
+                                    for (int k = 0; k < exes.Length && k < 40; k++) AddExeFromPath(set, exes[k]);
+                                }
+                                catch { }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Turns an uninstall DisplayIcon value ("C:\app\x.exe,0") into a bare path.</summary>
+        static string CleanExePath(string p)
+        {
+            if (string.IsNullOrEmpty(p)) return null;
+            p = p.Trim().Trim('"');
+            int comma = p.IndexOf(',');
+            if (comma > 0) p = p.Substring(0, comma).Trim().Trim('"');
+            if (!p.ToLowerInvariant().EndsWith(".exe", StringComparison.Ordinal)) return null;
+            return p;
+        }
+
+        static void AddExeFromPath(Dictionary<string, bool> set, string p)
+        {
+            p = CleanExePath(p);
+            if (p == null) return;
+            try
+            {
+                string exe = Path.GetFileName(p).ToLowerInvariant();
+                if (exe.Length > 4) set[exe] = true;
+            }
+            catch { }
         }
 
         static void AddKeys(Dictionary<string, bool> set, RegistryKey k)
@@ -347,6 +424,17 @@ namespace Amc
 
             for (int i = 0; i < running.Count; i++)
                 if (!IsBrowser(running[i])) unknownAumids.Add(running[i]);
+
+            var seen = new System.Text.StringBuilder();
+            for (int i = 0; i < list.Count; i++)
+            {
+                var d = list[i];
+                if (!d.Installed && !d.Running) continue;
+                seen.Append(d.Info.Key);
+                seen.Append(d.Running ? "(running)" : "(installed)");
+                seen.Append(' ');
+            }
+            LyricsService.Log("players detected: " + seen);
 
             return list;
         }
