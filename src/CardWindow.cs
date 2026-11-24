@@ -94,6 +94,8 @@ namespace Amc
         // "no player at all" state (Apple Music not installed / not running).
         bool _noPlayer;
         int _audibleTicks;
+        string _hintPlayer;
+        DateTime _hintAt = DateTime.MinValue;
 
         /// <summary>Set for logon launches: stay hidden until some player publishes a session.</summary>
         public bool HideWhenIdle;
@@ -1452,7 +1454,15 @@ namespace Amc
                 // Nothing publishes a session, yet the speakers are busy. Some players
                 // (NetEase Cloud Music in particular) only publish when their own SMTC
                 // switch is on; staying invisible there looks like the app died.
-                if (AudioPeak.IsAudible(0.012)) _audibleTicks++; else _audibleTicks = 0;
+                if (DateTime.Now - _hintAt > TimeSpan.FromSeconds(1.0))
+                {
+                    _hintAt = DateTime.Now;
+                    var ids = new System.Collections.Generic.HashSet<string>();
+                    string[] seen = SmtcService.SessionAumids;
+                    if (seen != null) for (int i = 0; i < seen.Length; i++) ids.Add(seen[i] ?? "");
+                    _hintPlayer = AudioPeak.AudiblePlayerWithoutSession(ids);
+                }
+                if (_hintPlayer != null) _audibleTicks++; else _audibleTicks = 0;
                 if (_audibleTicks >= 4)
                 {
                     _noPlayer = false;
@@ -1466,7 +1476,7 @@ namespace Amc
                     _pos = 0;
                     _runTitle.Text = "Lyricard";
                     _runArtist.Text = Strings.T("app.version");
-                    _lyric.Text = Strings.T("idle.nosession.line");
+                    _lyric.Text = Strings.F("idle.nosession.line", _hintPlayer ?? "");
                     _barRow.Visibility = Visibility.Collapsed;
                     _controls.Visibility = Visibility.Collapsed;
                     _artHost.Opacity = 0.0;

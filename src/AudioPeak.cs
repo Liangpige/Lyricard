@@ -182,6 +182,33 @@ namespace Amc
             catch { return false; }
         }
 
+        /// <summary>
+        /// Name of a known player that is audibly playing while publishing no SMTC session, or
+        /// null. This is the "you forgot to switch SMTC on" case, and the only situation where
+        /// the idle hint card is allowed to appear: machine-wide audio is NOT enough, because
+        /// a video in the browser would otherwise pop the card up out of nowhere.
+        /// </summary>
+        public static string AudiblePlayerWithoutSession(System.Collections.Generic.HashSet<string> sessionAumids)
+        {
+            var known = Players.Known;
+            for (int i = 0; i < known.Length; i++)
+            {
+                var pi = known[i];
+                if (pi.Exes == null || pi.Exes.Length == 0) continue;
+                bool hasSession = false;
+                if (sessionAumids != null)
+                {
+                    foreach (string id in sessionAumids)
+                    {
+                        if (Players.MatchAumid(id) == pi) { hasSession = true; break; }
+                    }
+                }
+                if (hasSession) continue;
+                if (IsProcessAudible(pi.Exes[0], 0.012)) return pi.Name;
+            }
+            return null;
+        }
+
         /// <summary>True when the default output device is producing sound above
         /// <paramref name="threshold"/> (0..1 peak). Returns false on any failure.</summary>
         public static bool IsAudible(double threshold)

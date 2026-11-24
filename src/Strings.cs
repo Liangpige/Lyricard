@@ -47,7 +47,10 @@ namespace Amc
             Both("page.home.autostart.hint",
                 "自启时只驻留托盘：中控页面不会弹，桌面卡片也会等到播放器开始播放才出现。",
                 "At logon Lyricard stays in the tray: no main window, and the desktop card only appears once a player starts.");
-            Both("idle.nosession.line", "♪ 有声音在播，但播放器没上报曲目（网易云请开 SMTC）", "♪ Audio is playing but no player reports a track (turn on SMTC)");
+            // Only used when a *known* player is making sound without publishing a session --
+            // i.e. its SMTC switch is off. Someone else's audio (a video, a game) never gets here.
+            Both("idle.nosession.line", "♪ {0} 在放声音，但没有上报曲目 —— 去它设置里打开「系统媒体控制」",
+                 "♪ {0} is playing but publishes no track — turn on its SMTC switch");
             Both("idle.unbound.line", "♪ {0} 未绑定 — 在主页面里勾上它", "♪ {0} is not bound — tick it on the Home page");
             Both("page.home.players", "监听的播放器", "Players");
             Both("page.home.players.hint",
