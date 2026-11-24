@@ -1721,6 +1721,14 @@ namespace Amc
             double frac = dur2 > 1 ? Config.Clamp(_pos / dur2, 0, 1) : 0;
             _barFill.Width = Math.Max(0, _barTrack.ActualWidth * frac) ;
 
+            // Nothing tells us how long the track is (local files played by foobar2000, VLC and
+            // friends report a position but no end time, and files without lyrics have no
+            // fallback either). Painting the bar at 0% looks like a stalled progress bar, so
+            // hide it instead -- opacity rather than Visibility, to keep the row height stable.
+            double barAlpha = dur2 > 1 ? 1.0 : 0.0;
+            _barTrack.Opacity = barAlpha;
+            _barFill.Opacity = barAlpha;
+
             UpdateLyric();
         }
 
