@@ -388,7 +388,25 @@ namespace Amc
                 double delta = reported - predicted;
                 double ad = Math.Abs(delta);
                 np.PosFrozen = frozen;
-                if (frozen)
+                // A player with a laggy timeline (NetEase, KuGou) never updates the position, so
+                // "frozen" tells us nothing about a seek: the user dragging the bar backwards would
+                // look exactly like the bogus jump-to-zero on pause. Distinguish them by value and
+                // state: a *playing* player that suddenly reports a plausible, much smaller number
+                // (> 1 s, so not the 0.3 s lie) really was moved.
+                bool seekBack = Players.IsLaggyTimeline(np.Aumid) && np.Playing
+                                && reported > 1.0 && delta < -6.0;
+                if (seekBack)
+                {
+                    LyricsService.Log("smtc seek-follow reported=" + reported.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                        + " predicted=" + predicted.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                    _anchorPos = tl.Position + TimeSpan.FromSeconds(0.35);
+                    _anchorAt = nowLocal;
+                    _frozenPolls = 0;
+                    _lastReported = reported;
+                    _trusted = true;
+                    frozen = false;
+                }
+                else if (frozen)
                 {
                     // Reported value is stale or never updated (NetEase stays at 0.35 forever, and a
                     // pause makes it look like a seek to zero). Keep our own clock and re-anchor to
@@ -449,7 +467,7 @@ namespace Amc
                 // Music and friends also hand out the same position for several seconds by design
                 // (coarse 3~8 s updates) while remaining perfectly accurate. The one pattern that is
                 // never legitimate is "playing, and it says 0.3 s after we already saw 30 s".
-                bool frozenIsLying = frozen && Players.IsNetEase(np.Aumid);
+                bool frozenIsLying = frozen && Players.IsLaggyTimeline(np.Aumid);
                 bool fakeZero = reported < 1.0 && predicted > 5.0;
                 if (np.Playing && (frozenIsLying || fakeZero))
                 {

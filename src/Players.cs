@@ -117,6 +117,18 @@ namespace Amc
             return s.IndexOf("cloudmusic", StringComparison.Ordinal) >= 0 || s.IndexOf("netease", StringComparison.Ordinal) >= 0;
         }
 
+        // Players whose playback position cannot be trusted: they hand out a frozen number
+        // (or zero) while playing, and jump back to zero when paused. NetEase is the classic
+        // case; KuGou behaves the same way. Everything else reports a coarse but honest value.
+        public static bool IsLaggyTimeline(string aumid)
+        {
+            if (string.IsNullOrEmpty(aumid)) return false;
+            if (IsNetEase(aumid)) return true;
+            string s = aumid.ToLowerInvariant();
+            return s.IndexOf("kugou", StringComparison.Ordinal) >= 0
+                || s.IndexOf("kgmusic", StringComparison.Ordinal) >= 0;
+        }
+
         public static PlayerInfo MatchExe(string exe)
         {
             if (string.IsNullOrEmpty(exe)) return null;
@@ -363,6 +375,11 @@ namespace Amc
             catch { return; }
             object shell = null;
             try { shell = Type.GetTypeFromProgID("WScript.Shell"); } catch { shell = null; }
+            if (shell == null)
+            {
+                // Loud, not silent: this used to fail invisibly and make half the player list vanish.
+                LyricsService.Log("players scan: WScript.Shell unavailable, shortcuts skipped (" + files.Length + " lnk)");
+            }
             object sc = null;
             try { if (shell != null) sc = shell.GetType().InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { "" }); }
             catch { sc = null; }
@@ -370,7 +387,7 @@ namespace Amc
             {
                 try
                 {
-                    if (shell == null) break;
+                    if (shell == null) return;
                     object lnk = shell.GetType().InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod,
                         null, shell, new object[] { files[i] });
                     string target = (string)lnk.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.GetProperty, null, lnk, null);

@@ -1296,13 +1296,13 @@ namespace Amc
             {
                 ClearIntroAnimations();
                 _shadowHost.Opacity = 0.0;
-                _inScale.ScaleX = 0.968;
-                _inScale.ScaleY = 0.968;
-                _inShift.Y = 6.0;
+                _inScale.ScaleX = 0.965;
+                _inScale.ScaleY = 0.965;
+                _inShift.Y = 8.0;
                 Show();
                 Native.BringToTop(_hwnd);
             }
-            AnimateCard(1.0, 0.0, 1.0, 260, null);
+            AnimateCard(1.0, 0.0, 1.0, 220, null);
         }
 
         public void HideAnimated()
@@ -1319,7 +1319,7 @@ namespace Amc
             _inScale.ScaleY = curSc;
             _inShift.Y = curY;
             var seq = ++_visSeq;
-            AnimateCard(0.0, 0.0, 0.988, 90, delegate
+            AnimateCard(0.0, 0.0, 0.986, 140, delegate
             {
                 if (seq == _visSeq) Hide();
             });

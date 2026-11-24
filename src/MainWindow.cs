@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Markup;
 using System.Windows.Shapes;
@@ -137,11 +138,38 @@ namespace Amc
             return t;
         }
 
-        TextBlock Section(string text)
+        int _sectionCount;
+
+        /// <summary>
+        /// Group heading. Every heading but the first on a page is preceded by a hairline, which is
+        /// what actually separates "groups" visually on a dark surface -- spacing alone was mushy.
+        /// </summary>
+        UIElement Section(string text)
         {
             var t = Label(text, 11, TextFaint, FontWeights.Normal);
             t.Margin = new Thickness(0, 12, 0, 6);
-            return t;
+            if (_sectionCount++ == 0) return t;
+            var box = new StackPanel();
+            box.Children.Add(new Rectangle
+            {
+                Height = 1,
+                Fill = new SolidColorBrush(Color.FromArgb(16, 255, 255, 255)),
+                Margin = new Thickness(0, 14, 0, 0)
+            });
+            box.Children.Add(t);
+            return box;
+        }
+
+        /// <summary>Page shell: big title, then the content. Gives every page a top edge.</summary>
+        UIElement PageFrame(string key, UIElement body)
+        {
+            var box = new StackPanel();
+            string navKey = key == "look" ? "nav.appearance" : "nav." + key;
+            var title = Label(Strings.T(navKey), 17, TextMain, FontWeights.SemiBold);
+            title.Margin = new Thickness(0, 0, 0, 12);
+            box.Children.Add(title);
+            box.Children.Add(body);
+            return box;
         }
 
         /// <summary>Label above its control, matching the settings panel's stacked layout.</summary>
@@ -300,8 +328,8 @@ namespace Amc
                 Child = Label(text, 13, TextMain, FontWeights.Normal)
             };
             ((TextBlock)b.Child).HorizontalAlignment = HorizontalAlignment.Center;
-            b.MouseEnter += delegate { b.Background = new SolidColorBrush(Color.FromArgb(36, 255, 255, 255)); };
-            b.MouseLeave += delegate { b.Background = new SolidColorBrush(Color.FromArgb(20, 255, 255, 255)); };
+            HoverFill(b, 20, 36);
+            PressScale(b);
             b.MouseLeftButtonUp += delegate { act(); };
             return b;
         }
@@ -319,6 +347,12 @@ namespace Amc
                 Child = Label(text, 12, primary ? Color.FromRgb(18, 18, 20) : TextMain, FontWeights.SemiBold)
             };
             b.Cursor = Cursors.Hand;
+            var brush = (SolidColorBrush)b.Background;
+            Color rest = brush.Color;
+            Color hot = primary ? Color.FromRgb(255, 255, 255) : Color.FromArgb(34, 255, 255, 255);
+            b.MouseEnter += delegate { AnimateColor(brush, hot, 120); };
+            b.MouseLeave += delegate { AnimateColor(brush, rest, 170); };
+            PressScale(b);
             b.MouseLeftButtonUp += delegate { try { act(); } catch { } };
             return b;
         }
@@ -326,35 +360,39 @@ namespace Amc
         /// <summary>A 42x22 switch, same shape as the settings panel uses.</summary>
         UIElement Toggle(bool on, Action<bool> apply)
         {
+            Color onBg = Color.FromArgb(255, 236, 238, 242);
+            Color offBg = Color.FromArgb(34, 255, 255, 255);
             var track = new Border
             {
                 Width = 42,
                 Height = 22,
                 CornerRadius = new CornerRadius(11),
-                Background = new SolidColorBrush(on ? Color.FromArgb(255, 236, 238, 242) : Color.FromArgb(34, 255, 255, 255))
+                Cursor = Cursors.Hand,
+                Background = new SolidColorBrush(on ? onBg : offBg)
             };
             var knob = new Ellipse
             {
                 Width = 16,
                 Height = 16,
-                Fill = new SolidColorBrush(on ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242)),
-                HorizontalAlignment = on ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                Margin = new Thickness(3, 0, 3, 0),
-                VerticalAlignment = VerticalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(3, 0, 0, 0),
+                Fill = new SolidColorBrush(on ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242))
             };
+            var tr = new TranslateTransform(on ? 20.0 : 0.0, 0.0);
+            knob.RenderTransform = tr;
             track.Child = knob;
-            track.Cursor = Cursors.Hand;
             bool state = on;
             track.MouseLeftButtonUp += delegate
             {
                 state = !state;
-                track.Background = new SolidColorBrush(state
-                    ? Color.FromArgb(255, 236, 238, 242)
-                    : Color.FromArgb(34, 255, 255, 255));
-                knob.HorizontalAlignment = state ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-                knob.Fill = new SolidColorBrush(state
-                    ? Color.FromRgb(18, 18, 20)
-                    : Color.FromArgb(220, 236, 238, 242));
+                // The knob slides and the track cross-fades: 160 ms, ease-out, no bounce. A switch
+                // that snaps feels broken next to the rest of the UI.
+                var sx = new DoubleAnimation(state ? 20.0 : 0.0, TimeSpan.FromMilliseconds(160));
+                sx.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+                tr.BeginAnimation(TranslateTransform.XProperty, sx);
+                AnimateColor((SolidColorBrush)track.Background, state ? onBg : offBg, 160);
+                AnimateColor((SolidColorBrush)knob.Fill, state ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242), 160);
                 try { apply(state); } catch { }
             };
             return track;
@@ -471,6 +509,7 @@ namespace Amc
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0),
                 Padding = new Thickness(9, 0, 9, 0),
+                CornerRadius = new CornerRadius(7),
                 Cursor = Cursors.Hand,
                 Background = Brushes.Transparent,
                 Child = inner
@@ -489,12 +528,64 @@ namespace Amc
             };
             inner.Children.Add(line);
             box.Height = 34;
+            HoverFill(box, 0, 18);
 
             box.MouseLeftButtonUp += delegate { SetPage(key); };
             _tabBoxes.Add(box);
             _tabText[key] = t;
             _tabLine[key] = line;
             return box;
+        }
+
+        /// <summary>Fades a border's fill instead of snapping it; Apple-style 120~160 ms.</summary>
+        static void HoverFill(Border b, int restAlpha, int hotAlpha)
+        {
+            var br = new SolidColorBrush(Color.FromArgb((byte)restAlpha, 255, 255, 255));
+            b.Background = br;
+            b.MouseEnter += delegate { AnimateColor(br, Color.FromArgb((byte)hotAlpha, 255, 255, 255), 120); };
+            b.MouseLeave += delegate { AnimateColor(br, Color.FromArgb((byte)restAlpha, 255, 255, 255), 170); };
+        }
+
+        static void AnimateColor(SolidColorBrush br, Color to, int ms)
+        {
+            var a = new ColorAnimation(to, TimeSpan.FromMilliseconds(ms));
+            a.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            br.BeginAnimation(SolidColorBrush.ColorProperty, a);
+        }
+
+        /// <summary>Press feedback: the target dips to 97 % and springs back. 90 ms down, 160 ms up.</summary>
+        static void PressScale(UIElement el)
+        {
+            var st = new ScaleTransform(1, 1);
+            el.RenderTransform = st;
+            el.RenderTransformOrigin = new Point(0.5, 0.5);
+            bool down = false;
+            el.PreviewMouseLeftButtonDown += delegate
+            {
+                down = true;
+                AnimateScale(st, 0.97, 90, true);
+            };
+            el.PreviewMouseLeftButtonUp += delegate
+            {
+                if (!down) return;
+                down = false;
+                AnimateScale(st, 1.0, 160, false);
+            };
+            el.MouseLeave += delegate
+            {
+                if (!down) return;
+                down = false;
+                AnimateScale(st, 1.0, 160, false);
+            };
+        }
+
+        static void AnimateScale(ScaleTransform st, double to, int ms, bool inEase)
+        {
+            var e = new CubicEase { EasingMode = inEase ? EasingMode.EaseOut : EasingMode.EaseOut };
+            var sx = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms));
+            sx.EasingFunction = e;
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, sx);
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, sx.Clone());
         }
 
         void SetPage(string key)
@@ -509,10 +600,25 @@ namespace Amc
                 _tabLine[kv.Key].Fill = new SolidColorBrush(on ? TextMain : Colors.Transparent);
             }
 
-            if (key == "look") _host.Content = LookPage();
-            else if (key == "lyrics") _host.Content = LyricsPage();
-            else if (key == "about") _host.Content = AboutPage();
-            else _host.Content = HomePage();
+            UIElement body;
+            if (key == "look") body = LookPage();
+            else if (key == "lyrics") body = LyricsPage();
+            else if (key == "about") body = AboutPage();
+            else body = HomePage();
+            _sectionCount = 0;
+            _host.Content = PageFrame(key, body);
+
+            // Page transition: the new page fades in while lifting 6 px. Short enough to read as
+            // "the content was there all along" rather than as an effect.
+            _host.Opacity = 1.0;
+            var tt = new TranslateTransform(0, 6);
+            _host.RenderTransform = tt;
+            var fo = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(140));
+            fo.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            _host.BeginAnimation(UIElement.OpacityProperty, fo);
+            var fy = new DoubleAnimation(6.0, 0.0, TimeSpan.FromMilliseconds(180));
+            fy.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+            tt.BeginAnimation(TranslateTransform.YProperty, fy);
         }
 
         bool _showOthers;
