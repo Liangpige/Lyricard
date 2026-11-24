@@ -1025,6 +1025,17 @@ namespace Amc
 
         public void OpenSettings()
         {
+            // One settings surface only: the appearance page of the main window. The old
+            // standalone panel (SettingsWindow) is retired but left compiled so the change
+            // can be reverted in a single commit.
+            try
+            {
+                var mw = MainWindow.Open(_cfg, this);
+                mw.ShowPage("look");
+                LyricsService.Log("settings -> appearance page");
+                return;
+            }
+            catch (Exception ex) { LyricsService.Log("settings page failed: " + ex.Message); }
             if (_settings != null)
             {
                 try { _settings.Activate(); _settings.Focus(); } catch { }

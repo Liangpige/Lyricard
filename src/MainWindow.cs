@@ -107,6 +107,13 @@ namespace Amc
             return _open;
         }
 
+        /// <summary>The tray's "settings" entry lands on the appearance page, which replaced
+        /// the old standalone panel.</summary>
+        public void ShowPage(string key)
+        {
+            SetPage(key);
+        }
+
         /// <summary>Closing the main page must not kill the card, so it hides instead.</summary>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {

@@ -166,7 +166,20 @@ namespace Amc
                     waiter.Name = "lyricard-show-watch";
                     waiter.Start();
                 }
-                if (HasArg(args, "--settings")) CardWindow.OpenSettingsOnStart = true;
+                // --settings must not depend on the card ever being shown: with no player the
+                // card stays hidden and its OnLoaded never fires, which used to swallow the flag.
+                if (HasArg(args, "--settings"))
+                {
+                    app.Dispatcher.BeginInvoke((Action)delegate
+                    {
+                        try
+                        {
+                            MainWindow.Open(cfg, win).ShowPage("look");
+                            LyricsService.Log("settings -> appearance page (startup)");
+                        }
+                        catch (Exception ex) { LyricsService.Log("settings startup failed: " + ex.Message); }
+                    });
+                }
                 var tray = new Tray(win, smtc);
                 win.TrayRef = tray;
 
