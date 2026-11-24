@@ -232,6 +232,19 @@ namespace Amc
                         continue;
                     }
 
+                    // One line whenever the selected session changes: which player, what it
+                    // claims, and whether its own audio meter backs that claim. Enough to answer
+                    // "why did the card pop up while I was watching a video" from the log alone.
+                    string pickId = pick.SourceAppUserModelId ?? "";
+                    if (pickId != _pickLogged)
+                    {
+                        _pickLogged = pickId;
+                        string claim = "?";
+                        try { claim = pick.GetPlaybackInfo().PlaybackStatus.ToString(); } catch { }
+                        LyricsService.Log("smtc pick aumid=" + pickId + " status=" + claim
+                            + " audible=" + (SessionAudible(pickId) ? "y" : "n"));
+                    }
+
                     Read(pick);
                     _failPolls = 0;
                 }
@@ -261,13 +274,17 @@ namespace Amc
         /// </summary>
         static bool SessionAudible(string aumid)
         {
+            // Deliberately no machine-wide fallback: with one, any other app's audio (Douyin,
+            // a game, a video) could "prove" that a paused player is playing, and the card
+            // would pop up out of nowhere. Unknown sessions simply keep the reported state.
             string exe = Players.ExeFor(aumid);
-            if (string.IsNullOrEmpty(exe)) return AudioPeak.IsAudible(0.010);
+            if (string.IsNullOrEmpty(exe)) return false;
             return AudioPeak.IsProcessAudible(exe, 0.010);
         }
 
         int _failPolls;
         int _ghostPolls;
+        string _pickLogged;
         string _trustKey = "";
         bool _trusted = true;
         string _durLogged;
@@ -281,8 +298,11 @@ namespace Amc
         {
             try
             {
-                if (AudioPeak.IsAudible(0.010)) { _ghostPolls = 0; return false; }
-
+                // NOTE: this used to bail out whenever *anything* on the machine was audible.
+                // That made a dead session immortal while the user watched a video (Douyin in
+                // the browser, a game, ...): the process was long gone, but the card kept
+                // showing that player's last song because "sound exists". Match sound to the
+                // player instead -- its own process is the only thing that can produce it.
                 string aumid = s.SourceAppUserModelId ?? "";
                 var info = Players.MatchAumid(aumid);
                 string exe = (info != null && info.Exes.Length > 0) ? info.Exes[0] : null;
