@@ -81,6 +81,12 @@ namespace Amc
         string _titleKey = "";
         string _pendingKey = "";
         string _trackKey = "";
+        // A VIP preview stops at 60 s and the player jumps straight into the next song: the
+        // reported position snaps back to ~0 while the title lags behind for a beat or two.
+        // Without a guard the bar and the lyric line lurch twice in 300 ms (""抽搐""). While a
+        // switch is settling we hold one clean zero state instead of replaying each partial.
+        DateTime _switchUntil = DateTime.MinValue;
+        double _lastPos = 0;
         double _pos = -1;
         int _lineIdx = -1;
         int _tickCount;
@@ -1656,6 +1662,27 @@ namespace Amc
                 _trackKey = trackKey;
                 _pos = 0;
                 _lineIdx = -1;
+                _switchUntil = nowT.AddMilliseconds(900);
+            }
+            else if (_lastPos - _pos > 3.0
+                && !(np.Dur.TotalSeconds > 1 && _lastPos > np.Dur.TotalSeconds - 1.5))
+            {
+                // Same title but the position fell off a cliff: this is the preview/track
+                // boundary, not a user seek. Treat it as a switch so it renders once.
+                // (A song that simply looped also jumps back to zero -- that one must not
+                // flash "waiting", so it is excluded by the "was at the very end" test.)
+                _switchUntil = nowT.AddMilliseconds(900);
+            }
+            _lastPos = _pos;
+            if (nowT < _switchUntil)
+            {
+                // Settling: one clean state, no half-updated lyric lines.
+                _pos = 0;
+                _lineIdx = -1;
+                _lineText = TxtWait;
+                _lyric.Text = TxtWait;
+                _barFill.Width = 0;
+                return;
             }
             double target = np.EstimateSeconds(nowT);
             // A player that keeps reporting the same position (NetEase: 0.35 forever, and 0.0 while
