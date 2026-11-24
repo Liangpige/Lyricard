@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Windows;
 
@@ -22,6 +23,25 @@ namespace Amc
                 RunLyricTest(args);
                 return;
             }
+
+            // The update helper: a second copy of this exe that waits for us to exit, swaps the
+            // file and relaunches. It must run before the single-instance mutex, because the
+            // instance it is waiting on still owns that mutex.
+            if (args != null && args.Length >= 3 && args[0] == "--apply-update")
+            {
+                int waitPid = 0;
+                int.TryParse(args[2], out waitPid);
+                Environment.Exit(Updater.RunApply(args[1], waitPid));
+                return;
+            }
+
+            // Housekeeping: a previous update may have left the renamed exe behind.
+            try
+            {
+                string selfPath = System.Reflection.Assembly.GetEntryAssembly().Location;
+                if (!string.IsNullOrEmpty(selfPath) && File.Exists(selfPath + ".old")) File.Delete(selfPath + ".old");
+            }
+            catch { }
 
             if (args != null && args.Length >= 1 && args[0] == "--ensure")
             {
@@ -189,6 +209,26 @@ namespace Amc
                         try { win.OpenCandidates(); LyricsService.Log("picker -> startup"); }
                         catch (Exception ex) { LyricsService.Log("picker startup failed: " + ex.Message); }
                     });
+                }
+                // Silent update probe: one request, no window, no poller. Skipped versions stay
+                // quiet. Kept off the UI thread because it is a network round-trip.
+                if (cfg.AutoCheckUpdate)
+                {
+                    var upd = new System.Threading.Thread(delegate()
+                    {
+                        try
+                        {
+                            UpdateInfo info = Updater.Check();
+                            if (info != null && info.Version.ToString() != cfg.SkippedVersion)
+                            {
+                                Updater.Pending = info;
+                                LyricsService.Log("update available " + info.Version + " (" + info.AssetName + ")");
+                            }
+                        }
+                        catch (Exception ex) { LyricsService.Log("update check failed: " + ex.Message); }
+                    });
+                    upd.IsBackground = true;
+                    upd.Start();
                 }
                 var tray = new Tray(win, smtc);
                 win.TrayRef = tray;

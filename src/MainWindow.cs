@@ -669,6 +669,13 @@ namespace Amc
 
         bool _showOthers;
 
+        // ---- update state (see Updater.cs) ----
+        TextBlock _updText;
+        Border _updPill;
+        UpdateInfo _pending;
+        string _updStateText = "";
+        bool _updBusy;
+
         bool IsBoundKey(string key)
         {
             return _cfg.BoundPlayers != null && _cfg.BoundPlayers.Contains(key);
@@ -1099,6 +1106,109 @@ namespace Amc
             return box;
         }
 
+        void UpdateStatus(string text)
+        {
+            _updStateText = text;
+            if (_updText != null) _updText.Text = text;
+        }
+
+        /// <summary>One click: check, then download+install once a release is known.</summary>
+        void UpdateButton()
+        {
+            if (_updBusy) return;
+            if (_pending != null)
+            {
+                StartDownload();
+                return;
+            }
+            _updBusy = true;
+            UpdateStatus(Strings.T("upd.checking"));
+            var th = new System.Threading.Thread(delegate()
+            {
+                UpdateInfo info = null;
+                string err = null;
+                try { info = Updater.Check(); }
+                catch (Exception ex) { err = ex.Message; }
+                Dispatcher.BeginInvoke(new Action(delegate()
+                {
+                    _updBusy = false;
+                    if (err != null) { UpdateStatus(Strings.F("upd.fail", err)); return; }
+                    if (info == null) { UpdateStatus(Strings.F("upd.latest", Strings.T("app.version"))); return; }
+                    _pending = info;
+                    UpdateStatus(Strings.F("upd.found", info.Version.ToString(),
+                        (info.Size / 1024).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                    SetPage("about");
+                }));
+            });
+            th.IsBackground = true;
+            th.Start();
+        }
+
+        void StartDownload()
+        {
+            UpdateInfo info = _pending;
+            if (info == null) return;
+            _updBusy = true;
+            UpdateStatus(Strings.F("upd.downloading", "0"));
+            var th = new System.Threading.Thread(delegate()
+            {
+                string path = null;
+                string err = null;
+                try
+                {
+                    path = Updater.DownloadExe(info, delegate(int done, int total)
+                    {
+                        int pct = (total > 0) ? (int)(done * 100L / total) : 0;
+                        Dispatcher.BeginInvoke(new Action(delegate()
+                        {
+                            UpdateStatus(Strings.F("upd.downloading", pct.ToString(
+                                System.Globalization.CultureInfo.InvariantCulture)));
+                        }));
+                    });
+                }
+                catch (Exception ex) { err = ex.Message; }
+                Dispatcher.BeginInvoke(new Action(delegate()
+                {
+                    _updBusy = false;
+                    if (err != null || path == null)
+                    {
+                        UpdateStatus(Strings.F("upd.fail", err ?? "download failed"));
+                        return;
+                    }
+                    UpdateStatus(Strings.T("upd.ready"));
+                    Updater.ApplyAndRestart(path);
+                }));
+            });
+            th.IsBackground = true;
+            th.Start();
+        }
+
+        /// <summary>
+        /// The silent startup pass: one request, no UI unless the About page is open later. Skipped
+        /// versions stay quiet until a newer one appears.
+        /// </summary>
+        public void SilentUpdateCheck()
+        {
+            if (!_cfg.AutoCheckUpdate) return;
+            var th = new System.Threading.Thread(delegate()
+            {
+                UpdateInfo info = null;
+                try { info = Updater.Check(); } catch (Exception ex) { LyricsService.Log("update check failed: " + ex.Message); }
+                if (info == null) return;
+                if (info.Version.ToString() == _cfg.SkippedVersion) return;
+                Dispatcher.BeginInvoke(new Action(delegate()
+                {
+                    _pending = info;
+                    _updStateText = Strings.F("upd.found", info.Version.ToString(),
+                        (info.Size / 1024).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    if (_updText != null) _updText.Text = _updStateText;
+                    LyricsService.Log("update available " + info.Version + " (" + info.AssetName + ")");
+                }));
+            });
+            th.IsBackground = true;
+            th.Start();
+        }
+
         UIElement AboutPage()
         {
             var box = new StackPanel();
@@ -1111,6 +1221,40 @@ namespace Amc
             box.Children.Add(Body(Strings.T("page.about.credits"), 11.5));
             box.Children.Add(Section(Strings.T("sec.entry")));
             box.Children.Add(Body(Strings.T("page.about.shortcuts"), 11.5));
+
+            box.Children.Add(Section(Strings.T("sec.update")));
+            if (_pending == null) _pending = Updater.Pending;
+            if (_pending != null && string.IsNullOrEmpty(_updStateText))
+            {
+                _updStateText = Strings.F("upd.found", _pending.Version.ToString(),
+                    (_pending.Size / 1024).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+            _updPill = Pill(_pending == null ? Strings.T("upd.check") : Strings.T("upd.download"),
+                delegate { UpdateButton(); }, true);
+            row.Children.Add(_updPill);
+            if (_pending != null)
+            {
+                row.Children.Add(Pill(Strings.T("upd.skip"), delegate
+                {
+                    _cfg.SkippedVersion = _pending.Version.ToString();
+                    _cfg.Save();
+                    _pending = null;
+                    _updStateText = Strings.F("upd.skipped", _cfg.SkippedVersion);
+                    SetPage("about");
+                }, false));
+            }
+            box.Children.Add(row);
+
+            _updText = Body(_updStateText, 11.5);
+            _updText.Margin = new Thickness(0, 8, 0, 2);
+            box.Children.Add(_updText);
+
+            box.Children.Add(Row(Strings.T("upd.auto"), Toggle(_cfg.AutoCheckUpdate, delegate(bool on)
+            {
+                _cfg.AutoCheckUpdate = on;
+                _cfg.Save();
+            })));
             return box;
         }
 

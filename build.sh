@@ -21,7 +21,7 @@ GAC="C:/Windows/Microsoft.NET/assembly/GAC_MSIL"
 REF="C:/Program Files (x86)/Reference Assemblies/Microsoft/Framework/.NETFramework/v4.7.2"
 
 APP="Lyricard"
-VERSION="0.2.2"
+VERSION="0.2.3"
 INSTALL="/e/APPLE MUSIC GeCi"
 
 mkdir -p "$PROJ/bin"
@@ -52,8 +52,9 @@ REFS+=("/r:../libs/pkg/ref/netstandard2.0/Windows.Foundation.FoundationContract.
   /win32icon:../assets/lyricard.ico \
   "${REFS[@]}" \
   /r:System.dll /r:System.Core.dll /r:System.Xml.dll \
+  /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll \
   Program.cs Config.cs Players.cs AudioPeak.cs Json.cs Smtc.cs Lyrics.cs CardWindow.cs Native.cs Tray.cs \
-  AmProbe.cs MenuTheme.cs NetEaseQueue.cs Strings.cs SettingsWindow.cs MainWindow.cs Uninstall.cs Shortcut.cs CandidateWindow.cs
+  AmProbe.cs MenuTheme.cs NetEaseQueue.cs Strings.cs SettingsWindow.cs MainWindow.cs Uninstall.cs Shortcut.cs CandidateWindow.cs Updater.cs
 rc=$?
 echo "csc exit=$rc"
 ls -l "$PROJ/bin/$APP.exe" 2>/dev/null

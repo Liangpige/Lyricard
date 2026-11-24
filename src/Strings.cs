@@ -29,8 +29,8 @@ namespace Amc
         static Strings()
         {
             Both("app.title", "浮声 · Lyricard", "Lyricard");
-            Both("app.version", "v0.2.2", "v0.2.2");
-            Both("app.tip", "浮声 Lyricard v0.2.2 · 桌面歌词卡片", "Lyricard v0.2.2 · desktop lyric card");
+            Both("app.version", "v0.2.3", "v0.2.3");
+            Both("app.tip", "浮声 Lyricard v0.2.3 · 桌面歌词卡片", "Lyricard v0.2.3 · desktop lyric card");
 
             Both("menu.showHide", "显示 / 隐藏", "Show / hide");
             Both("menu.settings", "个性化设置…", "Appearance…");
@@ -89,6 +89,18 @@ namespace Amc
             Both("menu.export", "导出歌词（分享用）", "Export lyrics (for sharing)");
             Both("menu.switchSrc", "换一个歌词源", "Try another source");
             Both("menu.pickLyric", "选择歌词…", "Pick lyrics…");
+            Both("sec.update", "更新", "Updates");
+            Both("upd.check", "检查更新", "Check for updates");
+            Both("upd.checking", "正在检查…", "Checking…");
+            Both("upd.latest", "已是最新 {0}", "Up to date ({0})");
+            Both("upd.found", "发现新版 {0}（{1} KB）", "New version {0} ({1} KB)");
+            Both("upd.download", "下载并安装", "Download & install");
+            Both("upd.downloading", "正在下载 {0}%", "Downloading {0}%");
+            Both("upd.ready", "下载完成，即将重启安装…", "Downloaded, restarting to install…");
+            Both("upd.fail", "检查失败：{0}", "Update check failed: {0}");
+            Both("upd.skip", "跳过这个版本", "Skip this version");
+            Both("upd.skipped", "已跳过 {0}", "Skipped {0}");
+            Both("upd.auto", "启动时检查更新", "Check for updates at startup");
             Both("page.lyr.pick", "选择当前歌曲的歌词…", "Pick lyrics for this song…");
             Both("cand.loading", "正在搜索…", "Searching…");
             Both("cand.empty", "没有找到候选歌词", "No candidates found");

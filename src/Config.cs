@@ -22,6 +22,10 @@ namespace Amc
         public bool Locked = false;
         // Default off: a fresh copy should never touch somebody else's Run key on first launch.
         public bool AutoStart = false;
+        // Update policy: one silent check at startup (never a poller), and a version the user
+        // asked us to stop nagging about.
+        public bool AutoCheckUpdate = true;
+        public string SkippedVersion = "";
         public double LyricOffset = 1.6;
         public bool ListenAll = false;
         public bool ClearBg = true;
@@ -218,6 +222,8 @@ namespace Amc
                         case "LyricOffset": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) LyricOffset = d; break;
                         case "Locked": if (bool.TryParse(v, out b)) Locked = b; break;
                         case "AutoStart": if (bool.TryParse(v, out b)) AutoStart = b; break;
+                        case "AutoCheckUpdate": if (bool.TryParse(v, out b)) AutoCheckUpdate = b; break;
+                        case "SkippedVersion": SkippedVersion = v; break;
                         case "ListenAll": if (bool.TryParse(v, out b)) ListenAll = b; break;
                         case "BoundPlayers":
                             BoundConfigured = true;
@@ -358,6 +364,8 @@ namespace Amc
                 sb.AppendLine("LyricOffset=" + LyricOffset.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("Locked=" + Locked);
                 sb.AppendLine("AutoStart=" + AutoStart);
+                sb.AppendLine("AutoCheckUpdate=" + AutoCheckUpdate);
+                sb.AppendLine("SkippedVersion=" + SkippedVersion);
                 sb.AppendLine("ListenAll=" + ListenAll);
                 sb.AppendLine("ClearBg=" + ClearBg);
                 sb.AppendLine("ArtSat=" + ArtSat.ToString("0.###", CultureInfo.InvariantCulture));
