@@ -1557,12 +1557,26 @@ namespace Amc
             _noPlayer = false;
             if (!IsVisible && !_suppressed) ShowAnimated();
             if (_artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
-            if (_barRow.Visibility != Visibility.Visible)
+            if (_controls.Visibility != Visibility.Visible)
             {
-                _barRow.Visibility = Visibility.Visible;
                 _controls.Visibility = Visibility.Visible;
-                FadeIn(_barRow, 200);
                 FadeInTo(_controls, IsMouseOver ? 1.0 : ControlsIdle, 200);
+            }
+            // A player that never reports a total length (foobar2000 sends end=0.0 for local
+            // files) cannot fill a progress bar, so an empty track line is just noise. Hide the
+            // whole row until we know the length; the next song with a real duration brings it
+            // back with the usual fade.
+            if (np.Dur.TotalSeconds > 1)
+            {
+                if (_barRow.Visibility != Visibility.Visible)
+                {
+                    _barRow.Visibility = Visibility.Visible;
+                    FadeIn(_barRow, 200);
+                }
+            }
+            else if (_barRow.Visibility != Visibility.Collapsed)
+            {
+                _barRow.Visibility = Visibility.Collapsed;
             }
 
             if (_playCmdActive)
