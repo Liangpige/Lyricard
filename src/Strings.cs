@@ -29,8 +29,8 @@ namespace Amc
         static Strings()
         {
             Both("app.title", "浮声 · Lyricard", "Lyricard");
-            Both("app.version", "v0.2.0", "v0.2.0");
-            Both("app.tip", "浮声 Lyricard v0.2.0 · 桌面歌词卡片", "Lyricard v0.2.0 · desktop lyric card");
+            Both("app.version", "v0.2.1", "v0.2.1");
+            Both("app.tip", "浮声 Lyricard v0.2.1 · 桌面歌词卡片", "Lyricard v0.2.0 · desktop lyric card");
 
             Both("menu.showHide", "显示 / 隐藏", "Show / hide");
             Both("menu.settings", "个性化设置…", "Appearance…");

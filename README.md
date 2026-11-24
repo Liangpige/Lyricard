@@ -5,7 +5,7 @@
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.1-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#重新编译)
 
 ![卡片样子](docs/card.png)
@@ -318,7 +318,7 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 
 ## 更新记录
 
-### 未发布（本地 master）
+### v0.2.1（2026-11-24）
 
 - **细节**：激活的页签不再随鼠标发亮（它已经有下划线）；下划线改成 140 ms 淡入淡出，切换页签时视线不会被"跳一下"打断；分段控件（界面语言）也补了同样的淡变与按压缩放。
 - **修复**：`RebuildAll()` 每次重建都清空页签登记表，反复切换语言不再累积失效控件。
