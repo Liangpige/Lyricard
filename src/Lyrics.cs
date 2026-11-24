@@ -102,9 +102,46 @@ namespace Amc
             b = Clean(b);
             if (a.Length == 0 || b.Length == 0) return 0;
             if (a == b) return 1;
-            int dist = Levenshtein(a, b);
             int max = Math.Max(a.Length, b.Length);
-            return 1.0 - (double)dist / max;
+            double lev = 1.0 - (double)Levenshtein(a, b) / max;
+            // Levenshtein punishes insertions twice (feat. lines, "(抖音版)" tails that survive
+            // Clean), while LCS tolerates them. Lyricify's helper scores short titles with LCS
+            // for exactly this reason, so take the friendlier of the two.
+            double lcs = (double)LcsLength(a, b) / max;
+            return lev > lcs ? lev : lcs;
+        }
+
+        static int LcsLength(string a, string b)
+        {
+            int n = a.Length, m = b.Length;
+            if (n == 0 || m == 0) return 0;
+            var prev = new int[m + 1];
+            var cur = new int[m + 1];
+            for (int i = 1; i <= n; i++)
+            {
+                for (int j = 1; j <= m; j++)
+                    cur[j] = a[i - 1] == b[j - 1] ? prev[j - 1] + 1 : Math.Max(prev[j], cur[j - 1]);
+                var tmp = prev; prev = cur; cur = tmp;
+                Array.Clear(cur, 0, cur.Length);
+            }
+            return prev[m];
+        }
+
+        /// <summary>
+        /// Drop the decorative tails that online catalogues add and that make a perfect title
+        /// look like a different song: "- Remastered 2011", "(Explicit)", "feat. Someone",
+        /// "- Single", "OST", trailing "/xxx version". Only outside-vs-inside brackets matter,
+        /// so this runs on the already stripped text.
+        /// </summary>
+        public static string StripDecorations(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            s = Regex.Replace(s, @"\s*[-–—]\s*(remaster(ed)?|digital remaster|explicit|single|ep|ost|soundtrack|live|acoustic|deluxe)(\s*\d{4})?\s*$",
+                " ", RegexOptions.IgnoreCase);
+            s = Regex.Replace(s, @"\s+(feat\.?|ft\.?|featuring)\s+[^,;]+$", " ", RegexOptions.IgnoreCase);
+            s = Regex.Replace(s, @"\s*[-–—]\s*$", " ");
+            s = Regex.Replace(s, @"\s+", " ");
+            return s.Trim();
         }
 
         public static double ArtistSimilar(string a, string b)
@@ -720,15 +757,11 @@ namespace Amc
             {
                 if (tried >= 4) break;
                 tried++;
-                // Guard against cover versions / same-title-different-song matches.
-                bool titleOk = c.TitleSim >= 0.80;
-                bool artistOk = c.ArtistSim >= 0.45 || (c.ArtistSim >= 0.30 && c.DurSim >= 0.9);
-                bool durOk = duration <= 20 || c.Dur <= 20 || Math.Abs(c.Dur - duration) <= 8;
-                // Short clips (MD3Music and KuGou previews report 60 s) and live/edited cuts
-                // share the lyrics of the full song, so a near-exact title plus a matching
-                // artist is enough on its own -- the running time must not veto it.
-                bool sameSongStrong = c.TitleSim >= 0.98 && c.ArtistSim >= 0.60;
-                if (!titleOk || (!sameSongStrong && !(artistOk || durOk)))
+                // One weighted verdict instead of three separate booleans: the old code let a
+                // strong title paper over a wrong artist as long as *either* artist or length
+                // looked plausible, which is how a same-name song ended up on screen.
+                bool accept = c.Score >= 0.70 && c.TitleSim >= 0.62;
+                if (!accept)
                 {
                     Log("  skip " + c.Src + " " + c.Name + " - " + c.Artist
                         + " ts=" + F2(c.TitleSim) + " as=" + F2(c.ArtistSim) + " dd=" + F2(c.DurSim));
@@ -944,22 +977,38 @@ namespace Amc
 
         static double Score(string title, string artist, double duration, Cand c)
         {
+            // Compare every reasonable form of the two titles and keep the best one, the way
+            // Lyricify's CompareHelper does: raw, brackets stripped, decoration stripped.
             double ts = TextUtil.Similar(TextUtil.StripBrackets(title), c.Name);
-            double tsFull = TextUtil.Similar(title, c.Name);
-            if (tsFull > ts) ts = tsFull;
-            double tsStripped = TextUtil.Similar(TextUtil.StripBrackets(title), TextUtil.StripBrackets(c.Name));
-            if (tsStripped > ts) ts = tsStripped;
+            double t;
+            t = TextUtil.Similar(title, c.Name); if (t > ts) ts = t;
+            t = TextUtil.Similar(TextUtil.StripBrackets(title), TextUtil.StripBrackets(c.Name)); if (t > ts) ts = t;
+            t = TextUtil.Similar(TextUtil.StripDecorations(TextUtil.StripBrackets(title)),
+                                 TextUtil.StripDecorations(TextUtil.StripBrackets(c.Name))); if (t > ts) ts = t;
+
             double asim = TextUtil.ArtistSimilar(artist, c.Artist);
-            double dsim = 0.5;
-            if (duration > 20 && c.Dur > 20)
+
+            bool bothKnown = duration > 20 && c.Dur > 20;
+            double gap = bothKnown ? Math.Abs(duration - c.Dur) : 0;
+            double dsim = 1.0;
+            if (bothKnown)
             {
-                double d = Math.Abs(duration - c.Dur);
-                dsim = d <= 4 ? 1.0 : (d <= 10 ? 0.6 : 0.0);
+                // Bands mirroring Lyricify's VeryHigh/High/Medium/Low steps, scaled to seconds.
+                dsim = gap <= 3 ? 1.0 : gap <= 6 ? 0.8 : gap <= 10 ? 0.55 : gap <= 20 ? 0.2 : 0.0;
             }
+
             c.TitleSim = ts;
             c.ArtistSim = asim;
             c.DurSim = dsim;
-            c.Score = ts * 0.55 + asim * 0.25 + dsim * 0.20;
+            // Title and artist carry most of the signal; the running time is the tie-breaker.
+            // When neither side knows the length the duration term is split evenly.
+            c.Score = ts * 0.50 + asim * 0.30 + (bothKnown ? dsim * 0.20 : 0.10);
+
+            // Two different recordings of the same title (cover, live cut, 抖音版) are often a
+            // minute apart. Unless the title is essentially identical AND the artist matches,
+            // a big gap means this is a different recording: refuse it outright rather than
+            // show lyrics that will drift.
+            if (bothKnown && gap > 12 && !(ts >= 0.98 && asim >= 0.85)) c.Score = 0;
             return c.Score;
         }
 
