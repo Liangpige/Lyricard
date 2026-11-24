@@ -402,6 +402,14 @@ namespace Amc
 
         UIElement BuildUi()
         {
+            // RebuildAll() re-runs this method on every language/binding change, so the
+            // per-tab bookkeeping has to start empty -- otherwise the old (detached) tabs
+            // stay referenced and the drag hit-test keeps scanning them forever.
+            _tabBoxes.Clear();
+            _tabText.Clear();
+            _tabLine.Clear();
+            _noDragZones.Clear();
+
             var root = new Grid();
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(NavH) });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -597,7 +605,13 @@ namespace Amc
                 bool on = (kv.Key == key);
                 kv.Value.Foreground = new SolidColorBrush(on ? TextMain : TextDim);
                 kv.Value.FontWeight = on ? FontWeights.SemiBold : FontWeights.Normal;
-                _tabLine[kv.Key].Fill = new SolidColorBrush(on ? TextMain : Colors.Transparent);
+                // The underline fades rather than pops: the bar stays white and only its opacity
+                // changes, so switching tabs reads as one continuous 140 ms move.
+                var line = _tabLine[kv.Key];
+                line.Fill = new SolidColorBrush(TextMain);
+                var lo = new DoubleAnimation(on ? 1.0 : 0.0, TimeSpan.FromMilliseconds(on ? 140 : 90));
+                lo.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+                line.BeginAnimation(UIElement.OpacityProperty, lo);
             }
 
             UIElement body;
@@ -815,7 +829,9 @@ namespace Amc
         {
             var box = new StackPanel();
 
-            box.Children.Add(Section(Strings.T("page.look.hint")));
+            // A hint is not a section: keeping it out of Section() avoids a stray hairline
+            // and stops it from consuming the "first group has no divider" slot.
+            box.Children.Add(Hint(Strings.T("page.look.hint")));
 
             // ---- text -------------------------------------------------------
             box.Children.Add(Section(Strings.T("sec.text")));
@@ -953,10 +969,13 @@ namespace Amc
             sp.Children.Add(nm);
             sp.Children.Add(del);
             b.Child = sp;
-            b.MouseEnter += delegate { b.Background = new SolidColorBrush(hot); };
-            b.MouseLeave += delegate { b.Background = new SolidColorBrush(idle); };
-            del.MouseLeftButtonDown += delegate
+            var chipBrush = (SolidColorBrush)b.Background;
+            b.MouseEnter += delegate { AnimateColor(chipBrush, hot, 120); };
+            b.MouseLeave += delegate { AnimateColor(chipBrush, idle, 170); };
+            PressScale(b);
+            del.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs args)
             {
+                args.Handled = true;   // the chip's own handler must not apply the preset as well
                 _cfg.Presets.Remove(p);
                 _cfg.Save();
                 SetPage("look");
