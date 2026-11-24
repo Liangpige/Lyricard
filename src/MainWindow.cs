@@ -109,6 +109,11 @@ namespace Amc
 
         /// <summary>The tray's "settings" entry lands on the appearance page, which replaced
         /// the old standalone panel.</summary>
+        /// <summary>
+        /// Opens the window straight on one page ("home" / "look" / "lyrics" / "about").
+        /// Used by the card's "打开主页面" and by <c>--settings</c>, which has to land on
+        /// 「外观」 rather than on the home page -- otherwise the flag looks like it did nothing.
+        /// </summary>
         public void ShowPage(string key)
         {
             SetPage(key);

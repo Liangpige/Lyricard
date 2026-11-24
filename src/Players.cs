@@ -63,7 +63,9 @@ namespace Amc
             Make("netease", "网易云音乐", new string[] { "cloudmusic", "netease" }, new string[] { "cloudmusic.exe" }),
             Make("qqmusic", "QQ 音乐", new string[] { "qqmusic", "qq music" }, new string[] { "qqmusic.exe" }),
             Make("kugou", "酷狗音乐", new string[] { "kugou" }, new string[] { "kugou.exe", "kgmusic.exe" }),
-            Make("kuwo", "酷我音乐", new string[] { "kuwo" }, new string[] { "kuwo.exe", "kwmusic.exe" }),
+            // 酷我音乐 deliberately absent: its client never registers an SMTC session
+            // (no SystemMediaTransportControls string anywhere in its install tree), so a
+            // binding could never light the card up. Listing it only produced dead switches.
             Make("foobar", "foobar2000", new string[] { "foobar" }, new string[] { "foobar2000.exe" }),
             Make("musicbee", "MusicBee", new string[] { "musicbee" }, new string[] { "musicbee.exe" }),
             Make("aimp", "AIMP", new string[] { "aimp" }, new string[] { "aimp.exe" }),
@@ -288,6 +290,13 @@ namespace Amc
             return set;
         }
 
+        /// <summary>
+        /// Last-resort install probe. The Start-menu scan used to be the only fallback, but the
+        /// late-bound <c>WScript.Shell</c> COM object returns nothing in this process, so every
+        /// Chinese player (QQ音乐 / 酷狗 / 酷我 / AIMP) stayed invisible even when installed.
+        /// The uninstall registry always lists them; <c>DisplayIcon</c> points at the real exe,
+        /// except for AIMP which points at its uninstaller -- then we scan that folder instead.
+        /// </summary>
         static void ScanUninstall(Dictionary<string, bool> set, RegistryKey root, string path)
         {
             try

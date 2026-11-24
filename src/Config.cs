@@ -47,6 +47,11 @@ namespace Amc
         // False until a BoundPlayers line is seen; an explicitly empty list means
         // "bind nothing" (no card at all), while a missing line keeps the legacy
         // Apple-Music-first behaviour.
+        /// <summary>
+        /// True once the user has explicitly saved the player list. Needed because an empty
+        /// <c>BoundPlayers=</c> used to be written on every save, which then read back as
+        /// "configured, but nothing is bound" -- i.e. the card silently never appeared again.
+        /// </summary>
         public bool BoundConfigured = false;
 
         // Interface language: 0 = follow the system, 1 = 中文, 2 = English.
