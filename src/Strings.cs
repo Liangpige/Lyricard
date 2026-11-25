@@ -91,6 +91,9 @@ namespace Amc
             Both("page.about.credits", "第三方：歌词来自 QQ 音乐 / 网易云音乐 / lrclib 的公开接口，非官方，仅供个人同步显示；图标自绘；字体使用系统字体。", "Third party: lyrics come from the public QQ Music / NetEase / lrclib endpoints — unofficial, for personal display only. Icon drawn in code, system fonts.");
             Both("page.about.shortcuts", "快捷键与入口：托盘双击打开主页面 · 右键卡片出菜单 · Esc 关闭当前面板", "Gestures: double-click the tray icon for this page · right-click the card for its menu · Esc closes the current panel");
             Both("page.about.license", "许可", "License");
+            Both("sec.uninstall", "卸载", "Uninstall");
+            Both("page.about.uninstall", "卸载会结束程序、删除 data\\（配置、预设与歌词缓存）以及 exe 本身。这些文件都在这个文件夹里，删掉不会再有第二次。", "Uninstalling stops the app, deletes data\\ (settings, presets and the lyric cache) and removes the exe itself. Everything lives in this folder, so there is no second chance.");
+            Both("about.uninstall", "卸载 Lyricard…", "Uninstall Lyricard…");
             Both("menu.refetch", "重新获取歌词", "Fetch lyrics again");
             Both("menu.export", "导出歌词（分享用）", "Export lyrics (for sharing)");
             Both("menu.switchSrc", "换一个歌词源", "Try another source");

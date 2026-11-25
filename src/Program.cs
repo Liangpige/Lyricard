@@ -206,6 +206,21 @@ namespace Amc
                         catch (Exception ex) { LyricsService.Log("settings startup failed: " + ex.Message); }
                     });
                 }
+                // --page <home|look|lyrics|about>: open the panel on a given page. Same idea as
+                // --settings, but for screenshots and for jumping straight at the page you mean.
+                string pageArg = ArgValue(args, "--page");
+                if (pageArg != null)
+                {
+                    app.Dispatcher.BeginInvoke((Action)delegate
+                    {
+                        try
+                        {
+                            MainWindow.Open(cfg, win).ShowPage(pageArg);
+                            LyricsService.Log("page -> " + pageArg);
+                        }
+                        catch (Exception ex) { LyricsService.Log("page startup failed: " + ex.Message); }
+                    });
+                }
                 // --pick: jump straight to the manual lyric picker (debugging aid, and handy
                 // when the card is not on screen because nothing is playing right now).
                 if (HasArg(args, "--pick"))
@@ -236,8 +251,18 @@ namespace Amc
                     upd.IsBackground = true;
                     upd.Start();
                 }
-                var tray = new Tray(win, smtc);
+                var tray = new Tray(win);
                 win.TrayRef = tray;
+
+                // Dev switch: pop the tray menu at the cursor so its styling can be screenshotted
+                // without hunting for the notification-area icon.
+                if (HasArg(args, "--traymenu"))
+                {
+                    win.Dispatcher.BeginInvoke(new Action(delegate
+                    {
+                        try { tray.ShowMenu(); } catch (Exception ex) { LyricsService.Log("traymenu: " + ex.Message); }
+                    }));
+                }
 
                 app.Exit += delegate
                 {
@@ -336,6 +361,14 @@ namespace Amc
             try { System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8); }
             catch { }
             LyricsService.Log("smtcdump -> " + path);
+        }
+
+        /// <summary>Value after <paramref name="name"/> ("--page about" -> "about"), or null.</summary>
+        static string ArgValue(string[] args, string name)
+        {
+            if (args == null) return null;
+            for (int i = 0; i + 1 < args.Length; i++) if (args[i] == name) return args[i + 1];
+            return null;
         }
 
         static bool HasArg(string[] args, string name)

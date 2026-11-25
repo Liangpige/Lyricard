@@ -20,14 +20,15 @@ namespace Amc
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool DestroyIcon(IntPtr handle);
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern bool SetForegroundWindow(IntPtr hWnd);
+
         NotifyIcon _icon;
         CardWindow _win;
-        SmtcService _smtc;
 
-        public Tray(CardWindow win, SmtcService smtc)
+        public Tray(CardWindow win)
         {
             _win = win;
-            _smtc = smtc;
 
             _icon = new NotifyIcon();
             _icon.Icon = LoadIcon();
@@ -36,16 +37,19 @@ namespace Amc
             // Double-click is the second entry point next to the card itself: open settings
             // instead of toggling visibility (the card is normally always on screen anyway).
             _icon.DoubleClick += delegate { try { _win.OpenMainPage(); } catch { } };
-            _icon.ContextMenuStrip = BuildMenu();
+            // Right-click opens a WPF menu (see ShowMenu) so the tray and the card speak the
+            // same visual language: same theme, same row height, same check marks.
+            _icon.MouseUp += delegate(object s2, MouseEventArgs e)
+            {
+                if (e.Button != MouseButtons.Right) return;
+                try { ShowMenu(); } catch { }
+            };
         }
 
-        /// <summary>Rebuild the tray menu after an interface-language change.</summary>
+        /// <summary>The menu is rebuilt on every open, so a language change only needs the tooltip.</summary>
         public void Relang()
         {
             _icon.Text = Strings.T("app.tip");
-            var old = _icon.ContextMenuStrip;
-            _icon.ContextMenuStrip = BuildMenu();
-            if (old != null) old.Dispose();   // NotifyIcon does not own it; leaks one menu per relang
         }
 
         public void Balloon(string title, string text)
@@ -58,85 +62,80 @@ namespace Amc
             _win.UserToggle();
         }
 
-        ContextMenuStrip BuildMenu()
+        /// <summary>
+        /// The tray menu, built as a WPF ContextMenu and dressed by MenuTheme so it is visually
+        /// identical to the card's right-click menu. It is created fresh on each open: the menu is
+        /// small, and this way every check mark reflects the state of the moment without an
+        /// Opening hook to keep in sync.
+        ///
+        /// Deliberately absent here: 透明背景 / 封面旋转 / 监听所有播放器 (they live on the 外观 and
+        /// 主页 pages, where you can see what you are changing) and 卸载 (destructive, so it sits at
+        /// the bottom of 关于 next to the version you are uninstalling).
+        /// </summary>
+        public void ShowMenu()
         {
-            var m = new ContextMenuStrip();
+            var m = new System.Windows.Controls.ContextMenu();
             m.Items.Add(Item(Strings.T("menu.showHide"), delegate { Toggle(); }));
             m.Items.Add(Item(Strings.T("menu.main"), delegate { _win.OpenMainPage(); }));
             m.Items.Add(Item(Strings.T("menu.settings"), delegate { _win.OpenSettings(); }));
-            m.Items.Add(new ToolStripSeparator());
+            m.Items.Add(new System.Windows.Controls.Separator());
             m.Items.Add(Item(Strings.T("menu.refetch"), delegate { _win.Refetch(); }));
             m.Items.Add(Item(Strings.T("menu.export"), delegate { _win.ExportLyrics(); }));
             m.Items.Add(Item(Strings.T("menu.lyricEarly"), delegate { _win.NudgeOffset(0.1); }));
             m.Items.Add(Item(Strings.T("menu.lyricLate"), delegate { _win.NudgeOffset(-0.1); }));
-            m.Items.Add(new ToolStripSeparator());
+            m.Items.Add(new System.Windows.Controls.Separator());
             m.Items.Add(Item(Strings.T("menu.bigger"), delegate { _win.NudgeScale(0.08); }));
             m.Items.Add(Item(Strings.T("menu.smaller"), delegate { _win.NudgeScale(-0.08); }));
             m.Items.Add(Item(Strings.T("menu.fadeMore"), delegate { _win.NudgeOpacity(-0.06); }));
             m.Items.Add(Item(Strings.T("menu.fadeLess"), delegate { _win.NudgeOpacity(0.06); }));
-
-            var lockItem = new ToolStripMenuItem(Strings.T("menu.lock"));
-            lockItem.CheckOnClick = true;
-            lockItem.Checked = _win.Cfg.Locked;
-            lockItem.Click += delegate { _win.ToggleLock(); lockItem.Checked = _win.Cfg.Locked; };
-            m.Items.Add(lockItem);
-
-
-            var clearItem = new ToolStripMenuItem(Strings.T("menu.clearBgShort"));
-            clearItem.CheckOnClick = true;
-            clearItem.Checked = _win.Cfg.ClearBg;
-            clearItem.Click += delegate { _win.SetClearBg(clearItem.Checked); };
-            m.Items.Add(clearItem);
-
-            var spinItem = new ToolStripMenuItem(Strings.T("menu.spin"));
-            spinItem.CheckOnClick = true;
-            spinItem.Checked = _win.Cfg.ArtSpin;
-            spinItem.Click += delegate { _win.SetArtSpin(spinItem.Checked); };
-            m.Items.Add(spinItem);
-
-            var allItem = new ToolStripMenuItem(Strings.T("menu.listenAll"));
-            allItem.CheckOnClick = true;
-            allItem.Checked = _win.Cfg.ListenAll;
-            allItem.Click += delegate
+            m.Items.Add(Check(Strings.T("menu.lock"), _win.Cfg.Locked, delegate(bool on)
             {
-                _win.Cfg.ListenAll = allItem.Checked;
-                _smtc.ListenAll = allItem.Checked;
-                _win.Cfg.Save();
-            };
-            m.Items.Add(allItem);
-
-            m.Items.Add(new ToolStripSeparator());
-            var autoItem = new ToolStripMenuItem(Strings.T("menu.autostart"));
-            autoItem.CheckOnClick = true;
-            autoItem.Checked = AutoStart.IsEnabled();
-            autoItem.Click += delegate
+                if (_win.Cfg.Locked != on) _win.ToggleLock();
+            }));
+            m.Items.Add(new System.Windows.Controls.Separator());
+            m.Items.Add(Check(Strings.T("menu.autostart"), AutoStart.IsEnabled(), delegate(bool on)
             {
-                AutoStart.Set(autoItem.Checked);
-                _win.Cfg.AutoStart = autoItem.Checked;
+                AutoStart.Set(on);
+                _win.Cfg.AutoStart = on;
                 _win.Cfg.Save();
-            };
-            m.Items.Add(autoItem);
-
-            m.Items.Add(new ToolStripSeparator());
+            }));
+            m.Items.Add(new System.Windows.Controls.Separator());
             m.Items.Add(Item(Strings.T("menu.quit"), delegate { _win.Quit(); }));
-            // Last entry, after the normal quit: it wipes config/cache and deletes the exe.
-            m.Items.Add(Item(Strings.T("menu.uninstall"), delegate { Uninstall.Run(true, false); }));
 
-            m.Opening += delegate
+            MenuTheme.Apply(m);
+            // MousePoint keeps the popup at the cursor without any coordinate maths, and the card
+            // window doubles as the placement target (it exists for the whole lifetime of the app,
+            // even when it is hidden because no player is running).
+            m.PlacementTarget = _win;
+            m.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+            m.StaysOpen = false;
+            // A popup opened from a tray click is not inside our own input loop, so WPF never
+            // takes the mouse capture and the menu would hang around forever after a click
+            // elsewhere. Handing the popup's HWND the foreground role (the classic WinForms tray
+            // trick) makes it behave: click away / Esc both dismiss it.
+            m.Opened += delegate
             {
-                lockItem.Checked = _win.Cfg.Locked;
-                clearItem.Checked = _win.Cfg.ClearBg;
-                spinItem.Checked = _win.Cfg.ArtSpin;
-                allItem.Checked = _win.Cfg.ListenAll;
-                autoItem.Checked = AutoStart.IsEnabled();
+                try
+                {
+                    var src = System.Windows.PresentationSource.FromVisual(m) as System.Windows.Interop.HwndSource;
+                    if (src != null) SetForegroundWindow(src.Handle);
+                }
+                catch { }
             };
-            return m;
+            m.IsOpen = true;
         }
 
-        static ToolStripMenuItem Item(string text, Action act)
+        static System.Windows.Controls.MenuItem Item(string text, Action act)
         {
-            var i = new ToolStripMenuItem(text);
+            var i = new System.Windows.Controls.MenuItem { Header = text };
             i.Click += delegate { act(); };
+            return i;
+        }
+
+        static System.Windows.Controls.MenuItem Check(string text, bool on, Action<bool> act)
+        {
+            var i = new System.Windows.Controls.MenuItem { Header = text, IsCheckable = true, IsChecked = on };
+            i.Click += delegate { act(i.IsChecked); };
             return i;
         }
 

@@ -1395,6 +1395,14 @@ namespace Amc
                 _cfg.AutoCheckUpdate = on;
                 _cfg.Save();
             })));
+
+            // Uninstall lives down here, below everything else, because it is the one action in
+            // this panel that cannot be undone by toggling it back.
+            box.Children.Add(Section(Strings.T("sec.uninstall")));
+            box.Children.Add(Body(Strings.T("page.about.uninstall"), 11.5));
+            var unRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 4) };
+            unRow.Children.Add(Pill(Strings.T("about.uninstall"), delegate { Uninstall.Run(true, true); }, false));
+            box.Children.Add(unRow);
             return box;
         }
 
