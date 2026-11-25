@@ -428,19 +428,41 @@ namespace Amc
                 Fill = new SolidColorBrush(on ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242))
             };
             var tr = new TranslateTransform(on ? 20.0 : 0.0, 0.0);
-            knob.RenderTransform = tr;
+            var knobTf = new TransformGroup();
+            knobTf.Children.Add(tr);
+            knobTf.Children.Add(new ScaleTransform(1.0, 1.0));
+            knob.RenderTransformOrigin = new Point(0.5, 0.5);
+            knob.RenderTransform = knobTf;
+            var knobScale = (ScaleTransform)knobTf.Children[1];
             track.Child = knob;
+            // The knob dips while the switch is held, exactly like iOS: 90 ms down, 160 ms back.
+            track.PreviewMouseLeftButtonDown += delegate
+            {
+                var press = new DoubleAnimation(0.94, TimeSpan.FromMilliseconds(90));
+                press.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+                knobScale.BeginAnimation(ScaleTransform.ScaleXProperty, press);
+                knobScale.BeginAnimation(ScaleTransform.ScaleYProperty, press.Clone());
+            };
+            Action release = delegate
+            {
+                var back = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(160));
+                back.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+                knobScale.BeginAnimation(ScaleTransform.ScaleXProperty, back);
+                knobScale.BeginAnimation(ScaleTransform.ScaleYProperty, back.Clone());
+            };
+            track.PreviewMouseLeftButtonUp += delegate { release(); };
+            track.MouseLeave += delegate { release(); };
             bool state = on;
             track.MouseLeftButtonUp += delegate
             {
                 state = !state;
                 // The knob slides and the track cross-fades: 160 ms, ease-out, no bounce. A switch
                 // that snaps feels broken next to the rest of the UI.
-                var sx = new DoubleAnimation(state ? 20.0 : 0.0, TimeSpan.FromMilliseconds(160));
+                var sx = new DoubleAnimation(state ? 20.0 : 0.0, TimeSpan.FromMilliseconds(180));
                 sx.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
                 tr.BeginAnimation(TranslateTransform.XProperty, sx);
-                AnimateColor((SolidColorBrush)track.Background, state ? onBg : offBg, 160);
-                AnimateColor((SolidColorBrush)knob.Fill, state ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242), 160);
+                AnimateColor((SolidColorBrush)track.Background, state ? onBg : offBg, 180);
+                AnimateColor((SolidColorBrush)knob.Fill, state ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242), 180);
                 try { apply(state); } catch { }
             };
             return track;
@@ -601,10 +623,14 @@ namespace Amc
             box.MouseEnter += delegate
             {
                 AnimateColor(hoverBrush, Color.FromArgb((byte)(key == _page ? 0 : 18), 255, 255, 255), 120);
+                // The word lifts towards full white too: a background wash alone reads as a
+                // tooltip, the text shift is what makes the strip feel alive.
+                AnimateColor((SolidColorBrush)t.Foreground, TextMain, 120);
             };
             box.MouseLeave += delegate
             {
                 AnimateColor(hoverBrush, Color.FromArgb(0, 255, 255, 255), 170);
+                AnimateColor((SolidColorBrush)t.Foreground, key == _page ? TextMain : TextDim, 170);
             };
 
             box.MouseLeftButtonUp += delegate { SetPage(key); };
@@ -637,23 +663,35 @@ namespace Amc
             el.RenderTransform = st;
             el.RenderTransformOrigin = new Point(0.5, 0.5);
             bool down = false;
+            // Held buttons also dim slightly: 0.97 scale is invisible on a 28 px chip, the
+            // opacity dip is what actually reads as "pressed".
             el.PreviewMouseLeftButtonDown += delegate
             {
                 down = true;
                 AnimateScale(st, 0.97, 90, true);
+                AnimateOpacity(el, 0.86, 90);
             };
             el.PreviewMouseLeftButtonUp += delegate
             {
                 if (!down) return;
                 down = false;
                 AnimateScale(st, 1.0, 160, false);
+                AnimateOpacity(el, 1.0, 160);
             };
             el.MouseLeave += delegate
             {
                 if (!down) return;
                 down = false;
                 AnimateScale(st, 1.0, 160, false);
+                AnimateOpacity(el, 1.0, 160);
             };
+        }
+
+        static void AnimateOpacity(UIElement el, double to, int ms)
+        {
+            var a = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms));
+            a.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+            el.BeginAnimation(UIElement.OpacityProperty, a);
         }
 
         static void AnimateScale(ScaleTransform st, double to, int ms, bool inEase)
@@ -685,9 +723,21 @@ namespace Amc
                 // changes, so switching tabs reads as one continuous 140 ms move.
                 var line = _tabLine[kv.Key];
                 line.Fill = new SolidColorBrush(TextMain);
-                var lo = new DoubleAnimation(on ? 1.0 : 0.0, TimeSpan.FromMilliseconds(on ? 140 : 90));
+                if (!(line.RenderTransform is ScaleTransform))
+                {
+                    // The underline grows out of its own centre as the tab takes focus and
+                    // shrinks back when it loses it. The bar keeps its full width, so only the
+                    // visible span changes and the row never looks like it jumped.
+                    line.RenderTransformOrigin = new Point(0.5, 1.0);
+                    line.RenderTransform = new ScaleTransform(1.0, 1.0);
+                }
+                var stx = (ScaleTransform)line.RenderTransform;
+                var lo = new DoubleAnimation(on ? 1.0 : 0.0, TimeSpan.FromMilliseconds(on ? 150 : 90));
                 lo.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
                 line.BeginAnimation(UIElement.OpacityProperty, lo);
+                var lx = new DoubleAnimation(on ? 1.0 : 0.55, TimeSpan.FromMilliseconds(on ? 200 : 90));
+                lx.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+                stx.BeginAnimation(ScaleTransform.ScaleXProperty, lx);
             }
 
             UIElement body;
@@ -1378,8 +1428,10 @@ namespace Amc
             }
 
             host.Child = canvas;
-            host.MouseEnter += delegate { host.Background = new SolidColorBrush(Color.FromArgb(26, 255, 255, 255)); };
-            host.MouseLeave += delegate { host.Background = Brushes.Transparent; };
+            // Same 120/170 ms fade and press dip as the rest of the chrome, instead of the
+            // instant background swap these two used to do.
+            HoverFill(host, 0, 26);
+            PressScale(host);
             host.MouseLeftButtonUp += delegate { act(); };
             return host;
         }
