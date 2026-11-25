@@ -842,6 +842,7 @@ namespace Amc
             IntPtr hwnd = new WindowInteropHelper(this).Handle;
             int ex = Native.GetWindowLong(hwnd, Native.GWL_EXSTYLE);
             ex |= Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE;
+            if (_cfg.ClickThrough) ex |= Native.WS_EX_TRANSPARENT;
             Native.SetWindowLong(hwnd, Native.GWL_EXSTYLE, ex);
             _hwnd = hwnd;
             Native.BringToTop(_hwnd);
@@ -961,7 +962,7 @@ namespace Amc
                 e.Handled = true;
                 return;
             }
-            if (_cfg.Locked) return;
+            if (_cfg.ClickThrough) return;
             try { DragMove(); } catch { }
             RememberPosition();
         }
@@ -1100,10 +1101,24 @@ namespace Amc
             _cfg.Save();
         }
 
-        public void ToggleLock()
+        /// <summary>Click-through on/off. While it is on the card stops receiving mouse input
+        /// altogether (no drag, no clicks, no context menu) and every click lands on the
+        /// window below -- the tray menu and the Home page stay available to turn it back off.</summary>
+        public void SetClickThrough(bool on)
         {
-            _cfg.Locked = !_cfg.Locked;
+            _cfg.ClickThrough = on;
             _cfg.Save();
+            ApplyClickThrough();
+        }
+
+        void ApplyClickThrough()
+        {
+            if (_hwnd == IntPtr.Zero) return;
+            int ex = Native.GetWindowLong(_hwnd, Native.GWL_EXSTYLE);
+            ex = _cfg.ClickThrough ? (ex | Native.WS_EX_TRANSPARENT)
+                                   : (ex & ~Native.WS_EX_TRANSPARENT);
+            Native.SetWindowLong(_hwnd, Native.GWL_EXSTYLE, ex);
+            LyricsService.Log("click-through " + (_cfg.ClickThrough ? "on" : "off") + " ex=0x" + ex.ToString("X"));
         }
 
         public void ToggleClearBg()
@@ -1158,9 +1173,9 @@ namespace Amc
             m.Items.Add(Item(Strings.T("menu.lyricEarly"), delegate { NudgeOffset(0.1); }));
             m.Items.Add(Item(Strings.T("menu.lyricLate"), delegate { NudgeOffset(-0.1); }));
             m.Items.Add(new Separator());
-            var lockItem = new MenuItem { Header = Strings.T("menu.lock"), IsCheckable = true, IsChecked = _cfg.Locked };
-            lockItem.Click += delegate { ToggleLock(); lockItem.IsChecked = _cfg.Locked; };
-            m.Items.Add(lockItem);
+            var passItem = new MenuItem { Header = Strings.T("menu.clickthrough"), IsCheckable = true, IsChecked = _cfg.ClickThrough };
+            passItem.Click += delegate { SetClickThrough(!_cfg.ClickThrough); passItem.IsChecked = _cfg.ClickThrough; };
+            m.Items.Add(passItem);
             m.Items.Add(new Separator());
             m.Items.Add(Item(Strings.T("menu.close"), delegate { Quit(); }));
             m.Items.Add(new Separator());
@@ -1173,7 +1188,7 @@ namespace Amc
                 // While the menu is open the 1.5s topmost re-check must stand down, otherwise
                 // it lifts the card above the menu's own popup window.
                 _menuOpen = true;
-                lockItem.IsChecked = _cfg.Locked;
+                passItem.IsChecked = _cfg.ClickThrough;
                 // Measure the menu live inside the predicate: at Opened time the popup has not
                 // been laid out yet (ActualWidth is the 208px MinWidth), so a rect captured once
                 // would mark every click as "outside" and the hook would swallow it - menu items

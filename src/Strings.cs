@@ -48,6 +48,10 @@ namespace Amc
             Both("nav.body.empty", "页面还是空的", "This page is still empty");
             Both("page.look.more", "更多设置…", "More settings…");
             Both("page.home.language", "界面语言", "Language");
+            Both("page.home.clickthrough", "交互穿透（屏蔽卡片交互）", "Click-through (card ignores the mouse)");
+            Both("page.home.clickthrough.hint",
+                "打开后卡片不再接收任何鼠标操作，点在卡片上的动作会落到它下面的窗口；要关掉就从托盘菜单或这一页关。",
+                "With this on the card stops taking mouse input -- clicks go to the window below it. Turn it off from the tray menu or this page.");
             Both("page.home.startup", "启动", "Startup");
             Both("page.home.autostart", "开机自动启动", "Start at logon");
             Both("page.home.autostart.hint",
@@ -138,7 +142,7 @@ namespace Amc
             Both("menu.smaller", "缩小", "Smaller");
             Both("menu.fadeMore", "更透明", "More transparent");
             Both("menu.fadeLess", "更不透明", "Less transparent");
-            Both("menu.lock", "锁定位置", "Lock position");
+            Both("menu.clickthrough", "交互穿透（屏蔽卡片交互）", "Click-through (ignore the mouse)");
             Both("menu.clearBg", "透明背景（只留文字）", "Transparent background (text only)");
             Both("menu.clearBgShort", "透明背景", "Transparent background");
             Both("menu.spin", "封面旋转", "Spin artwork");

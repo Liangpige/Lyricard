@@ -26,7 +26,11 @@ namespace Amc
         //      and by the "restore defaults" button ----
         public double Scale = 0.85;
         public double Opacity = 0.94;
-        public bool Locked = false;
+        // Click-through: the card ignores the mouse entirely and clicks fall through to
+        // whatever is underneath it. Replaces the old "lock position" flag (which only
+        // stopped dragging) -- being able to use the card as a transparent overlay beats
+        // accidentally dragging it.
+        public bool ClickThrough = false;
         // Default off: a fresh copy should never touch somebody else's Run key on first launch.
         public bool AutoStart = false;
         // Update policy: one silent check at startup (never a poller), and a version the user
@@ -235,7 +239,10 @@ namespace Amc
                         case "Scale": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) Scale = d; break;
                         case "Opacity": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) Opacity = d; break;
                         case "LyricOffset": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) LyricOffset = d; break;
-                        case "Locked": if (bool.TryParse(v, out b)) Locked = b; break;
+                        case "ClickThrough": if (bool.TryParse(v, out b)) ClickThrough = b; break;
+                        // legacy: "Locked=..." only disabled dragging; ignore it so old files
+                        // do not silently turn the card into a non-interactive overlay.
+                        case "Locked": break;
                         case "AutoStart": if (bool.TryParse(v, out b)) AutoStart = b; break;
                         case "AutoCheckUpdate": if (bool.TryParse(v, out b)) AutoCheckUpdate = b; break;
                         case "SkippedVersion": SkippedVersion = v; break;
@@ -380,7 +387,7 @@ namespace Amc
                 sb.AppendLine("Scale=" + Scale.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("Opacity=" + Opacity.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("LyricOffset=" + LyricOffset.ToString("0.###", CultureInfo.InvariantCulture));
-                sb.AppendLine("Locked=" + Locked);
+                sb.AppendLine("ClickThrough=" + ClickThrough);
                 sb.AppendLine("AutoStart=" + AutoStart);
                 sb.AppendLine("AutoCheckUpdate=" + AutoCheckUpdate);
                 sb.AppendLine("SkippedVersion=" + SkippedVersion);

@@ -88,9 +88,9 @@ namespace Amc
             m.Items.Add(Item(Strings.T("menu.smaller"), delegate { _win.NudgeScale(-0.08); }));
             m.Items.Add(Item(Strings.T("menu.fadeMore"), delegate { _win.NudgeOpacity(-0.06); }));
             m.Items.Add(Item(Strings.T("menu.fadeLess"), delegate { _win.NudgeOpacity(0.06); }));
-            m.Items.Add(Check(Strings.T("menu.lock"), _win.Cfg.Locked, delegate(bool on)
+            m.Items.Add(Check(Strings.T("menu.clickthrough"), _win.Cfg.ClickThrough, delegate(bool on)
             {
-                if (_win.Cfg.Locked != on) _win.ToggleLock();
+                if (_win.Cfg.ClickThrough != on) _win.SetClickThrough(on);
             }));
             m.Items.Add(new System.Windows.Controls.Separator());
             m.Items.Add(Check(Strings.T("menu.autostart"), AutoStart.IsEnabled(), delegate(bool on)

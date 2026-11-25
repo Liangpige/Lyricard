@@ -827,6 +827,17 @@ namespace Amc
                     RebuildAll();
                 }));
 
+            // click-through: sits next to the language switch because it is a "how does this
+            // thing behave" switch, not a look. Turning it on makes the card transparent to
+            // the mouse; the tray menu and this page stay clickable to turn it back off.
+            box.Children.Add(Row(Strings.T("page.home.clickthrough"),
+                Toggle(_cfg.ClickThrough, delegate(bool v)
+                {
+                    _card.SetClickThrough(v);
+                    RebuildAll();
+                })));
+            box.Children.Add(Hint(Strings.T("page.home.clickthrough.hint")));
+
             // startup
             box.Children.Add(Section(Strings.T("page.home.startup")));
             box.Children.Add(Row(Strings.T("page.home.autostart"),
