@@ -545,6 +545,7 @@ namespace Amc
             catch { }
             Grid.SetRow(body, 1);
             root.Children.Add(body);
+            _scroll = body;
 
             return new Border
             {
@@ -666,7 +667,11 @@ namespace Amc
 
         void SetPage(string key)
         {
-            LyricsService.Log("main page -> " + key);
+            // A re-render of the page we are already on (toggling an option, applying a preset,
+            // clearing the cache) must not replay the page-in animation -- that read as a twitch.
+            bool samePage = (key == _page) && (_host != null) && (_host.Content != null);
+            double keepScroll = _scroll == null ? 0.0 : _scroll.VerticalOffset;
+            LyricsService.Log("main page -> " + key + (samePage ? " (refresh)" : ""));
             _page = key;
             foreach (var kv in _tabText)
             {
@@ -690,6 +695,17 @@ namespace Amc
             _sectionCount = 0;
             _host.Content = PageFrame(key, body);
 
+            if (samePage)
+            {
+                // Content swapped in place: restore where the user was looking instead of jumping
+                // back to the top, and skip the fade/lift entirely.
+                if (_scroll != null && keepScroll > 0.5)
+                {
+                    Dispatcher.BeginInvoke(new Action(delegate { _scroll.ScrollToVerticalOffset(keepScroll); }));
+                }
+                return;
+            }
+
             // Page transition: the new page fades in while lifting 6 px. Short enough to read as
             // "the content was there all along" rather than as an effect.
             _host.Opacity = 1.0;
@@ -704,6 +720,7 @@ namespace Amc
         }
 
         bool _showOthers;
+        ScrollViewer _scroll;
 
         // ---- update state (see Updater.cs) ----
         TextBlock _updText;
@@ -1080,6 +1097,8 @@ namespace Amc
         {
             var box = new StackPanel();
             box.Children.Add(Section(Strings.T("page.lyr.title")));
+
+            box.Children.Add(Body(Strings.T("page.lyr.order"), 12));
 
             // Manual sync nudges. The card menu only offers 0.1 s steps and is easy to miss, so
             // the same operation is exposed here with a coarser 0.5 s pair for badly timed files.
