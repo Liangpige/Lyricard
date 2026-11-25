@@ -106,8 +106,21 @@ namespace Amc
             // MousePoint keeps the popup at the cursor without any coordinate maths, and the card
             // window doubles as the placement target (it exists for the whole lifetime of the app,
             // even when it is hidden because no player is running).
-            m.PlacementTarget = _win;
-            m.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+            // Anchor on the cursor position rather than on the card window: the card is hidden
+            // whenever no player is running, and a PlacementTarget must be a *visible* element or
+            // the menu silently refuses to open. Physical pixels have to be converted to DIPs.
+            double sx = 1.0, sy = 1.0;
+            System.Windows.PresentationSource ps = System.Windows.PresentationSource.FromVisual(_win);
+            if (ps != null && ps.CompositionTarget != null)
+            {
+                var mtx = ps.CompositionTarget.TransformFromDevice;
+                sx = mtx.M11;
+                sy = mtx.M22;
+            }
+            System.Drawing.Point at = System.Windows.Forms.Cursor.Position;
+            m.Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint;
+            m.HorizontalOffset = at.X * sx;
+            m.VerticalOffset = at.Y * sy;
             m.StaysOpen = false;
             // A popup opened from a tray click is not inside our own input loop, so WPF never
             // takes the mouse capture and the menu would hang around forever after a click

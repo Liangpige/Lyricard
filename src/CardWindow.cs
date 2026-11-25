@@ -1833,7 +1833,7 @@ namespace Amc
             bool trustTarget = !np.PosFrozen && !np.PosUntrusted;
             if (_endHold)
             {
-                // nothing to advance, nothing to correct
+                // Latched at the end of the track: nothing to advance, nothing to correct.
             }
             else if (_pos < 0 || (trustTarget && Math.Abs(target - _pos) > 1.2))
             {
