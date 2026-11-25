@@ -95,10 +95,8 @@ namespace Amc
         string _lineText = "";
         bool _lineFaded;
         byte[] _lastArt;
-        bool _hover;
         bool _suppressed;
         // "no player at all" state (Apple Music not installed / not running).
-        bool _noPlayer;
         int _audibleTicks;
         string _hintPlayer;
         DateTime _hintAt = DateTime.MinValue;
@@ -480,13 +478,11 @@ namespace Amc
             _card.MouseRightButtonUp += OnRightClick;
             _card.MouseEnter += delegate
             {
-                _hover = true;
                 Animate(_controls, 1.0, 120);
                 if (_artScale != null) AnimScale(_artScale, 1.03, 220);
             };
             _card.MouseLeave += delegate
             {
-                _hover = false;
                 Animate(_controls, ControlsIdle, 220);
                 if (_artScale != null) AnimScale(_artScale, 1.0, 260);
             };
@@ -1512,7 +1508,6 @@ namespace Amc
                 if (HideWhenIdle)
                 {
                     if (IsVisible && !_suppressed) HideAnimated();
-                    _noPlayer = true;
                     _idle = false;
                     return;
                 }
@@ -1530,7 +1525,6 @@ namespace Amc
                 if (_hintPlayer != null) _audibleTicks++; else _audibleTicks = 0;
                 if (_audibleTicks >= 4)
                 {
-                    _noPlayer = false;
                     _idle = false;
                     if (!IsVisible && !_suppressed) ShowAnimated();
                     _doc = null;
@@ -1557,7 +1551,6 @@ namespace Amc
                 string unbound = SmtcService.UnboundAumid;
                 if (unbound != null && unbound.Length > 0 && !HideWhenIdle)
                 {
-                    _noPlayer = false;
                     _idle = false;
                     if (!IsVisible && !_suppressed) ShowAnimated();
                     _doc = null;
@@ -1583,7 +1576,6 @@ namespace Amc
                 // it is gone for good.
                 if (AmProbe.IsRunning() && SmtcService.AppleMusicWanted)
                 {
-                    _noPlayer = false;
                     if (!IsVisible && !_suppressed) ShowAnimated();
                     if (!_idle)
                     {
@@ -1610,12 +1602,10 @@ namespace Amc
                 // Apple Music is closed: keep the desktop clean. The way in is the tray icon
                 // or the shortcut that opens the main window - no "nothing found" card.
                 if (IsVisible && !_suppressed) HideAnimated();
-                _noPlayer = true;
                 _idle = false;
                 return;
             }
             _idle = false;
-            _noPlayer = false;
             if (!IsVisible && !_suppressed) ShowAnimated();
             if (_artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
             if (_barRow.Visibility != Visibility.Visible)

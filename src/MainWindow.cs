@@ -428,28 +428,18 @@ namespace Amc
                 Fill = new SolidColorBrush(on ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242))
             };
             var tr = new TranslateTransform(on ? 20.0 : 0.0, 0.0);
+            // Scale BEFORE translate: with the translate first the 0.94 press scale also
+            // scaled the 20 px travel, so the knob drifted ~1 px left while held.
+            var knobScale = new ScaleTransform(1.0, 1.0);
             var knobTf = new TransformGroup();
+            knobTf.Children.Add(knobScale);
             knobTf.Children.Add(tr);
-            knobTf.Children.Add(new ScaleTransform(1.0, 1.0));
             knob.RenderTransformOrigin = new Point(0.5, 0.5);
             knob.RenderTransform = knobTf;
-            var knobScale = (ScaleTransform)knobTf.Children[1];
             track.Child = knob;
-            // The knob dips while the switch is held, exactly like iOS: 90 ms down, 160 ms back.
-            track.PreviewMouseLeftButtonDown += delegate
-            {
-                var press = new DoubleAnimation(0.94, TimeSpan.FromMilliseconds(90));
-                press.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-                knobScale.BeginAnimation(ScaleTransform.ScaleXProperty, press);
-                knobScale.BeginAnimation(ScaleTransform.ScaleYProperty, press.Clone());
-            };
-            Action release = delegate
-            {
-                var back = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(160));
-                back.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
-                knobScale.BeginAnimation(ScaleTransform.ScaleXProperty, back);
-                knobScale.BeginAnimation(ScaleTransform.ScaleYProperty, back.Clone());
-            };
+            // The knob dips while the switch is held, exactly like iOS.
+            track.PreviewMouseLeftButtonDown += delegate { AnimateScale(knobScale, 0.94, 90); };
+            Action release = delegate { AnimateScale(knobScale, 1.0, 160); };
             track.PreviewMouseLeftButtonUp += delegate { release(); };
             track.MouseLeave += delegate { release(); };
             bool state = on;
@@ -668,21 +658,21 @@ namespace Amc
             el.PreviewMouseLeftButtonDown += delegate
             {
                 down = true;
-                AnimateScale(st, 0.97, 90, true);
+                AnimateScale(st, 0.97, 90);
                 AnimateOpacity(el, 0.86, 90);
             };
             el.PreviewMouseLeftButtonUp += delegate
             {
                 if (!down) return;
                 down = false;
-                AnimateScale(st, 1.0, 160, false);
+                AnimateScale(st, 1.0, 160);
                 AnimateOpacity(el, 1.0, 160);
             };
             el.MouseLeave += delegate
             {
                 if (!down) return;
                 down = false;
-                AnimateScale(st, 1.0, 160, false);
+                AnimateScale(st, 1.0, 160);
                 AnimateOpacity(el, 1.0, 160);
             };
         }
@@ -694,9 +684,9 @@ namespace Amc
             el.BeginAnimation(UIElement.OpacityProperty, a);
         }
 
-        static void AnimateScale(ScaleTransform st, double to, int ms, bool inEase)
+        static void AnimateScale(ScaleTransform st, double to, int ms)
         {
-            var e = new CubicEase { EasingMode = inEase ? EasingMode.EaseOut : EasingMode.EaseOut };
+            var e = new CubicEase { EasingMode = EasingMode.EaseOut };
             var sx = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms));
             sx.EasingFunction = e;
             st.BeginAnimation(ScaleTransform.ScaleXProperty, sx);
@@ -1432,7 +1422,13 @@ namespace Amc
             // instant background swap these two used to do.
             HoverFill(host, 0, 26);
             PressScale(host);
-            host.MouseLeftButtonUp += delegate { act(); };
+            host.MouseLeftButtonUp += delegate
+            {
+                // Minimising or hiding swallows the mouse-up that would undo the press dim,
+                // so put it back before acting -- otherwise the button stays at 0.86.
+                AnimateOpacity(host, 1.0, 120);
+                act();
+            };
             return host;
         }
     }
