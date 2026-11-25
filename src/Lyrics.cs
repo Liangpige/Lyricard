@@ -295,7 +295,16 @@ namespace Amc
             bool haveLast = DateTime.TryParse(cfg.LastCacheClean, CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out last);
             DateTime now = DateTime.Now;
-            if (haveLast && (now - last).TotalDays < cfg.CacheCleanDays) return false;
+            if (!haveLast)
+            {
+                // First time we see the option enabled: stamp today instead of wiping the cache the
+                // user accumulated so far. The interval starts counting from here.
+                cfg.LastCacheClean = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                cfg.Save();
+                Log("cache autoclean armed (every " + cfg.CacheCleanDays + "d, starting today)");
+                return false;
+            }
+            if ((now - last).TotalDays < cfg.CacheCleanDays) return false;
             int n = ClearCache();
             cfg.LastCacheClean = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             cfg.Save();
