@@ -26,7 +26,10 @@ namespace Amc
         // asked us to stop nagging about.
         public bool AutoCheckUpdate = true;
         public string SkippedVersion = "";
-        public double LyricOffset = 1.6;
+        // Default 0: a first-time install must be neutral -- we tuned +1.6s by ear against
+        // Apple Music's own reporting lag during development, which is not something a new
+        // user should inherit. Existing configs keep whatever they already saved.
+        public double LyricOffset = 0.0;
         // Housekeeping: lyric cache is cheap to rebuild, so let the user throw it away on a
         // schedule instead of watching data\ grow forever.
         public bool AutoCleanCache = false;
@@ -99,7 +102,7 @@ namespace Amc
         {
             Scale = 0.85;
             Opacity = 0.94;
-            LyricOffset = 1.6;
+            LyricOffset = 0.0;
             ClearBg = true;
             ArtSpin = true;
             ArtShadow = true;

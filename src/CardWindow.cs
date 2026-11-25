@@ -1087,7 +1087,9 @@ namespace Amc
 
         public void NudgeOffset(double delta)
         {
-            _cfg.LyricOffset += delta;
+            // Keep the nudge inside a sane band: +/-10s is already far beyond any plausible
+            // reporting lag, and it stops a stuck key from walking the value to absurdity.
+            _cfg.LyricOffset = Config.Clamp(_cfg.LyricOffset + delta, -10.0, 10.0);
             _cfg.Save();
         }
 
