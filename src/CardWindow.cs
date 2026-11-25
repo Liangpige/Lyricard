@@ -88,6 +88,12 @@ namespace Amc
         string _titleKey = "";
         string _pendingKey = "";
         string _trackKey = "";
+        // Debounce for the track key: SMTC re-reports the previous title for a moment when a
+        // track ends and the player advances, which used to fire two switch transitions.
+        string _seenKey = "";
+        DateTime _seenSince = DateTime.MinValue;
+        string _holdLogged = "";
+        DateTime _unstableSince = DateTime.MinValue;
         // A VIP preview stops at 60 s and the player jumps straight into the next song: the
         // reported position snaps back to ~0 while the title lags behind for a beat or two.
         // Without a guard the bar and the lyric line lurch twice in 300 ms (""抽搐""). While a
@@ -1674,9 +1680,45 @@ namespace Amc
                 ApplyArt(np.Art);
             }
 
-            // lyric document
+            // progress: run our own clock at 1x and *slew* toward the SMTC estimate instead of
+            // snapping to it. Apple's Position only lands every ~3s, so snapping made the lyric
+            // line jump back and forth right on line boundaries.
+            var nowT = DateTime.Now;
+            double dt = (nowT - _lastTick).TotalSeconds;
+            if (dt < 0) dt = 0;
+            if (dt > 0.5) dt = 0.5;
+            _lastTick = nowT;
+
+            // Around an auto-advance SMTC hands us half-updated snapshots: the position resets
+            // first, the title follows a beat later, and for a moment the *previous* title comes
+            // back. Acting on every one of those made the card flash old line -> waiting -> old
+            // line -> new song. So require a key to hold still before we believe it.
+            string rawKey = (np.Aumid ?? "") + "|" + (np.Title ?? "");
+            if (rawKey != _seenKey)
+            {
+                _seenKey = rawKey;
+                _seenSince = nowT;
+                if (_unstableSince == DateTime.MinValue) _unstableSince = nowT;
+            }
+            // Safety valve: a player that keeps alternating titles (two sessions fighting over the
+            // card) must not pin us in "waiting" forever -- after 3s take whatever is on offer.
+            bool settled = (nowT - _seenSince).TotalMilliseconds >= 400
+                           || (_unstableSince != DateTime.MinValue && (nowT - _unstableSince).TotalMilliseconds > 3000);
+            if (settled) _unstableSince = DateTime.MinValue;
+            if (!settled && _holdLogged != rawKey)
+            {
+                _holdLogged = rawKey;
+                LyricsService.Log("settle hold " + rawKey);
+            }
+            else if (settled && _holdLogged.Length > 0)
+            {
+                _holdLogged = "";
+                LyricsService.Log("settled " + rawKey);
+            }
+
+            // lyric document (only once the title has stopped moving)
             string key = np.Title + "|" + artistOut;
-            if (key != _docKey && key != _pendingKey)
+            if (settled && key != _docKey && key != _pendingKey)
             {
                 LyricsService.Log("fetch start t=" + np.Title + " | a=" + artistOut + " | dur=" + ((int)np.Dur.TotalSeconds));
                 _pendingKey = key;
@@ -1720,18 +1762,10 @@ namespace Amc
                 th.Start();
             }
 
-            // progress: run our own clock at 1x and *slew* toward the SMTC estimate instead of
-            // snapping to it. Apple's Position only lands every ~3s, so snapping made the lyric
-            // line jump back and forth right on line boundaries.
-            var nowT = DateTime.Now;
-            double dt = (nowT - _lastTick).TotalSeconds;
-            if (dt < 0) dt = 0;
-            if (dt > 0.5) dt = 0.5;
-            _lastTick = nowT;
             // New song: start the bar at zero instead of carrying the old position over. This used
             // to happen by accident (the old anchor snapped us to the reported 0.0); now that an
             // untrusted player is never snapped, it has to be explicit.
-            string trackKey = (np.Aumid ?? "") + "|" + (np.Title ?? "");
+            string trackKey = settled ? rawKey : _trackKey;
             if (trackKey != _trackKey)
             {
                 _trackKey = trackKey;
@@ -1758,9 +1792,11 @@ namespace Amc
                 _switchUntil = nowT.AddMilliseconds(900);
             }
             _lastPos = _pos;
-            if (nowT < _switchUntil)
+            if (nowT < _switchUntil || !settled)
             {
-                // Settling: one clean state, no half-updated lyric lines.
+                // Settling: one clean state, no half-updated lyric lines. !settled covers the
+                // window right after the title starts moving, where the old key is still the
+                // only thing we can trust.
                 _pos = 0;
                 _lineIdx = -1;
                 _lineText = TxtWait;
