@@ -239,6 +239,15 @@ namespace Amc
                     smtc.Stop();
                 };
 
+                // Scheduled lyric-cache cleanup. One attempt at startup (so a long-running machine
+                // that was rebooted still gets it) and an hourly re-check for machines left on for
+                // days. Both are no-ops unless the user turned the option on.
+                try { LyricsService.AutoCleanIfDue(cfg); } catch (Exception ex) { LyricsService.Log("cache autoclean failed: " + ex.Message); }
+                var cleanTimer = new System.Windows.Threading.DispatcherTimer();
+                cleanTimer.Interval = TimeSpan.FromHours(1);
+                cleanTimer.Tick += delegate { try { LyricsService.AutoCleanIfDue(cfg); } catch { } };
+                cleanTimer.Start();
+
                 app.Run();
                 GC.KeepAlive(mutex);
             }

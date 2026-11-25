@@ -1080,7 +1080,23 @@ namespace Amc
         {
             var box = new StackPanel();
             box.Children.Add(Section(Strings.T("page.lyr.title")));
-            box.Children.Add(Body(Strings.T("page.lyr.order"), 12));
+
+            // Manual sync nudges. The card menu only offers 0.1 s steps and is easy to miss, so
+            // the same operation is exposed here with a coarser 0.5 s pair for badly timed files.
+            box.Children.Add(Section(Strings.T("page.lyr.timing")));
+            var offsetText = Body(Strings.F("lyr.offset", _cfg.LyricOffset.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)), 12);
+            Action<double> nudge = delegate(double d)
+            {
+                try { _card.NudgeOffset(d); } catch { }
+                offsetText.Text = Strings.F("lyr.offset", _cfg.LyricOffset.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+            };
+            var timingRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+            timingRow.Children.Add(Pill(Strings.T("lyr.early05"), delegate { nudge(-0.5); }, false));
+            timingRow.Children.Add(Pill(Strings.T("lyr.early01"), delegate { nudge(-0.1); }, false));
+            timingRow.Children.Add(Pill(Strings.T("lyr.late01"), delegate { nudge(0.1); }, false));
+            timingRow.Children.Add(Pill(Strings.T("lyr.late05"), delegate { nudge(0.5); }, false));
+            box.Children.Add(timingRow);
+            box.Children.Add(offsetText);
 
             // cache stats: count the .lrc files and add up their bytes
             int count = 0;
@@ -1122,20 +1138,35 @@ namespace Amc
             }, false));
             box.Children.Add(buttons);
 
+            box.Children.Add(Section(Strings.T("page.lyr.autoclean")));
+            box.Children.Add(Row(Strings.T("page.lyr.autoclean.on"), Toggle(_cfg.AutoCleanCache, delegate(bool on)
+            {
+                _cfg.AutoCleanCache = on;
+                _cfg.Save();
+                // Run immediately when the user flips it on, so the interval starts from today.
+                if (on) { try { LyricsService.AutoCleanIfDue(_cfg); } catch { } }
+                SetPage("lyrics");
+            })));
+            box.Children.Add(Row(Strings.T("page.lyr.autoclean.days"), Stepper(_cfg.CacheCleanDays, 1, 90, 1, "0", delegate(double v)
+            {
+                _cfg.CacheCleanDays = (int)Math.Round(v);
+                _cfg.Save();
+            })));
+            string lastText = string.IsNullOrEmpty(_cfg.LastCacheClean)
+                ? Strings.T("page.lyr.autoclean.never")
+                : _cfg.LastCacheClean;
+            box.Children.Add(Body(Strings.F("page.lyr.autoclean.last", lastText), 12));
+            box.Children.Add(Body(Strings.T("page.lyr.autoclean.hint"), 11));
+
             var clear = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 0) };
             clear.Children.Add(Pill(Strings.T("page.lyr.clearcache"), delegate
             {
                 var r = MessageBox.Show(this, Strings.T("page.lyr.confirm"), "Lyricard",
                     MessageBoxButton.OKCancel, MessageBoxImage.Question);
                 if (r != MessageBoxResult.OK) return;
-                try
-                {
-                    string dir = LyricsService.CacheDir;
-                    if (Directory.Exists(dir))
-                        foreach (string f in Directory.GetFiles(dir))
-                            try { File.Delete(f); } catch { }
-                }
-                catch { }
+                LyricsService.ClearCache();
+                _cfg.LastCacheClean = DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                _cfg.Save();
                 SetPage("lyrics");
             }, false));
             box.Children.Add(clear);

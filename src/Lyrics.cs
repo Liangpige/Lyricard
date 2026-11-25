@@ -266,6 +266,43 @@ namespace Amc
             "暂无|未有|未提供|还没有|暂时没有|karaoke|off[\\s\\-]?vocal|纯音乐|instrumental|no\\s*lyri",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        /// <summary>Delete every cached .lrc and return how many files went away. Used by both
+        /// the manual button on the Lyrics page and the scheduled cleanup below.</summary>
+        public static int ClearCache()
+        {
+            int n = 0;
+            try
+            {
+                string dir = CacheDir;
+                if (Directory.Exists(dir))
+                {
+                    foreach (string f in Directory.GetFiles(dir))
+                    {
+                        try { File.Delete(f); n++; } catch { }
+                    }
+                }
+            }
+            catch (Exception ex) { Log("cache clear failed: " + ex.Message); }
+            return n;
+        }
+
+        /// <summary>Scheduled housekeeping: only runs when the user turned it on and the interval
+        /// has actually elapsed. Returns true when it deleted something.</summary>
+        public static bool AutoCleanIfDue(Config cfg)
+        {
+            if (cfg == null || !cfg.AutoCleanCache || cfg.CacheCleanDays <= 0) return false;
+            DateTime last;
+            bool haveLast = DateTime.TryParse(cfg.LastCacheClean, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out last);
+            DateTime now = DateTime.Now;
+            if (haveLast && (now - last).TotalDays < cfg.CacheCleanDays) return false;
+            int n = ClearCache();
+            cfg.LastCacheClean = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            cfg.Save();
+            Log("cache autoclean removed " + n + " files (interval " + cfg.CacheCleanDays + "d)");
+            return true;
+        }
+
         public static string CacheDir
         {
             get

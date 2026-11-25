@@ -27,6 +27,11 @@ namespace Amc
         public bool AutoCheckUpdate = true;
         public string SkippedVersion = "";
         public double LyricOffset = 1.6;
+        // Housekeeping: lyric cache is cheap to rebuild, so let the user throw it away on a
+        // schedule instead of watching data\ grow forever.
+        public bool AutoCleanCache = false;
+        public int CacheCleanDays = 30;
+        public string LastCacheClean = "";
         public bool ListenAll = false;
         public bool ClearBg = true;
         // Cover treatment: saturation kept (0..1) and the lowest opacity that the
@@ -224,6 +229,9 @@ namespace Amc
                         case "AutoStart": if (bool.TryParse(v, out b)) AutoStart = b; break;
                         case "AutoCheckUpdate": if (bool.TryParse(v, out b)) AutoCheckUpdate = b; break;
                         case "SkippedVersion": SkippedVersion = v; break;
+                        case "AutoCleanCache": if (bool.TryParse(v, out b)) AutoCleanCache = b; break;
+                        case "CacheCleanDays": if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) CacheCleanDays = n; break;
+                        case "LastCacheClean": LastCacheClean = v; break;
                         case "ListenAll": if (bool.TryParse(v, out b)) ListenAll = b; break;
                         case "BoundPlayers":
                             BoundConfigured = true;
@@ -366,6 +374,9 @@ namespace Amc
                 sb.AppendLine("AutoStart=" + AutoStart);
                 sb.AppendLine("AutoCheckUpdate=" + AutoCheckUpdate);
                 sb.AppendLine("SkippedVersion=" + SkippedVersion);
+                sb.AppendLine("AutoCleanCache=" + AutoCleanCache);
+                sb.AppendLine("CacheCleanDays=" + CacheCleanDays);
+                sb.AppendLine("LastCacheClean=" + LastCacheClean);
                 sb.AppendLine("ListenAll=" + ListenAll);
                 sb.AppendLine("ClearBg=" + ClearBg);
                 sb.AppendLine("ArtSat=" + ArtSat.ToString("0.###", CultureInfo.InvariantCulture));

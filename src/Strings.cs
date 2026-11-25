@@ -106,6 +106,18 @@ namespace Amc
             Both("upd.skip", "跳过这个版本", "Skip this version");
             Both("upd.skipped", "已跳过 {0}", "Skipped {0}");
             Both("upd.auto", "启动时检查更新", "Check for updates at startup");
+            Both("page.lyr.timing", "时间轴微调", "Timing");
+            Both("lyr.early05", "提前 0.5s", "-0.5s");
+            Both("lyr.early01", "提前 0.1s", "-0.1s");
+            Both("lyr.late01", "延后 0.1s", "+0.1s");
+            Both("lyr.late05", "延后 0.5s", "+0.5s");
+            Both("lyr.offset", "当前偏移：{0} 秒", "Current offset: {0}s");
+            Both("page.lyr.autoclean", "定期清理缓存", "Scheduled cleanup");
+            Both("page.lyr.autoclean.on", "按间隔自动清理", "Clean up automatically");
+            Both("page.lyr.autoclean.days", "间隔（天）", "Every (days)");
+            Both("page.lyr.autoclean.last", "上次清理：{0}", "Last cleaned: {0}");
+            Both("page.lyr.autoclean.never", "还没清理过", "never yet");
+            Both("page.lyr.autoclean.hint", "到期后会在启动时清一次，之后每小时复查一次。", "Checked once at startup, then hourly.");
             Both("page.lyr.pick", "选择当前歌曲的歌词…", "Pick lyrics for this song…");
             Both("cand.loading", "正在搜索…", "Searching…");
             Both("cand.empty", "没有找到候选歌词", "No candidates found");
