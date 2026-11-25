@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// Uninstall.cs
+//
+/// The --uninstall path: stop the app, drop the Run entry, delete data\, then delete the
+/// exe itself from a detached helper.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

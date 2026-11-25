@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// NetEaseQueue.cs
+//
+/// Reads NetEase Cloud Music's local play queue, purely to label the 'next track' in
+/// places where SMTC gives us nothing.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.IO;

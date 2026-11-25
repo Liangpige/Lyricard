@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// AudioPeak.cs
+//
+/// Loopback audio level, used only to answer 'is this player actually making sound?'
+/// for the cases where the session claims to be playing but is not (or the reverse).
+// ---------------------------------------------------------------------------
 using System;
 using System.Diagnostics;
 using System.IO;

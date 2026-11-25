@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// CandidateWindow.cs
+//
+/// The lyric picker: shows what each source returned for the current track, scored and
+/// ranked, so the user can override a bad match in one click.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;

@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// Smoke.cs
+//
+/// Headless self-check used by --smoke in CI and by hand after risky refactors: builds a
+/// Config, renders a lyric document and prints the parsed fixture lines.
+// ---------------------------------------------------------------------------
 using System;
 using System.Threading;
 using Windows.Media.Control;

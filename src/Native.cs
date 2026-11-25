@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// Native.cs
+//
+/// Small P/Invoke surface: window styles, DPI, topmost, cursor position, audio session
+/// enumeration -- the things WPF does not expose.
+// ---------------------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
 using System.Text;

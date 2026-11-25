@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// MenuTheme.cs
+//
+/// Dark theming for the native context menu, so the right-click menu does not flash a
+/// white Win32 popup over the dark card.
+// ---------------------------------------------------------------------------
 using System;
 using System.Windows;
 using System.Windows.Controls;

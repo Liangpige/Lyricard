@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// Players.cs
+//
+/// Which players we can see, and which of them lie about the timeline. Detection is
+/// two-pronged (SMTC app id first, then App Paths / Start-menu shortcuts), and the
+/// 'laggy' set marks the clients whose reported position only moves every few seconds.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;

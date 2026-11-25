@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// CardWindow.cs
+//
+/// The desktop card itself: one always-on-top, click-through-where-empty window that
+/// paints the artwork, the single lyric line, the progress bar and the three transport
+/// buttons. Also owns the right-click menu, the drag/scale gestures and the idle states.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;

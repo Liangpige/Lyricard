@@ -1,11 +1,11 @@
 # Lyricard · 浮声
 
-**一个浮在桌面上的歌词卡片** —— 默认只盯 Apple Music，也能跟网易云 / QQ 音乐 / Spotify 等 10 家播放器，谁在播就显示谁。
+**一个浮在桌面上的歌词卡片** —— 默认只盯 Apple Music，也能跟网易云 / QQ 音乐 / 酷狗 / foobar2000 / Spotify 等 9 家播放器，谁在播就显示谁。
 
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.2.4-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.5-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#重新编译)
 
 ![卡片样子](docs/card.png)
@@ -355,11 +355,20 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 
 ## 更新记录
 
-### 未发布（2026-11-25）
+### v0.2.5（2026-11-25）
 
 - **歌词页：时间轴微调**。「歌词」页多了「提前 0.5s / 提前 0.1s / 延后 0.1s / 延后 0.5s」四颗按钮，下面一行实时显示当前偏移（就是卡片右键菜单里那两格的粗调版），点一下立即写盘、卡片当场生效。
 - **歌词页：定期清理缓存**。可以打开「按间隔自动清理」并设天数（1~90），到期后启动时清一次、之后每小时复查一次；旁边显示「上次清理」日期，手动「清除歌词缓存」也会刷新这个日期。
 - **修：换曲时封面残留上一首**。播放器先发标题、封面晚一拍，卡片过去只在「拿到封面」时重画，于是那几拍还挂着上一首的图。现在换曲当场清空封面并恢复中性背景，过渡变成「旧图 → 空占位 → 新图淡入」。
+- **交互动效**：页签下划线改成从中心**生长**出来（选中 200 ms 长到满宽、切走 90 ms 收回去），文字在悬停时由灰提亮到接近纯白（120 ms 进 / 170 ms 出）——只换底色会像 tooltip，字亮起来才像「活的」；所有可点元素按下时降到 86% 不透明度（原来那 3% 的缩放放在 28 px 的胶囊上肉眼根本看不见）；最小化 / 关闭按钮终于和别处一样有淡入淡出与按压反馈（此前是瞬间换底色）；开关滑块按住时缩到 94%，行程从 160 ms 拉到 180 ms。
+- **修**：开关的滑块在按住时会向左漂约 1 px——缩放被叠在位移**之后**，把 20 px 行程也乘了 0.94；顺序反过来即可。
+- **修**：点 × 关闭窗口后 `Hide()` 吞掉了鼠标抬起事件，唤回窗口时那颗按钮一直停在 86% 的半透明状态；现在抬起时先把不透明度复位再执行动作。
+- **修**：换页面的动效不再重复播放。「恢复默认 / 套用预设 / 清缓存 / 切开关」这类**原地重绘**过去会重播 140 ms 淡入 + 180 ms 上浮，看起来像页面抽了一下；现在重建内容前记住滚动位置，同页刷新只换内容不动画。
+- **首次使用**：歌词时间轴偏移默认值从 `1.6` 秒改为 `0`，并把「恢复默认」也归零（那个 1.6 是我对着 Apple Music 的上报滞后听出来的，不该让新用户继承）。微调范围钳制在 ±10 秒。
+- **工程**：`build.sh` 不再屏蔽「未使用的局部变量/字段」警告，只留 1701/1702/1591/0618 四类无法避免的噪音；每次编译结束打印 `csc exit=0 warnings=N`，有警告时额外吼一声。今天整棵树 0 警告。
+- **文档**：README 的播放器数量从「10 家」改正为 9 家；窗口标题与任务栏提示去掉了退役的旧名「浮声」；每个源文件补了文件级注释说明职责。
+
+
 
 ### v0.2.4（2026-11-25）
 

@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// Smtc.cs
+//
+/// Thin wrapper over the WinRT SystemMediaTransportControls session manager. Marshals
+/// every WinRT await onto a worker via a hand-written polling wait, because this project
+/// must not depend on System.Runtime.WindowsRuntime.
+// ---------------------------------------------------------------------------
 using System;
 using System.Threading;
 using Windows.Media.Control;

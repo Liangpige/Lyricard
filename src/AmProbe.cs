@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// AmProbe.cs
+//
+/// Developer probe (--smtcdump): prints every SMTC session the machine currently has,
+/// with app id, playback status, position and end time.
+// ---------------------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
 using System.Text;

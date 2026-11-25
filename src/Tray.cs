@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// Tray.cs
+//
+/// The notification-area icon and its menu, including the icon fallback for systems
+/// whose shell refuses to hand back the embedded one.
+// ---------------------------------------------------------------------------
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;

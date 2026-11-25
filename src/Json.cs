@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// Json.cs
+//
+/// A minimal JSON reader for the GitHub and lyrics APIs. Not a general parser: objects,
+/// arrays, strings, numbers and booleans are all we ever need.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;

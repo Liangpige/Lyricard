@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// Lyrics.cs
+//
+/// Lyric fetching, parsing and matching: local .lrc first, then QQ / NetEase / lrclib
+/// in parallel. Also holds the scoring rules that decide whether a candidate is good
+/// enough to show (a wrong lyric is worse than no lyric).
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;

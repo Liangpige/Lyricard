@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// ColorLibraryWindow.cs
+//
+/// The optional palette window: 48 swatches plus a hex field, opened from the ... chip at
+/// the end of any colour row.
+// ---------------------------------------------------------------------------
 // Colour library popup for the Look page.
 //
 // The row of nine swatches on the Look page covers "the obvious choices"; this window is the

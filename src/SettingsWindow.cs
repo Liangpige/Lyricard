@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// SettingsWindow.cs
+//
+/// RETIRED. The old standalone settings dialog, kept only as the fallback that
+/// CardWindow.OpenSettings() falls back to if the new panel fails to open.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -38,7 +44,7 @@ namespace Amc
 
         TextBlock _headTitle;
         TextBlock _footHint;
-        const string Version = "v0.2.4";
+        const string Version = "v0.2.5";
         TextBlock _btnDoneText;
         TextBlock _btnResetText;
         Border _panel;

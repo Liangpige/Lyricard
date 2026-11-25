@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// MainWindow.cs
+//
+/// The control panel (640x480, four pages: home / look / lyrics / about) plus the
+/// hand-rolled WPF widgets and motion primitives the rest of the UI shares. No XAML,
+/// no third-party toolkit -- every control here is built in code.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

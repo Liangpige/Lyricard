@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// Config.cs
+//
+/// Every persisted setting, in one flat INI-style file next to the exe (data\config.ini).
+/// Loading never fails: unknown keys are ignored and out-of-range values are clamped, so
+/// a hand-edited or half-written file can always boot.
+// ---------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;

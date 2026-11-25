@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// Program.cs
+//
+/// Entry point: single-instance mutex, command-line switches, and the tray/card/main
+/// window wiring for both the normal and the --background start.
+// ---------------------------------------------------------------------------
 using System;
 using System.IO;
 using System.Threading;

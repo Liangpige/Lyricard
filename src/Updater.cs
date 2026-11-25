@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// Updater.cs
+//
+/// Self-update: one anonymous call to the GitHub releases API, a sha256-checked
+/// download, then a helper pass (--apply-update) that renames the running exe out of the
+/// way and drops the new one in. No third-party updater, no background poller.
+// ---------------------------------------------------------------------------
 using System;
 using System.Diagnostics;
 using System.Globalization;

@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// Shortcut.cs
+//
+/// Creates the desktop shortcut on demand (--shortcut desktop) instead of shipping a
+/// prebuilt .lnk, which used to leak the builder's absolute paths.
+// ---------------------------------------------------------------------------
 using System;
 using System.IO;
 using System.Reflection;
