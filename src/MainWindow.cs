@@ -669,8 +669,11 @@ namespace Amc
         {
             // A re-render of the page we are already on (toggling an option, applying a preset,
             // clearing the cache) must not replay the page-in animation -- that read as a twitch.
-            bool samePage = (key == _page) && (_host != null) && (_host.Content != null);
-            double keepScroll = _scroll == null ? 0.0 : _scroll.VerticalOffset;
+            bool samePage = (key == _page) && (_host != null);
+            double keepScroll = _pendingScroll > 0.5
+                ? _pendingScroll
+                : (_scroll == null ? 0.0 : _scroll.VerticalOffset);
+            _pendingScroll = 0.0;
             LyricsService.Log("main page -> " + key + (samePage ? " (refresh)" : ""));
             _page = key;
             foreach (var kv in _tabText)
@@ -721,6 +724,7 @@ namespace Amc
 
         bool _showOthers;
         ScrollViewer _scroll;
+        double _pendingScroll;
 
         // ---- update state (see Updater.cs) ----
         TextBlock _updText;
@@ -920,6 +924,9 @@ namespace Amc
         /// <summary>Re-read every string (language switch) and rebuild the whole window.</summary>
         public void RebuildAll()
         {
+            // The ScrollViewer dies with the old Content, so capture the offset first and let
+            // SetPage put the freshly built page back at the same place (and skip the transition).
+            _pendingScroll = _scroll == null ? 0.0 : _scroll.VerticalOffset;
             Title = Strings.T("app.title");
             Content = BuildUi();
             SetPage(_page);
