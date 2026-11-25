@@ -163,6 +163,18 @@ namespace Amc
         /// Group heading. Every heading but the first on a page is preceded by a hairline, which is
         /// what actually separates "groups" visually on a dark surface -- spacing alone was mushy.
         /// </summary>
+        /// <summary>Bare 1px divider, same weight as the one <see cref="Section"/> draws, for
+        /// cases where two unrelated controls sit close together without a group heading.</summary>
+        UIElement Rule()
+        {
+            return new Rectangle
+            {
+                Height = 1,
+                Fill = new SolidColorBrush(Color.FromArgb(16, 255, 255, 255)),
+                Margin = new Thickness(0, 16, 0, 12)
+            };
+        }
+
         UIElement Section(string text)
         {
             var t = Label(text, 11, TextFaint, FontWeights.Normal);
@@ -830,6 +842,8 @@ namespace Amc
             // click-through: sits next to the language switch because it is a "how does this
             // thing behave" switch, not a look. Turning it on makes the card transparent to
             // the mouse; the tray menu and this page stay clickable to turn it back off.
+            // A hairline keeps it from reading as a third language option.
+            box.Children.Add(Rule());
             box.Children.Add(Row(Strings.T("page.home.clickthrough"),
                 Toggle(_cfg.ClickThrough, delegate(bool v)
                 {
