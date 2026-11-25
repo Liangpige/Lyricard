@@ -257,13 +257,32 @@ namespace Amc
         }
 
         /// <summary>One row of colour dots; the first dot means "use the built-in colour".</summary>
+        /// <summary>Repaints the selection ring on a swatch row without rebuilding the page.</summary>
+        static void RepaintDots(WrapPanel dots, string current)
+        {
+            foreach (UIElement child in dots.Children)
+            {
+                Border d = child as Border;
+                if (d == null || d.Tag == null) continue;
+                string v = d.Tag as string;
+                bool on = string.Equals(v ?? "", current ?? "", StringComparison.OrdinalIgnoreCase);
+                d.BorderThickness = new Thickness(on ? 2 : 1);
+                d.BorderBrush = new SolidColorBrush(on
+                    ? Color.FromArgb(255, 236, 238, 242)
+                    : Color.FromArgb(40, 255, 255, 255));
+            }
+        }
+
+        /// <summary>Nine quick swatches plus a "…" that opens the full colour library
+        /// (see ColorLibraryWindow) for anything the quick row does not cover.</summary>
         UIElement ColorRow(string label, string current, Action<string> apply)
         {
             var dots = new WrapPanel();
+            string sel = current ?? "";
             foreach (string hex in Swatches)
             {
                 string value = hex;
-                bool chosen = string.Equals(value ?? "", current ?? "", StringComparison.OrdinalIgnoreCase);
+                bool chosen = string.Equals(value ?? "", sel ?? "", StringComparison.OrdinalIgnoreCase);
                 Color c;
                 Border dot = new Border
                 {
@@ -277,7 +296,8 @@ namespace Amc
                         : Color.FromArgb(40, 255, 255, 255)),
                     Background = string.IsNullOrEmpty(value)
                         ? new SolidColorBrush(Color.FromArgb(18, 255, 255, 255))
-                        : new SolidColorBrush(TryHex(value, out c) ? c : Colors.White)
+                        : new SolidColorBrush(TryHex(value, out c) ? c : Colors.White),
+                    Tag = value
                 };
                 dot.Cursor = Cursors.Hand;
                 if (string.IsNullOrEmpty(value))
@@ -288,21 +308,37 @@ namespace Amc
                 }
                 dot.MouseLeftButtonUp += delegate
                 {
-                    apply(value);
-                    // repaint the rings locally so the row shows the new choice without a page rebuild
-                    foreach (UIElement child in dots.Children)
-                    {
-                        Border d = child as Border;
-                        if (d == null) continue;
-                        bool on = ReferenceEquals(d, dot);
-                        d.BorderThickness = new Thickness(on ? 2 : 1);
-                        d.BorderBrush = new SolidColorBrush(on
-                            ? Color.FromArgb(255, 236, 238, 242)
-                            : Color.FromArgb(40, 255, 255, 255));
-                    }
+                    sel = value ?? "";
+                    apply(sel);
+                    RepaintDots(dots, sel);
                 };
                 dots.Children.Add(dot);
             }
+
+            var more = new Border
+            {
+                Width = 18,
+                Height = 18,
+                CornerRadius = new CornerRadius(9),
+                Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)),
+                BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                Cursor = Cursors.Hand,
+                Child = Label("\u2026", 11, TextDim, FontWeights.SemiBold)
+            };
+            ((TextBlock)more.Child).HorizontalAlignment = HorizontalAlignment.Center;
+            ((TextBlock)more.Child).VerticalAlignment = VerticalAlignment.Center;
+            more.MouseLeftButtonUp += delegate
+            {
+                ColorLibraryWindow.Open(label, sel, delegate(string v)
+                {
+                    sel = v ?? "";
+                    apply(sel);
+                    RepaintDots(dots, sel);
+                });
+            };
+            dots.Children.Add(more);
+
             return Row(label, dots);
         }
 

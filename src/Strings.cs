@@ -89,6 +89,11 @@ namespace Amc
             Both("menu.export", "导出歌词（分享用）", "Export lyrics (for sharing)");
             Both("menu.switchSrc", "换一个歌词源", "Try another source");
             Both("menu.pickLyric", "选择歌词…", "Pick lyrics…");
+            Both("color.title", "颜色", "Colour");
+            Both("color.hint", "下面是完整色库；也可以直接输 #RRGGBB", "Full palette below; a #RRGGBB value works too");
+            Both("color.apply", "应用", "Apply");
+            Both("color.reset", "恢复内置色", "Built-in");
+            Both("color.bad", "颜色写错了，试试 #RRGGBB 或 #RGB", "Unreadable colour, try #RRGGBB or #RGB");
             Both("sec.update", "更新", "Updates");
             Both("upd.check", "检查更新", "Check for updates");
             Both("upd.checking", "正在检查…", "Checking…");
