@@ -44,9 +44,16 @@ done
 REFS+=("/r:../libs/pkg/ref/netstandard2.0/Windows.Foundation.UniversalApiContract.winmd")
 REFS+=("/r:../libs/pkg/ref/netstandard2.0/Windows.Foundation.FoundationContract.winmd")
 
+# Only suppress the four noise classes we actually cannot fix here:
+#   1701/1702  assembly binding (WinRT facade refs always trip this)
+#   1591       missing XML comment on public members
+#   0618       obsolete API (WPF bits we deliberately still use on .NET 4.x)
+# Unused locals/fields (0219/0414/0169) are deliberately NOT suppressed any more:
+# they are how dead code announces itself, and the build now prints the count.
+LOG=$(mktemp 2>/dev/null || echo /tmp/lyricard-csc.log)
 "$CSC" \
   /nologo /noconfig /target:winexe /platform:x64 /optimize+ /debug- \
-  /nowarn:1701,1702,1591,0618,0219,0414 \
+  /nowarn:1701,1702,1591,0618 \
   /out:../bin/$APP.exe \
   /win32manifest:app.manifest \
   /win32icon:../assets/lyricard.ico \
@@ -54,9 +61,16 @@ REFS+=("/r:../libs/pkg/ref/netstandard2.0/Windows.Foundation.FoundationContract.
   /r:System.dll /r:System.Core.dll /r:System.Xml.dll \
   /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll \
   Program.cs Config.cs Players.cs AudioPeak.cs Json.cs Smtc.cs Lyrics.cs CardWindow.cs Native.cs Tray.cs \
-  AmProbe.cs MenuTheme.cs NetEaseQueue.cs ColorLibraryWindow.cs Strings.cs SettingsWindow.cs MainWindow.cs Uninstall.cs Shortcut.cs CandidateWindow.cs Updater.cs
-rc=$?
-echo "csc exit=$rc"
+  AmProbe.cs MenuTheme.cs NetEaseQueue.cs ColorLibraryWindow.cs Strings.cs SettingsWindow.cs MainWindow.cs Uninstall.cs Shortcut.cs CandidateWindow.cs Updater.cs 2>&1 | tee "$LOG"
+rc=${PIPESTATUS[0]}
+WARN=$(grep -c "warning CS" "$LOG" 2>/dev/null || true)
+[ -z "$WARN" ] && WARN=0
+if [ "$WARN" -gt 0 ]; then
+  echo
+  echo "!! $WARN compiler warning(s) -- unused locals/fields are how dead code shows up."
+fi
+rm -f "$LOG"
+echo "csc exit=$rc warnings=$WARN"
 ls -l "$PROJ/bin/$APP.exe" 2>/dev/null
 
 # Deploy to the install directory.

@@ -259,6 +259,8 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 
 注意：`csc.exe`（.NET Framework 4.0 自带的那个）按 ANSI 解析命令行参数，**带中文的绝对路径会被吞**，所以脚本先 `cd` 进 `src/` 只传裸文件名。C# 语言版本上限是 5（没有字符串插值、没有 `?.`）。
 
+编译结束会打一行 `csc exit=0 warnings=N`。只屏蔽了四类无法避免的噪音（`1701/1702` 程序集绑定、`1591` 缺 XML 注释、`0618` 过时 API），**未使用的变量和字段（`0219/0414/0169`）不再屏蔽**——它们正是死代码暴露自己的方式，出现时脚本会额外提醒一次。
+
 **先补 Windows SDK 的引用**（`libs/pkg/` 被 `.gitignore` 掉了，不含在仓库里）：项目只用到两枚 winmd —— `Windows.Foundation.UniversalApiContract` 与 `Windows.Foundation.FoundationContract`。它们来自 NuGet 包 `Microsoft.Windows.SDK.Contracts`（8.0.0 版即可），解出来放到 `libs/pkg/ref/netstandard2.0/` 下，文件名保持不变，`build.sh` 第 38–39 行就是按这个路径引用的。
 
 其他要求：Windows 10 1809+ / 11，.NET Framework 4.6.2+（系统自带），不需要装 .NET SDK，也不需要 Visual Studio。
