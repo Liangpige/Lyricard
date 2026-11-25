@@ -1724,6 +1724,15 @@ namespace Amc
                 _pos = 0;
                 _lineIdx = -1;
                 _switchUntil = nowT.AddMilliseconds(900);
+
+                // Drop the old cover right away. Players publish the title a beat before the
+                // artwork, and Smtc hands us Art=null until the thumbnail arrives -- without this
+                // the previous song's cover stayed on screen (and tinted the backdrop) meanwhile.
+                _lastArt = null;
+                LyricsService.Log("art clear " + trackKey);
+                try { _artEllipse.Fill = null; } catch { }
+                _hasArtBg = false;
+                ApplyBackdrop();
             }
             else if (_lastPos - _pos > 3.0
                 && !(np.Dur.TotalSeconds > 1 && _lastPos > np.Dur.TotalSeconds - 1.5))
@@ -2011,6 +2020,7 @@ namespace Amc
                 if (_cfg.ArtSat < 0.999 || _cfg.ArtBlackAlpha < 0.999 || _cfg.ArtHiCut > 0.0005)
                     shown = FadeArt(bi, _cfg.ArtSat, _cfg.ArtBlackAlpha, _cfg.ArtHiCut);
 
+                LyricsService.Log("art apply " + bytes.Length + " bytes");
                 var brush = new ImageBrush(shown) { Stretch = Stretch.UniformToFill };
                 FadeIn(_artEllipse, 280);
                 _artEllipse.Fill = brush;
