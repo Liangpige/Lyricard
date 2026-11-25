@@ -5,7 +5,7 @@
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.2.3-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.4-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#重新编译)
 
 ![卡片样子](docs/card.png)
@@ -352,6 +352,12 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 ![「关于」页的更新区](docs/update-about.png)
 
 ## 更新记录
+
+### v0.2.4（2026-11-25）
+
+- **新增：可选色彩库**。外观页每条「颜色」行的九个快选圆点后多了一颗 `…`，点开是 48 色面板（中性灰阶 / 红 / 黄 / 绿 / 蓝 / 紫 / 大地 / 亮 accent，各 6 个），也可以直接敲 `#RRGGBB`；「恢复内置色」把该颜色项清空、回到跟随默认。选中项会在快选圆点上同步画出白色选中环，改完立即写入 `config.ini`。
+- **修：AIMP 的兜底提示条**。标题改为显示「是哪个播放器在放声音」（原来是写死的 Lyricard），正文缩短为「没上报曲目，请开启系统媒体控制」，不再被卡片宽度截断。
+- **文档**：播放器表把 foobar2000（2.x 起自带 SMTC）与 AIMP（完全不发 SMTC）拆开写清楚；已知限制补「Spotify 停在登录页时没有任何会话」「AIMP 无解，只能给提示条」。
 
 ### v0.2.3（2026-11-24）
 
