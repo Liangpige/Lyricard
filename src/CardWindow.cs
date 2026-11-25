@@ -1539,7 +1539,9 @@ namespace Amc
                     _lineIdx = -1;
                     _lineText = "";
                     _pos = 0;
-                    _runTitle.Text = "Lyricard";
+                    // Lead with the player that is making the noise: that is the one the user has
+                    // to fix, and the name fits where the song title normally goes.
+                    _runTitle.Text = _hintPlayer ?? "Lyricard";
                     _runArtist.Text = Strings.T("app.version");
                     _lyric.Text = Strings.F("idle.nosession.line", _hintPlayer ?? "");
                     _barRow.Visibility = Visibility.Collapsed;
