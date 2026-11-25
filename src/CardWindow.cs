@@ -94,6 +94,10 @@ namespace Amc
         DateTime _seenSince = DateTime.MinValue;
         string _holdLogged = "";
         DateTime _unstableSince = DateTime.MinValue;
+        // The track reached its end and the player has not announced the next one yet: freeze on
+        // the last frame rather than resetting to zero on every tick.
+        bool _endHold;
+        DateTime _endHoldAt = DateTime.MinValue;
         // A VIP preview stops at 60 s and the player jumps straight into the next song: the
         // reported position snaps back to ~0 while the title lags behind for a beat or two.
         // Without a guard the bar and the lyric line lurch twice in 300 ms (""抽搐""). While a
@@ -1771,6 +1775,7 @@ namespace Amc
                 _trackKey = trackKey;
                 _pos = 0;
                 _lineIdx = -1;
+                _endHold = false;
                 _switchUntil = nowT.AddMilliseconds(900);
 
                 // Drop the old cover right away. Players publish the title a beat before the
@@ -1804,12 +1809,33 @@ namespace Amc
                 _barFill.Width = 0;
                 return;
             }
+            double total = np.Dur.TotalSeconds;
             double target = np.EstimateSeconds(nowT);
+            // End of the track, but the player has not published the next title yet. Park on the
+            // last frame and stop doing position math: QQ Music keeps the old title for up to a
+            // second at the boundary, and every reset to zero here would bounce straight back to
+            // "duration" on the next tick -- that was the 30Hz flicker between the last line and
+            // "Waiting for music" (log: line idx=35 / idx=-1 alternating every 45ms).
+            if (_endHold)
+            {
+                // Most players reset the reported position to ~0 a moment before they publish the
+                // next title, so "position jumped back" alone is not a reason to un-hold: that would
+                // flash the first lyric line for half a second at every track change. Only accept it
+                // once it has persisted long enough that it cannot be the boundary any more.
+                bool moved = target < total - 5.0;
+                bool stale = moved && (nowT - _endHoldAt).TotalSeconds > 2.5;
+                if (total <= 1 || stale) { _endHold = false; }
+                else _pos = total;
+            }
             // A player that keeps reporting the same position (NetEase: 0.35 forever, and 0.0 while
             // paused) must never be allowed to yank the bar back - that is what looked like
             // "paused, and the progress restarted".
             bool trustTarget = !np.PosFrozen && !np.PosUntrusted;
-            if (_pos < 0 || (trustTarget && Math.Abs(target - _pos) > 1.2))
+            if (_endHold)
+            {
+                // nothing to advance, nothing to correct
+            }
+            else if (_pos < 0 || (trustTarget && Math.Abs(target - _pos) > 1.2))
             {
                 _pos = target;
             }
@@ -1838,13 +1864,14 @@ namespace Amc
                 if (corr < -0.04) corr = -0.04;
                 _pos += corr;
                 if (_pos < 0) _pos = 0;
-                double total = np.Dur.TotalSeconds;
-                if (np.Playing && total > 1 && _pos > total - 0.4)
-                {
-                    // the player looped or the clock overran: go back to the first line
-                    _pos = 0;
-                    _lineIdx = -1;
-                }
+            }
+            // Either branch can land us on the end of the track (Snap to the reported duration, or
+            // the clock walking past it). Freeze there once, from wherever it happened.
+            if (!_endHold && np.Playing && total > 1 && _pos > total - 0.4)
+            {
+                _pos = total;
+                _endHold = true;
+                _endHoldAt = nowT;
             }
             _tickCount++;
             if (_tickCount % 60 == 0)
