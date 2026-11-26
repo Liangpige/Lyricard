@@ -151,7 +151,7 @@ LyricsService.Register(new KugouProvider());
 | **S0** | 冻结基线 | `docs/BASELINE.md`（旧交互清单 40 条：卡片 20 / 主页面 12 / 托盘 8）+ `docs/shots/*.png`（默认模板、空闲、无词三态、菜单） | 清单逐条人工过一遍并勾选；截图存档 |
 | **S1** | 配置模型：`src\CardConfig.cs`（`CardConfig` / `ModuleConfig` / `CardSchema`，模块 Cover·Title·Artist·Album·Lyrics·Progress，字段 Enabled·X·Y·W·H·FontSize·Color·Align·ZIndex，H=-1=Auto），只有序列化/反序列化，**不接 UI** | 1 个新文件 + `tools\cfg-roundtrip.cs`（22 条断言） | ✅ 已完成 2026-11-26：`csc exit=0 warnings=0`；`tools\run-cfgtest.cmd` 22/22 PASS（往返幂等、字节级二次稳定、auto/NaN 语义、未知段与未知键忽略、坏值回落、深拷贝）；启动日志无异常 |
 | **S2** | 位置时钟独立 | `Domain/Playback/PositionClock.cs`，`CardWindow.Tick` 只调它 | 连续跟歌 30 分钟无回抽；曲末锁存仍生效（用「侧脸」这类歌验）；截图一致 |
-| **S3** | 卡片元素化 | `Card/ICardElement.cs` + `CardElements` + 7 个元素 + `CardLayout` | 默认模板截图**逐像素**与 S0 相同；字号/颜色/对齐/透明背景/封面旋转全部仍可调 |
+| **S3** | 布局引擎：`src\LayoutEngine.cs`（Auto 高度、模块 Rect、包围盒 Union、cardW/H = bounds + Padding×2、平移归零、`LogicalToScreen`/`ScreenToLogical` 统一处理 Scale），只有计算，不接渲染 | 1 个新文件 + `tools\layout-selftest.cs`（22 条断言） | ✅ 已完成 2026-11-26：`csc exit=0 warnings=0`；默认模板输出 `card 470x122`、`Title 0,21.117 320x19.701`、`Lyrics 0,44.818 320x19.065`、`Progress 0,71.883 320x3`、`Cover 340,0 96x96`，与日志 `title=19.7 / lyric=19.1 / barW=320 / colW=320 / art=96` 及窗口实测 648×213 设备像素（=470.4×122.4 DIP）一致；换算往返 4 缩放 × 3 DPI 全等 |
 | **S4** | 主页面拆分 | `Main/Widgets.cs` + 四个 Page 文件 | 四页截图与 S0 一致；每个开关点一下仍即时生效并落盘 |
 | **S5** | 外观页改为 Settings 驱动 | `Main/Pages/LookPage.cs` 由 `Settings` 生成 | 26 个外观键**全部**仍可调、预设仍能存/套/删；截图与 S0 一致 |
 | **S6** | 歌词分层 | 4 个 provider + matcher + cache + parser + service | 三种语言各测 3 首：命中率与 S0 日志对照不下降；`--lyrtest` 输出格式不变 |
