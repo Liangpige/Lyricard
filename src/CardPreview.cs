@@ -325,6 +325,12 @@ namespace Amc
             return m;
         }
 
+        /// <summary>Redraw from the draft with the card's current metrics (fonts, cover size).</summary>
+        public void RefreshMetrics()
+        {
+            if (_draft != null) Rebuild();
+        }
+
         /// <summary>Character cap of a module in the draft (0 = no cap).</summary>
         public int MaxCharsOf(ModuleKind kind)
         {

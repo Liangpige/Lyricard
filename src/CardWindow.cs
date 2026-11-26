@@ -75,6 +75,8 @@ namespace Amc
         /// this instead of polling — one owner of the data, several views.
         /// </summary>
         public event Action LayoutChanged;
+        /// <summary>Fires when a look setting changed: the board must redraw with the new fonts.</summary>
+        public event Action LookChanged;
 
         bool _suspendSize;
         double _pendingW = -1, _pendingH = -1;
@@ -764,6 +766,7 @@ namespace Amc
             Render();
             try { UpdateLayout(); } catch { }
             if (!double.IsNaN(Left)) ClampToScreen();
+            if (LookChanged != null) LookChanged();
         }
 
         void BuildUi()

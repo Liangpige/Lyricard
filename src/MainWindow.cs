@@ -1015,7 +1015,14 @@ namespace Amc
         /// <summary>Preview follows the card through its event; nothing here runs on a timer.</summary>
         void OnCardLayoutChanged()
         {
-            // The board is a sketch pad with its own draft: it deliberately ignores this.
+            // The board is a sketch pad with its own draft: it deliberately ignores content ticks.
+        }
+
+        void OnCardLookChanged()
+        {
+            // Font size / cover size changed: the boxes in the board have to grow or shrink with it,
+            // otherwise the frame you drag is not the box the card will draw.
+            if (_preview != null) _preview.RefreshMetrics();
         }
 
         UIElement LookPage()
@@ -1029,7 +1036,7 @@ namespace Amc
             // ---- board: a sketch pad, never a live mirror --------------------
             // Everything dragged here goes into a private draft; the card itself does not
             // move until the user presses Apply, which is what keeps this silky.
-            if (_preview != null) _card.LayoutChanged -= OnCardLayoutChanged;
+            if (_preview != null) { _card.LayoutChanged -= OnCardLayoutChanged; _card.LookChanged -= OnCardLookChanged; }
             _preview = new CardPreview();
             _preview.FitWidth = 430;
             _preview.ApplyRequested += delegate
@@ -1080,6 +1087,7 @@ namespace Amc
                 delegate(double v) { _preview.SetMaxChars(ModuleKind.Lyrics, (int)Math.Round(v)); })));
             box.Children.Add(capStack);
 
+            _card.LookChanged += OnCardLookChanged;
             _preview.BeginDraft(_card);
 
             // ---- text -------------------------------------------------------
