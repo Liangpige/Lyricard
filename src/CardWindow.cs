@@ -901,6 +901,9 @@ namespace Amc
             // so re-apply them here (forgetting this is what made the indent slider dead)
             ApplyAlign();
             ApplyControlsPos();
+            // the cover's shape is a look choice too: applying it here is what lets a preset change
+            // circle <-> square, instead of only the next BuildUi noticing the new value
+            ApplyArtShape();
 
             Color? ct = TryHex(_cfg.TitleColor);
             _runTitle.Foreground = ct.HasValue ? (Brush)new SolidColorBrush(ct.Value) : White(0.97);
