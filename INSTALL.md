@@ -23,7 +23,7 @@
 
 ## 二、安装（三步）
 
-1. 把 `Lyricard-v0.3.1.zip` 解压到一个**你自己有写权限**的目录，例如
+1. 把 `Lyricard-v0.3.2.zip` 解压到一个**你自己有写权限**的目录，例如
    `C:\Users\<你的用户名>\Apps\Lyricard\`。
    > 不建议放在 `C:\Program Files\` 下 —— 那里普通权限写不了 `data\`，配置和缓存会存不下来。
 2. 双击 `Lyricard.exe`。
@@ -148,7 +148,7 @@ Lyricard.exe --uninstall --silent :: 静默卸载
 
 # Install (English, short)
 
-1. Unzip `Lyricard-v0.3.1.zip` into a folder you can write to (e.g. `%USERPROFILE%\Apps\Lyricard`).
+1. Unzip `Lyricard-v0.3.2.zip` into a folder you can write to (e.g. `%USERPROFILE%\Apps\Lyricard`).
    Do **not** use `C:\Program Files` - the app stores `data\` next to the exe.
 2. Run `Lyricard.exe`. If SmartScreen complains, choose "More info" → "Run anyway" (the exe is unsigned).
 3. The card appears at the top-right corner. It shows "♪ Waiting for music" until Apple Music starts playing.

@@ -5,7 +5,7 @@
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.3.1-blue.svg)](https://github.com/Liangpige/Lyricard/releases/tag/v0.3.1)
+[![Version](https://img.shields.io/badge/version-v0.3.2-blue.svg)](https://github.com/Liangpige/Lyricard/releases/tag/v0.3.2)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#自己编译)
 
 ![](docs/card.png)
@@ -124,7 +124,7 @@ Apple Music 的进度是 3~8 秒才跳一次，所以卡片不用「每次轮询
 
 ```bash
 bash build.sh            # 编译 + 部署到安装目录
-bash build.sh dist       # 另外生成 dist/Lyricard-v0.3.1.zip
+bash build.sh dist       # 另外生成 dist/Lyricard-v0.3.2.zip
 bash build.sh desktop    # dist + 复制 zip 到桌面
 ```
 
