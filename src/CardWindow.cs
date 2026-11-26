@@ -92,6 +92,7 @@ namespace Amc
         StackPanel _controls;
         FrameworkElement _content;
         Ellipse _artEllipse;
+        Ellipse _artTop;
         public Tray TrayRef;
         Grid _artHost;
         ScaleTransform _artScale;
@@ -922,6 +923,13 @@ namespace Amc
             _artEllipse.RenderTransformOrigin = new Point(0.5, 0.5);
             _artEllipse.RenderTransform = _artRotate;
             artGrid.Children.Add(_artEllipse);
+            // The swap layer: a new cover is drawn here at opacity 0 and fades in. If the bitmap is
+            // not yet uploaded when it is assigned, the frame shows the old cover underneath
+            // instead of an empty disc -- which is what the post-load flash was.
+            _artTop = new Ellipse { Fill = null, Opacity = 0.0, IsHitTestVisible = false };
+            _artTop.RenderTransformOrigin = new Point(0.5, 0.5);
+            _artTop.RenderTransform = _artRotate;
+            artGrid.Children.Add(_artTop);
             artGrid.Children.Add(new Ellipse { Stroke = White(0.13), StrokeThickness = 1 });
             root.Children.Add(artGrid);
 
@@ -2146,6 +2154,17 @@ namespace Amc
             // A track with no artwork at all would otherwise leave the disc dimmed forever.
             if (_artPending && (DateTime.Now - _artPendingAt).TotalSeconds > 1.5) _artPending = false;
             if (!_artPending && _artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
+            // The overlay has finished fading in: promote it to the base and hide it again, so the
+            // next track starts from a single, already-correct ellipse.
+            if (_artTop != null && _artTop.Fill != null && _artTop.Opacity >= 0.99
+                && !ReferenceEquals(_artEllipse.Fill, _artTop.Fill))
+            {
+                Brush done = _artTop.Fill;
+                _artTop.BeginAnimation(UIElement.OpacityProperty, null);
+                _artTop.Opacity = 0.0;
+                _artTop.Fill = null;
+                _artEllipse.Fill = done;
+            }
             if (_barRow.Visibility != Visibility.Visible)
             {
                 _barRow.Visibility = Visibility.Visible;
@@ -2626,12 +2645,23 @@ namespace Amc
 
                 LyricsService.Log("art apply " + bytes.Length + " bytes");
                 var brush = new ImageBrush(shown) { Stretch = Stretch.UniformToFill };
-                // A fade is only right for the first cover. On a track change the disc already has
-                // artwork; fading it out and back in is exactly the flash we are removing.
-                bool hadArt = _artEllipse.Fill != null;
-                _artEllipse.Fill = brush;
+                // Cross-fade: the base ellipse keeps the *old* cover and the new artwork lands on the
+                // overlay, fading in. Whatever delay the image brush needs before it paints, the
+                // frame still shows the old disc instead of an empty one. The commit (copy the
+                // overlay brush down, drop the overlay) happens in Tick once it is fully opaque.
+                if (_artTop != null && _artEllipse.Fill != null)
+                {
+                    _artTop.Fill = brush;
+                    _artTop.Opacity = 0.0;
+                    _artTop.BeginAnimation(UIElement.OpacityProperty,
+                        new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(140)));
+                }
+                else
+                {
+                    _artEllipse.Fill = brush;
+                    FadeIn(_artEllipse, 280);
+                }
                 _artEllipse.Opacity = 1.0;
-                if (!hadArt) FadeIn(_artEllipse, 280);
                 _artPending = false;
                 _artHost.Opacity = 1.0;
 
