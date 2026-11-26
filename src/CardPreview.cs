@@ -42,7 +42,7 @@ namespace Amc
         ModuleKind? _drag;
         bool _started;
         Point _grab;
-        double _seedX, _seedY, _startX, _startY, _limitW;
+        double _seedX, _seedY, _startX, _startY;
 
         static readonly Brush BoxStroke = new SolidColorBrush(Color.FromArgb(120, 255, 255, 255));
         static readonly Brush BoxFill = new SolidColorBrush(Color.FromArgb(14, 255, 255, 255));
@@ -302,7 +302,6 @@ namespace Amc
             _seedY = double.IsNaN(mc.Y) ? r.Y : mc.Y;
             _startX = _seedX;
             _startY = _seedY;
-            _limitW = r.W;
             _started = false;
             _drag = kind;
             _grab = e.GetPosition(_canvas);
@@ -339,11 +338,11 @@ namespace Amc
                 my = Math.Round(my / Snap) * Snap;
             }
 
-            double contentW = Math.Max(0.0, _lay.CardW - CardWindow.CardPadX * 2);
-            double maxX = Math.Max(0.0, contentW - _limitW);
-            if (mx < 0) mx = 0;
-            if (mx > maxX) mx = maxX;
-            if (my < 0) my = 0;
+            // No clamping to the current content box: modules may be dragged outside it and the
+            // card is expected to grow with them. Only a sanity bound so a stuck pointer cannot
+            // write absurd numbers into the template.
+            if (mx < -2000) mx = -2000; else if (mx > 6000) mx = 6000;
+            if (my < -2000) my = -2000; else if (my > 6000) my = 6000;
 
             ModuleConfig mc = _draft.Find(_drag.Value);
             if (mc == null) return;
