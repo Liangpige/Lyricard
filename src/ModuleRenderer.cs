@@ -172,12 +172,12 @@ namespace Amc
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            el.ControlsPanel.Children.Add(GlyphButton("prev", hooks == null ? null : hooks.Prev));
+            el.ControlsPanel.Children.Add(GlyphButton("prev", hooks == null ? null : hooks.Prev, ButtonScale(metrics)));
             Canvas playGlyph;
-            Grid playRoot = PlayButton(scene.Playing, hooks == null ? null : hooks.Play, out playGlyph);
+            Grid playRoot = PlayButton(scene.Playing, hooks == null ? null : hooks.Play, ButtonScale(metrics), out playGlyph);
             el.PlayGlyph = playGlyph;
             el.ControlsPanel.Children.Add(playRoot);
-            el.ControlsPanel.Children.Add(GlyphButton("next", hooks == null ? null : hooks.Next));
+            el.ControlsPanel.Children.Add(GlyphButton("next", hooks == null ? null : hooks.Next, ButtonScale(metrics)));
             el.ControlsHost = new Grid();
             el.ControlsHost.Children.Add(el.ControlsPanel);
             el.Controls = el.ControlsHost;
@@ -246,7 +246,18 @@ namespace Amc
             if (el.BarTrack != null) el.BarTrack.Background = scene.BarTrackBrush;
             if (el.BarFill != null) el.BarFill.Background = scene.BarFillBrush;
             if (el.ControlsPanel != null) ApplyControlsInk(el.ControlsPanel, scene.ControlsBrush);
-            if (el.ArtEllipse != null) el.ArtEllipse.Fill = scene.Artwork;
+            if (el.ArtEllipse != null)
+            {
+                el.ArtEllipse.Fill = scene.Artwork;
+                var rot = el.ArtEllipse.RenderTransform as RotateTransform;
+                if (rot == null)
+                {
+                    rot = new RotateTransform(scene.Spin);
+                    el.ArtEllipse.RenderTransformOrigin = new Point(0.5, 0.5);
+                    el.ArtEllipse.RenderTransform = rot;
+                }
+                else if (Math.Abs(rot.Angle - scene.Spin) > 0.05) rot.Angle = scene.Spin;
+            }
         }
 
         /// <summary>Width of the progress fill for a layout, clamped to the bar.</summary>
@@ -306,7 +317,7 @@ namespace Amc
 
         // ---- parts ----
 
-        static Grid GlyphButton(string kind, Action act)
+        static Grid GlyphButton(string kind, Action act, double k)
         {
             var root = new Grid
             {
@@ -327,10 +338,17 @@ namespace Amc
             FillGlyph(glyph, kind);
             root.Children.Add(glyph);
             if (act != null) root.MouseLeftButtonUp += delegate { act(); };
+            if (k > 0 && Math.Abs(k - 1.0) > 0.001) root.LayoutTransform = new ScaleTransform(k, k);
             return root;
         }
 
-        static Grid PlayButton(bool playing, Action act, out Canvas glyphOut)
+        /// <summary>Uniform scale for a button: 1.0 at the desktop card, smaller on the board.</summary>
+        static double ButtonScale(CardMetrics m)
+        {
+            return m == null || m.ControlsH <= 0 ? 1.0 : m.ControlsH / 30.0;
+        }
+
+        static Grid PlayButton(bool playing, Action act, double k, out Canvas glyphOut)
         {
             var glyph = new Canvas
             {
@@ -351,6 +369,11 @@ namespace Amc
             };
             root.Children.Add(glyph);
             if (act != null) root.MouseLeftButtonUp += delegate { act(); };
+            if (k > 0 && Math.Abs(k - 1.0) > 0.001)
+            {
+                // scale the whole button, glyph included, so the board gets the same drawing
+                root.LayoutTransform = new ScaleTransform(k, k);
+            }
             glyphOut = glyph;
             return root;
         }
@@ -381,7 +404,12 @@ namespace Amc
 
         static Rectangle GlyphBar(double x, double y, double w, double h)
         {
-            return new Rectangle { Width = w, Height = h, RadiusX = 1.2, RadiusY = 1.2, Fill = Brushes.White };
+            var bar = new Rectangle { Width = w, Height = h, RadiusX = 1.2, RadiusY = 1.2, Fill = Brushes.White };
+            // The pause glyph is two bars and prev/next is one; without these the bars all sat at
+            // 0,0 and stacked into a single stripe — which is exactly what the board showed.
+            Canvas.SetLeft(bar, x);
+            Canvas.SetTop(bar, y);
+            return bar;
         }
 
         static Path GlyphTri(string data)
