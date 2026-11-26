@@ -123,6 +123,28 @@ namespace Amc
     public static class LayoutEngine
     {
         /// <summary>Compute every box for a config. Disabled and absent modules are simply not in the result.</summary>
+        /// <summary>Same layout at a different size: every length scales except the line factor.</summary>
+        public static CardMetrics Scaled(CardMetrics m, double s)
+        {
+            var r = new CardMetrics();
+            r.PadX = m.PadX * s;
+            r.PadY = m.PadY * s;
+            r.Border = m.Border * s;
+            r.ColGap = m.ColGap * s;
+            r.ArtSize = m.ArtSize * s;
+            r.CardW = m.CardW * s;
+            r.TitleFont = m.TitleFont * s;
+            r.ArtistFont = m.ArtistFont * s;
+            r.LyricFont = m.LyricFont * s;
+            r.LyricGap = m.LyricGap * s;
+            r.BarGap = m.BarGap * s;
+            r.BarThickness = Math.Max(1.0, m.BarThickness * s);
+            r.ControlsGap = m.ControlsGap * s;
+            r.ControlsH = m.ControlsH * s;
+            r.LineFactor = m.LineFactor;
+            return r;
+        }
+
         public static LayoutResult Compute(CardConfig cfg, CardMetrics m)
         {
             LayoutResult result = new LayoutResult();

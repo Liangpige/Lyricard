@@ -253,7 +253,7 @@ namespace Amc
         /// Build the module model for the current look. Today it is the default template with the
         /// configured cover size and bar thickness; later steps will load it from config instead.
         /// </summary>
-        CardConfig CardModel()
+        public CardConfig CardModel()
         {
             CardConfig c = CardConfig.Default();
             ModuleConfig cov = c.Find(ModuleKind.Cover);
@@ -264,7 +264,7 @@ namespace Amc
         }
 
         /// <summary>Metrics for the current look: fonts follow the scale sliders, width follows BarScale.</summary>
-        CardMetrics Metrics()
+        public CardMetrics Metrics()
         {
             CardMetrics m = new CardMetrics();
             m.ArtSize = _cfg.ArtSize;
@@ -350,6 +350,32 @@ namespace Amc
         }
 
         /// <summary>Point the board at this card. Content follows automatically.</summary>
+        /// <summary>Current content, style and artwork as plain data; the board paints from this.</summary>
+        public CardScene Scene()
+        {
+            var sc = new CardScene();
+            sc.Title = _runTitle == null ? "" : _runTitle.Text;
+            sc.Artist = _runArtist == null ? "" : _runArtist.Text.Trim();
+            sc.Lyric = _lyric == null ? "" : _lyric.Text;
+            sc.Progress01 = _durShown > 1 ? _pos / _durShown : 0;
+            sc.Playing = _playingShown;
+            sc.Artwork = _artEllipse == null ? null : _artEllipse.Fill;
+            sc.Spin = _artRotate == null ? 0 : _artRotate.Angle;
+            sc.Halo = _cfg.ArtShadow;
+            sc.TitleSize = _baseTitleSize * _cfg.TitleScale;
+            sc.ArtistSize = _baseArtistSize * _cfg.ArtistScale;
+            sc.LyricSize = _baseLyricSize * _cfg.LyricScale;
+            sc.BarThickness = _cfg.BarThickness;
+            sc.TitleBrush = _runTitle == null ? Brushes.White : _runTitle.Foreground;
+            sc.ArtistBrush = _runArtist == null ? Brushes.White : _runArtist.Foreground;
+            sc.LyricBrush = _lyric == null ? Brushes.White : _lyric.Foreground;
+            sc.BarTrackBrush = _barTrack == null ? Brushes.White : _barTrack.Background;
+            sc.BarFillBrush = _barFill == null ? Brushes.White : _barFill.Background;
+            sc.ControlsBrush = _btnPlay == null || _btnPlay.Glyph == null || _btnPlay.Glyph.Children.Count == 0
+                ? Brushes.White : ((Shape)_btnPlay.Glyph.Children[0]).Fill;
+            return sc;
+        }
+
         public void FeedPreview(CardPreview p)
         {
             if (p == null) return;

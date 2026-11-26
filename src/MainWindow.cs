@@ -1006,6 +1006,12 @@ namespace Amc
 
         CardPreview _preview;
 
+        /// <summary>A click on a board module: logged for now, the editing tools arrive in Step 8/9.</summary>
+        void OnBoardModuleClicked(ModuleKind kind, FrameworkElement el)
+        {
+            LyricsService.Log("board hit " + kind + " tag=" + (el == null ? "<null>" : (el.Tag == null ? "?" : el.Tag.ToString())));
+        }
+
         /// <summary>Preview follows the card through its event; nothing here runs on a timer.</summary>
         void OnCardLayoutChanged()
         {
@@ -1023,6 +1029,7 @@ namespace Amc
             // ---- board: a live mirror of the desktop card --------------------
             if (_preview != null) _card.LayoutChanged -= OnCardLayoutChanged;
             _preview = new CardPreview { Scale = _cfg.Scale };
+            _preview.ModuleClicked += OnBoardModuleClicked;
             _card.LayoutChanged += OnCardLayoutChanged;
             var board = new Border
             {
