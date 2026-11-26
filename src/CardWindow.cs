@@ -434,6 +434,34 @@ namespace Amc
         /// A module's W is a hard cap: real text is clipped to it with an ellipsis, it never widens
         /// the card. Without this the title/lyric runs could push the window wider than the model.
         /// </summary>
+        Canvas _dbg;
+
+        void DrawDebugRects(LayoutResult lay)
+        {
+            if (_dbg == null)
+            {
+                _dbg = new Canvas { IsHitTestVisible = false };
+                Panel root = null;
+                if (_hostTitle != null) root = _hostTitle.Parent as Panel;
+                if (root == null && Content is Panel) root = (Panel)Content;
+                if (root != null) root.Children.Add(_dbg);
+            }
+            _dbg.Children.Clear();
+            foreach (ModuleKind k in new ModuleKind[] { ModuleKind.Title, ModuleKind.Artist, ModuleKind.Lyrics, ModuleKind.Progress, ModuleKind.Cover, ModuleKind.Controls })
+            {
+                ModuleRect r;
+                if (!lay.TryFind(k, out r)) continue;
+                var b = new System.Windows.Shapes.Rectangle
+                {
+                    Width = Math.Max(1.0, r.W), Height = Math.Max(1.0, r.H),
+                    Stroke = k == ModuleKind.Title ? Brushes.Red : k == ModuleKind.Artist ? Brushes.Lime : Brushes.DeepSkyBlue,
+                    StrokeThickness = 1.0
+                };
+                Canvas.SetLeft(b, r.X); Canvas.SetTop(b, r.Y);
+                _dbg.Children.Add(b);
+            }
+        }
+
         int _geoLog;
 
         void LogGeometry(LayoutResult lay)
@@ -445,7 +473,11 @@ namespace Amc
             if (lay.TryFind(ModuleKind.Artist, out rr)) parts += string.Format(" artist={0:F0},{1:F0} {2:F0}x{3:F0}", rr.X, rr.Y, rr.W, rr.H);
             if (lay.TryFind(ModuleKind.Lyrics, out rr)) parts += string.Format(" lyrics={0:F0},{1:F0} {2:F0}x{3:F0}", rr.X, rr.Y, rr.W, rr.H);
             if (lay.TryFind(ModuleKind.Cover, out rr)) parts += string.Format(" cover={0:F0},{1:F0} {2:F0}x{3:F0}", rr.X, rr.Y, rr.W, rr.H);
-            LyricsService.Log(string.Format("geo card={0:F0}x{1:F0}{2}", lay.BoundsW, lay.BoundsH, parts));
+            LyricsService.Log(string.Format("geo content={0:F0}x{1:F0} win={2:F0}x{3:F0} card={4:F0}x{5:F0} scale={6:F2} clear={7}{8}",
+                lay.BoundsW, lay.BoundsH,
+                Width, Height,
+                _card == null ? -1 : _card.ActualWidth, _card == null ? -1 : _card.ActualHeight,
+                _cfg.Scale, _cfg.ClearBg, parts));
         }
 
         void ApplyModuleCaps(LayoutResult lay)
@@ -459,6 +491,9 @@ namespace Amc
                 // Width, not MaxWidth: the box *is* the text box, so the TextBlock has to be told
                 // the exact measure or WPF sizes it against the whole canvas and never trims.
                 if ((_geoLog++ % 15) == 0) LogGeometry(lay);
+                // AMC_DEBUG_RECTS=1 draws the module rects straight on the card, so a screenshot
+                // shows whether the text actually lives where the template says it does.
+                if (Environment.GetEnvironmentVariable("AMC_DEBUG_RECTS") == "1") DrawDebugRects(lay);
                 _boxTitleW = Math.Max(1.0, t.W);
                 _title.Width = Math.Max(1.0, t.W);
                 _title.TextTrimming = TextTrimming.CharacterEllipsis;

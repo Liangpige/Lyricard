@@ -144,7 +144,10 @@ namespace Amc
 
             CardMetrics baseMetrics = _card.Metrics();
             double s = _card.ScaleValue;
-            LayoutResult lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), true);
+            // The card lays out at 1:1 and multiplies once, via its LayoutTransform. Computing the
+            // board from *scaled* metrics and then multiplying by _s again scaled everything twice,
+            // which is why the board's boxes were smaller than the card's for the same template.
+            LayoutResult lay = LayoutEngine.Compute(_draft, baseMetrics, true);
 
             // Draw the board at the card's own scale, 1:1. Shrinking the board to fit its panel
             // made every comparison a guess ("looks bigger / looks longer"); at 1:1 a box is the
