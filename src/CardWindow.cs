@@ -781,7 +781,10 @@ namespace Amc
 
             _shadowHost = new Border
             {
-                Padding = new Thickness(0),   // no gutter: window size == content size
+                // Gutter around the card inside its own window. Press-scale shrinks the card and
+                // hover rings/halo draw slightly outside the card box; with zero padding those
+                // pixels were clipped by the window edge. The window already reserves 2*ShadowPad.
+                Padding = new Thickness(ShadowPad),
                 Background = Brushes.Transparent,
                 Child = _card,
                 LayoutTransform = new ScaleTransform(_cfg.Scale, _cfg.Scale)
@@ -1366,8 +1369,9 @@ namespace Amc
                       && _cfg.Top > wa.Top - 40 && _cfg.Top < wa.Bottom - 60;
             if (ok)
             {
-                Left = _cfg.Left;
-                Top = _cfg.Top;
+                // cfg.Left/Top are card coordinates; the window has a ShadowPad gutter around it
+                Left = _cfg.Left - ShadowPad * _cfg.Scale;
+                Top = _cfg.Top - ShadowPad * _cfg.Scale;
                 ClampToScreen();
             }
             else
@@ -1631,8 +1635,8 @@ namespace Amc
         void RememberPosition()
         {
             if (double.IsNaN(Left) || double.IsNaN(Top)) return;
-            _cfg.Left = Left;
-            _cfg.Top = Top;
+            _cfg.Left = Left + ShadowPad * _cfg.Scale;
+            _cfg.Top = Top + ShadowPad * _cfg.Scale;
         }
 
         // ---------------- context menu ----------------
