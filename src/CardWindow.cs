@@ -694,15 +694,44 @@ namespace Amc
         /// the old indent settings are gone: the template's rectangle is the only thing that decides
         /// where text starts, so nothing is left to re-apply except the neutral values.
         /// </summary>
+        /// <summary>Text alignment inside a module box, straight from the template.</summary>
+        public TextAlignment ModuleAlignment(ModuleKind kind)
+        {
+            ModuleConfig mc = Model == null ? null : Model.Find(kind);
+            if (mc == null) return TextAlignment.Left;
+            switch (mc.Align)
+            {
+                case ModuleAlign.Center: return TextAlignment.Center;
+                case ModuleAlign.Right: return TextAlignment.Right;
+                default: return TextAlignment.Left;
+            }
+        }
+
+        /// <summary>Horizontal placement of the block itself, so a centred line centres in the box.</summary>
+        static HorizontalAlignment HostAlign(TextAlignment ta)
+        {
+            if (ta == TextAlignment.Center) return HorizontalAlignment.Center;
+            if (ta == TextAlignment.Right) return HorizontalAlignment.Right;
+            return HorizontalAlignment.Left;
+        }
+
         public void ApplyAlign()
         {
             if (_title == null || _lyric == null || _barRow == null) return;
-            _title.HorizontalAlignment = HorizontalAlignment.Left;
-            _title.TextAlignment = TextAlignment.Left;
+            var taTitle = ModuleAlignment(ModuleKind.Title);
+            _title.TextAlignment = taTitle;
+            _title.HorizontalAlignment = HostAlign(taTitle);
             _title.Margin = new Thickness(0);
-            _lyric.HorizontalAlignment = HorizontalAlignment.Left;
-            _lyric.TextAlignment = TextAlignment.Left;
+            var taLyric = ModuleAlignment(ModuleKind.Lyrics);
+            _lyric.TextAlignment = taLyric;
+            _lyric.HorizontalAlignment = HostAlign(taLyric);
             _lyric.Margin = new Thickness(0);
+            if (_artist != null)
+            {
+                var taArtist = ModuleAlignment(ModuleKind.Artist);
+                _artist.TextAlignment = taArtist;
+                _artist.HorizontalAlignment = HostAlign(taArtist);
+            }
             _barRow.Margin = new Thickness(0);
             UpdateLayout();
         }

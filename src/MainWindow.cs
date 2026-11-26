@@ -960,6 +960,32 @@ namespace Amc
         }
 
         /// <summary>Segmented control: one row of pills, exactly one selected.</summary>
+        static readonly ModuleAlign[] AlignValues = new ModuleAlign[]
+            { ModuleAlign.Left, ModuleAlign.Center, ModuleAlign.Right };
+
+        int AlignIndex(ModuleKind kind)
+        {
+            CardConfig m = _card.Model;
+            ModuleConfig mc = m == null ? null : m.Find(kind);
+            if (mc == null) return 0;
+            int i = Array.IndexOf(AlignValues, mc.Align);
+            return i < 0 ? 0 : i;
+        }
+
+        void SetModuleAlign(ModuleKind kind, int idx)
+        {
+            if (idx < 0 || idx >= AlignValues.Length) return;
+            CardConfig m = _card.Model;
+            ModuleConfig mc = m == null ? null : m.Find(kind);
+            if (mc == null) return;
+            mc.Align = AlignValues[idx];
+            // The template is the truth, so write it straight away (no draft round-trip) and let the
+            // card re-apply alignment on the next repaint.
+            m.Save(CardConfig.DefaultPath);
+            _card.InvalidateModel();
+            _card.ApplyLook();
+        }
+
         UIElement Segmented(string[] labels, int selected, Action<int> pick)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal };
@@ -1104,6 +1130,15 @@ namespace Amc
             box.Children.Add(Section(Strings.T("sec.text")));
             box.Children.Add(Row(Strings.T("lbl.titleSize"), Stepper(_cfg.TitleScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
             { _cfg.TitleScale = v; _card.ApplyLook(); _cfg.Save(); })));
+
+            // Alignment lives on the module (layout.ini), not on the appearance settings: the box is
+            // the text box, so "left/centre/right" is how the text sits inside it.
+            box.Children.Add(Row("歌名对齐", Segmented(new string[] { "居左", "居中", "居右" },
+                AlignIndex(ModuleKind.Title), delegate(int idx) { SetModuleAlign(ModuleKind.Title, idx); })));
+            box.Children.Add(Row("艺人对齐", Segmented(new string[] { "居左", "居中", "居右" },
+                AlignIndex(ModuleKind.Artist), delegate(int idx) { SetModuleAlign(ModuleKind.Artist, idx); })));
+            box.Children.Add(Row("歌词对齐", Segmented(new string[] { "居左", "居中", "居右" },
+                AlignIndex(ModuleKind.Lyrics), delegate(int idx) { SetModuleAlign(ModuleKind.Lyrics, idx); })));
             box.Children.Add(ColorRow(Strings.T("lbl.titleColor"), _cfg.TitleColor, delegate(string v)
             { _cfg.TitleColor = v; _card.ApplyLook(); _cfg.Save(); }));
 
