@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // Shortcut.cs
 //
 /// Creates the desktop shortcut on demand (--shortcut desktop) instead of shipping a
@@ -111,7 +111,7 @@ namespace Amc
                 set("TargetPath", target);
                 set("WorkingDirectory", workDir);
                 set("IconLocation", target + ",0");
-                set("Description", "Lyricard - 浮声");
+                set("Description", "Lyricard");
                 lt.InvokeMember("Save", BindingFlags.InvokeMethod, null, lnk, new object[0]);
                 return File.Exists(linkPath);
             }
