@@ -190,15 +190,15 @@ namespace Amc
                 if (!lay.TryFind(mc.Kind, out r)) continue;
 
                 FrameworkElement box;
-                if (mc.Kind == ModuleKind.Cover) box = Placeholder("封面", r, true);
-                else if (mc.Kind == ModuleKind.Title) box = Placeholder("歌名", r, false);
-                else if (mc.Kind == ModuleKind.Artist) box = Placeholder("艺人", r, false);
-                else if (mc.Kind == ModuleKind.Album) box = Placeholder("专辑", r, false);
-                else if (mc.Kind == ModuleKind.Lyrics) box = Placeholder("歌词", r, false);
-                else if (mc.Kind == ModuleKind.Progress) box = Placeholder("进度条", r, false);
-                else if (mc.Kind == ModuleKind.Controls) box = Placeholder("暂停/播放", r, false);
-                else if (mc.Kind == ModuleKind.MusicBars) box = Placeholder("律动条", r, false);
-                else box = Placeholder("按钮", r, false);
+                if (mc.Kind == ModuleKind.Cover) box = Placeholder(Strings.T("mod.cover"), r, true);
+                else if (mc.Kind == ModuleKind.Title) box = Placeholder(Strings.T("mod.title"), r, false);
+                else if (mc.Kind == ModuleKind.Artist) box = Placeholder(Strings.T("mod.artist"), r, false);
+                else if (mc.Kind == ModuleKind.Album) box = Placeholder(Strings.T("mod.album"), r, false);
+                else if (mc.Kind == ModuleKind.Lyrics) box = Placeholder(Strings.T("mod.lyrics"), r, false);
+                else if (mc.Kind == ModuleKind.Progress) box = Placeholder(Strings.T("mod.progress"), r, false);
+                else if (mc.Kind == ModuleKind.Controls) box = Placeholder(Strings.T("mod.controls"), r, false);
+                else if (mc.Kind == ModuleKind.MusicBars) box = Placeholder(Strings.T("mod.bars"), r, false);
+                else box = Placeholder(Strings.T("mod.button"), r, false);
 
                 box.Tag = mc.Kind;
                 Canvas.SetLeft(box, (r.X + _padX) * _s);
@@ -283,7 +283,7 @@ namespace Amc
                 item.Click += delegate { SetEnabled(captured, true); };
                 m.Items.Add(item);
             }
-            if (m.Items.Count == 0) m.Items.Add(new MenuItem { Header = "所有模块都在卡片上了", IsEnabled = false });
+            if (m.Items.Count == 0) m.Items.Add(new MenuItem { Header = Strings.T("menu.allPlaced"), IsEnabled = false });
             m.PlacementTarget = this;
             m.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
             MenuTheme.Apply(m);
@@ -301,16 +301,16 @@ namespace Amc
             m.Items.Add(new Separator());
 
             bool on = mc != null && mc.Enabled;
-            MenuItem toggle = new MenuItem { Header = on ? "隐藏这个模块" : "显示这个模块" };
+            MenuItem toggle = new MenuItem { Header = on ? Strings.T("menu.hideModule") : Strings.T("menu.showModule") };
             toggle.Click += delegate { SetEnabled(kind, !on); };
             m.Items.Add(toggle);
 
-            MenuItem del = new MenuItem { Header = "删除这个模块", IsEnabled = on };
+            MenuItem del = new MenuItem { Header = Strings.T("menu.deleteModule"), IsEnabled = on };
             del.Click += delegate { SetEnabled(kind, false); };
             m.Items.Add(del);
 
             m.Items.Add(new Separator());
-            MenuItem add = new MenuItem { Header = "添加模块" };
+            MenuItem add = new MenuItem { Header = Strings.T("menu.addModule") };
             for (int k = 0; k < Enum.GetValues(typeof(ModuleKind)).Length; k++)
             {
                 ModuleKind kk = (ModuleKind)k;
@@ -386,14 +386,14 @@ namespace Amc
         {
             switch (k)
             {
-                case ModuleKind.Cover: return "封面";
-                case ModuleKind.Title: return "歌名";
-                case ModuleKind.Artist: return "艺人";
-                case ModuleKind.Album: return "专辑";
-                case ModuleKind.Lyrics: return "歌词";
-                case ModuleKind.Progress: return "进度条";
-                case ModuleKind.Controls: return "暂停/播放";
-                case ModuleKind.MusicBars: return "律动条";
+                case ModuleKind.Cover: return Strings.T("mod.cover");
+                case ModuleKind.Title: return Strings.T("mod.title");
+                case ModuleKind.Artist: return Strings.T("mod.artist");
+                case ModuleKind.Album: return Strings.T("mod.album");
+                case ModuleKind.Lyrics: return Strings.T("mod.lyrics");
+                case ModuleKind.Progress: return Strings.T("mod.progress");
+                case ModuleKind.Controls: return Strings.T("mod.controls");
+                case ModuleKind.MusicBars: return Strings.T("mod.bars");
             }
             return k.ToString();
         }

@@ -36,8 +36,47 @@ namespace Amc
         static Strings()
         {
             Both("app.title", "Lyricard", "Lyricard");
-            Both("app.version", "v0.2.7", "v0.2.7");
-            Both("app.tip", "Lyricard v0.2.7 · 桌面歌词卡片", "Lyricard v0.2.7 · desktop lyric card");
+            // board + module editor
+            Both("board.addModule", "添加模块…", "Add module...");
+            Both("board.refresh", "刷新", "Refresh");
+            Both("board.applyNote", "以上修改需要点击【应用】才会生效；以下设置改动立即生效。",
+                 "Changes above need Apply; everything below takes effect at once.");
+            Both("mod.cover", "封面", "Cover");
+            Both("mod.title", "歌名", "Title");
+            Both("mod.artist", "艺人", "Artist");
+            Both("mod.album", "专辑", "Album");
+            Both("mod.lyrics", "歌词", "Lyrics");
+            Both("mod.progress", "进度条", "Progress");
+            Both("mod.controls", "暂停/播放", "Play/pause");
+            Both("mod.bars", "律动条", "Bars");
+            Both("mod.button", "按钮", "Button");
+            Both("menu.showModule", "显示这个模块", "Show this module");
+            Both("menu.hideModule", "隐藏这个模块", "Hide this module");
+            Both("menu.deleteModule", "删除这个模块", "Remove this module");
+            Both("menu.addModule", "添加模块", "Add module");
+            Both("menu.allPlaced", "所有模块都在卡片上了", "Every module is already on the card");
+            // template controls above the divider
+            Both("cap.title", "歌名长度上限", "Title max chars");
+            Both("cap.artist", "艺人长度上限", "Artist max chars");
+            Both("cap.lyrics", "歌词长度上限", "Lyrics max chars");
+            Both("lbl.alignTitle", "歌名对齐", "Title align");
+            Both("lbl.alignArtist", "艺人对齐", "Artist align");
+            Both("lbl.alignLyrics", "歌词对齐", "Lyrics align");
+            Both("align.left", "居左", "Left");
+            Both("align.center", "居中", "Center");
+            Both("align.right", "居右", "Right");
+            Both("lbl.sameLine", "歌名艺人同框", "Title and artist on one line");
+            // spectrum
+            Both("sec.spectrum", "频谱", "Spectrum");
+            Both("lbl.barsLength", "频谱长度", "Spectrum length");
+            Both("lbl.barsHeight", "频谱最大高度", "Spectrum height");
+            Both("lbl.barsCount", "条数（0=自动）", "Bar count (0 = auto)");
+            Both("lbl.barsThickness", "线条粗细", "Bar thickness");
+            Both("lbl.barsAttack", "上升速度", "Attack");
+            Both("lbl.barsRelease", "回落速度", "Release");
+            Both("lbl.barsColor", "频谱颜色", "Spectrum colour");
+            Both("app.version", "v0.3.0", "v0.3.0");
+            Both("app.tip", "Lyricard v0.3.0 · 桌面歌词卡片", "Lyricard v0.3.0 · desktop lyric card");
 
             Both("menu.showHide", "显示 / 隐藏", "Show / hide");
             Both("menu.settings", "个性化设置…", "Appearance…");
@@ -107,7 +146,9 @@ namespace Amc
             Both("page.lyr.opendir", "打开数据目录", "Open data folder");
             Both("page.lyr.cleared", "已清除", "Cleared");
             Both("page.lyr.confirm", "确定要清掉全部歌词缓存吗？下次播放会重新联网取词。", "Clear the whole lyric cache? They will be fetched again on next play.");
-            Both("page.about.blurb", "Lyricard —— 浮在桌面上的 Apple Music 歌词卡片。", "Lyricard — an Apple Music lyric card that floats on your desktop.");
+            Both("page.about.blurb",
+                 "Lyricard —— 一张浮在桌面上的歌词卡片。版式是模板，画板里拖出你自己的一张；默认跟 Apple Music，也可以同时盯 9 家播放器。",
+                 "Lyricard — a floating lyric card whose layout is a template you drag together. It follows Apple Music by default and can watch any of nine players.");
             Both("page.about.credits", "第三方：歌词来自 QQ 音乐 / 网易云音乐 / lrclib 的公开接口，非官方，仅供个人同步显示；图标自绘；字体使用系统字体。", "Third party: lyrics come from the public QQ Music / NetEase / lrclib endpoints — unofficial, for personal display only. Icon drawn in code, system fonts.");
             Both("page.about.shortcuts", "快捷键与入口：托盘双击打开主页面 · 右键卡片出菜单 · Esc 关闭当前面板", "Gestures: double-click the tray icon for this page · right-click the card for its menu · Esc closes the current panel");
             Both("page.about.license", "许可", "License");
@@ -184,8 +225,7 @@ namespace Amc
             Both("sec.presets", "预设", "Presets");
 
             Both("sec.text", "文字", "Text");
-            Both("sec.bar", "进度条", "Progress bar");
-            Both("sec.art", "封面", "Artwork");
+                        Both("sec.art", "封面", "Artwork");
             Both("sec.card", "卡片", "Card");
             Both("lbl.lang", "界面语言", "Language");
             Both("lang.auto", "跟随系统", "System");

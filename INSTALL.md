@@ -1,8 +1,9 @@
 # Lyricard — 安装与卸载
 
-一个放在桌面上的 Apple Music 歌词卡片：曲名 / 作者 / 单行歌词 / 进度条 / 上一曲-暂停-下一曲 / 圆形封面，浮在桌面最上层，跟着 Apple Music 播放。
+一张浮在桌面上的歌词卡片：曲名 / 作者 / 单行歌词 / 进度条 / 上一曲-暂停-下一曲 / 圆形或方形封面 / 可选频谱条。版式是**可编辑的模板**（`data\layout.ini`），在外观页的画板里拖出来；默认只盯 Apple Music，也可以在主页勾上另外 8 家播放器，谁在播就显示谁。
 
-- 程序：`Lyricard.exe`（单文件，免安装，约 290 KB）
+- 程序：`Lyricard.exe`（单文件，免安装，约 300 KB）
+- 版式模板：同目录 `data\layout.ini`（删掉即回到出厂版式）
 - 配置与歌词缓存：同目录 `data\`
 - 无需管理员权限，不写系统目录，除开机自启外不碰注册表
 - 许可证：**MIT**，全文见包内 `LICENSE`；随包还有 `README.md`（功能与已知限制）
@@ -22,7 +23,7 @@
 
 ## 二、安装（三步）
 
-1. 把 `Lyricard-v0.2.7.zip` 解压到一个**你自己有写权限**的目录，例如
+1. 把 `Lyricard-v0.3.0.zip` 解压到一个**你自己有写权限**的目录，例如
    `C:\Users\<你的用户名>\Apps\Lyricard\`。
    > 不建议放在 `C:\Program Files\` 下 —— 那里普通权限写不了 `data\`，配置和缓存会存不下来。
 2. 双击 `Lyricard.exe`。
@@ -147,7 +148,7 @@ Lyricard.exe --uninstall --silent :: 静默卸载
 
 # Install (English, short)
 
-1. Unzip `Lyricard-v0.2.7.zip` into a folder you can write to (e.g. `%USERPROFILE%\Apps\Lyricard`).
+1. Unzip `Lyricard-v0.3.0.zip` into a folder you can write to (e.g. `%USERPROFILE%\Apps\Lyricard`).
    Do **not** use `C:\Program Files` - the app stores `data\` next to the exe.
 2. Run `Lyricard.exe`. If SmartScreen complains, choose "More info" → "Run anyway" (the exe is unsigned).
 3. The card appears at the top-right corner. It shows "♪ Waiting for music" until Apple Music starts playing.

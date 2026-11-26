@@ -1216,18 +1216,18 @@ namespace Amc
             var boardBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 16) };
             boardBar.Children.Add(Pill(Strings.T("board.apply"), delegate { _preview.RaiseApply(); }, true));
             boardBar.Children.Add(Pill(Strings.T("board.cancel"), delegate { _preview.RaiseCancel(); }, false));
-            boardBar.Children.Add(Pill("添加模块…", delegate { _preview.ShowAddMenu(); }, false));
-            boardBar.Children.Add(Pill("刷新", delegate { _preview.RefreshFromCard(); }, false));
+            boardBar.Children.Add(Pill(Strings.T("board.addModule"), delegate { _preview.ShowAddMenu(); }, false));
+            boardBar.Children.Add(Pill(Strings.T("board.refresh"), delegate { _preview.RefreshFromCard(); }, false));
             box.Children.Add(boardBar);
 
             // 长度上限：it is the character cap, and with the box on auto the cap *is* the width,
             // so these three steer the frames you just saw above.
             var capStack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
-            capStack.Children.Add(Row("歌名长度上限", Stepper(CapOf(ModuleKind.Title), 0, 80, 2, "0",
+            capStack.Children.Add(Row(Strings.T("cap.title"), Stepper(CapOf(ModuleKind.Title), 0, 80, 2, "0",
                 delegate(double v) { SetCap(ModuleKind.Title, (int)Math.Round(v)); })));
-            capStack.Children.Add(Row("艺人长度上限", Stepper(CapOf(ModuleKind.Artist), 0, 60, 2, "0",
+            capStack.Children.Add(Row(Strings.T("cap.artist"), Stepper(CapOf(ModuleKind.Artist), 0, 60, 2, "0",
                 delegate(double v) { SetCap(ModuleKind.Artist, (int)Math.Round(v)); })));
-            capStack.Children.Add(Row("歌词长度上限", Stepper(CapOf(ModuleKind.Lyrics), 0, 80, 2, "0",
+            capStack.Children.Add(Row(Strings.T("cap.lyrics"), Stepper(CapOf(ModuleKind.Lyrics), 0, 80, 2, "0",
                 delegate(double v) { SetCap(ModuleKind.Lyrics, (int)Math.Round(v)); })));
             box.Children.Add(capStack);
 
@@ -1283,13 +1283,13 @@ namespace Amc
                 _cfg.Save();
                 _preview.RefreshFromCard();
             })));
-            box.Children.Add(Row("频谱长度", Stepper(_cfg.BarsLength, 40, 420, 10, "0", delegate(double v)
+            box.Children.Add(Row(Strings.T("lbl.barsLength"), Stepper(_cfg.BarsLength, 40, 420, 10, "0", delegate(double v)
             {
                 _cfg.BarsLength = v;
                 BarsModule(v, -1);
                 _cfg.Save();
             })));
-            box.Children.Add(Row("频谱最大高度", Stepper(_cfg.BarsMaxHeight, 8, 90, 2, "0", delegate(double v)
+            box.Children.Add(Row(Strings.T("lbl.barsHeight"), Stepper(_cfg.BarsMaxHeight, 8, 90, 2, "0", delegate(double v)
             {
                 _cfg.BarsMaxHeight = v;
                 BarsModule(-1, v);
@@ -1298,7 +1298,7 @@ namespace Amc
 
 
             box.Children.Add(Rule());
-            var applyNote = Label("以上修改需要点击【应用】才会生效；以下设置改动立即生效。",
+            var applyNote = Label(Strings.T("board.applyNote"),
                                   11.5, TextDim, FontWeights.Normal);
             applyNote.TextWrapping = TextWrapping.Wrap;
             applyNote.Margin = new Thickness(0, 0, 0, 4);
@@ -1312,13 +1312,13 @@ namespace Amc
 
             // Alignment lives on the module (layout.ini), not on the appearance settings: the box is
             // the text box, so "left/centre/right" is how the text sits inside it.
-            box.Children.Add(Row("歌名对齐", Segmented(new string[] { "居左", "居中", "居右" },
+            box.Children.Add(Row(Strings.T("lbl.alignTitle"), Segmented(new string[] { Strings.T("align.left"), Strings.T("align.center"), Strings.T("align.right") },
                 AlignIndex(ModuleKind.Title), delegate(int idx) { SetModuleAlign(ModuleKind.Title, idx); })));
-            box.Children.Add(Row("艺人对齐", Segmented(new string[] { "居左", "居中", "居右" },
+            box.Children.Add(Row(Strings.T("lbl.alignArtist"), Segmented(new string[] { Strings.T("align.left"), Strings.T("align.center"), Strings.T("align.right") },
                 AlignIndex(ModuleKind.Artist), delegate(int idx) { SetModuleAlign(ModuleKind.Artist, idx); })));
-            box.Children.Add(Row("歌词对齐", Segmented(new string[] { "居左", "居中", "居右" },
+            box.Children.Add(Row(Strings.T("lbl.alignLyrics"), Segmented(new string[] { Strings.T("align.left"), Strings.T("align.center"), Strings.T("align.right") },
                 AlignIndex(ModuleKind.Lyrics), delegate(int idx) { SetModuleAlign(ModuleKind.Lyrics, idx); })));
-            box.Children.Add(Row("歌名艺人同框", Toggle(SameLine(), delegate(bool on)
+            box.Children.Add(Row(Strings.T("lbl.sameLine"), Toggle(SameLine(), delegate(bool on)
             {
                 CardConfig m = _card.Model;
                 if (m == null) return;
@@ -1360,30 +1360,30 @@ namespace Amc
             // ---- spectrum bars -------------------------------------------------
             // Length and height write straight into the MusicBars module, so the board's box and the
             // card's row always agree; the rest are pure look knobs that only need a repaint.
-            box.Children.Add(Section("频谱"));
-            box.Children.Add(Row("条数（0=自动）", Stepper(_cfg.BarsCount, 0, 96, 1, "0", delegate(double v)
+            box.Children.Add(Section(Strings.T("sec.spectrum")));
+            box.Children.Add(Row(Strings.T("lbl.barsCount"), Stepper(_cfg.BarsCount, 0, 96, 1, "0", delegate(double v)
             {
                 _cfg.BarsCount = (int)Math.Round(v);
                 _card.ApplyLook();
                 _cfg.Save();
             })));
-            box.Children.Add(Row("线条粗细", Stepper(_cfg.BarsThickness, 2, 14, 1, "0", delegate(double v)
+            box.Children.Add(Row(Strings.T("lbl.barsThickness"), Stepper(_cfg.BarsThickness, 2, 14, 1, "0", delegate(double v)
             {
                 _cfg.BarsThickness = v;
                 _card.ApplyLook();
                 _cfg.Save();
             })));
-            box.Children.Add(Row("上升速度", Stepper(_cfg.BarsAttack, 0.05, 1.0, 0.05, "0.00", delegate(double v)
+            box.Children.Add(Row(Strings.T("lbl.barsAttack"), Stepper(_cfg.BarsAttack, 0.05, 1.0, 0.05, "0.00", delegate(double v)
             {
                 _cfg.BarsAttack = v;
                 _cfg.Save();
             })));
-            box.Children.Add(Row("回落速度", Stepper(_cfg.BarsRelease, 0.02, 1.0, 0.02, "0.00", delegate(double v)
+            box.Children.Add(Row(Strings.T("lbl.barsRelease"), Stepper(_cfg.BarsRelease, 0.02, 1.0, 0.02, "0.00", delegate(double v)
             {
                 _cfg.BarsRelease = v;
                 _cfg.Save();
             })));
-            box.Children.Add(ColorRow("频谱颜色", _cfg.BarsColor, delegate(string v)
+            box.Children.Add(ColorRow(Strings.T("lbl.barsColor"), _cfg.BarsColor, delegate(string v)
             {
                 _cfg.BarsColor = v;
                 _card.ApplyLook();
