@@ -349,7 +349,11 @@ namespace Amc
         {
             if (_canvas == null || _card == null) return;
             CardConfig model = Model;
-            LayoutResult lay = LayoutEngine.Compute(model, Metrics());
+            // Character caps live in the template as "may show N characters"; resolve them to a
+            // width on a copy so the saved file keeps W auto and the cap stays live.
+            CardConfig effective = model.Clone();
+            effective.ResolveMaxCharsWidths();
+            LayoutResult lay = LayoutEngine.Compute(effective, Metrics());
             if (_suspendSize)
             {
                 // content only; CommitCardSize() runs when the drag ends
@@ -1942,6 +1946,16 @@ namespace Amc
             });
         }
 
+        /// <summary>Hard character cap for a module: MaxChars in the template, 0 = no cap.</summary>
+        string CapChars(string text, ModuleKind kind)
+        {
+            if (string.IsNullOrEmpty(text) || Model == null) return text ?? "";
+            ModuleConfig mc = Model.Find(kind);
+            if (mc == null || mc.MaxChars <= 0 || text.Length <= mc.MaxChars) return text;
+            int n = Math.Max(1, mc.MaxChars - 1);
+            return text.Substring(0, n).TrimEnd() + "…";
+        }
+
         /// <summary>
         /// The module box IS the text box: a string longer than the box gets an ellipsis at the
         /// box edge. Measured with FormattedText because a width-constrained TextBlock inside a
@@ -2161,8 +2175,8 @@ namespace Amc
             TextUtil.SplitArtistAlbum(np.Artist, out artistOut, out albumOut);
 
             string ttl = string.IsNullOrEmpty(np.Title) ? "Apple Music" : np.Title;
-            string art = FitToBox(artistOut, _boxArtistW, _artist.FontSize, FontWeights.Normal);
-            _runTitle.Text = FitToBox(ttl, _boxTitleW, _title.FontSize, FontWeights.SemiBold);
+            string art = FitToBox(CapChars(artistOut, ModuleKind.Artist), _boxArtistW, _artist.FontSize, FontWeights.Normal);
+            _runTitle.Text = FitToBox(CapChars(ttl, ModuleKind.Title), _boxTitleW, _title.FontSize, FontWeights.SemiBold);
             SetArtistText(art);
             if (np.Key != _titleKey)
             {

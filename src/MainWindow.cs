@@ -1078,8 +1078,7 @@ namespace Amc
 
             box.Children.Add(Row(Strings.T("lbl.artistSize"), Stepper(_cfg.ArtistScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
             { _cfg.ArtistScale = v; _card.ApplyLook(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artistMax"), Stepper(_cfg.ArtistMaxChars, 4, 40, 1, "0", delegate(double v)
-            { _cfg.ArtistMaxChars = (int)v; _card.ApplyLook(); _cfg.Save(); })));
+            // the artist length cap now lives on the module itself (MaxChars in layout.ini)
             box.Children.Add(ColorRow(Strings.T("lbl.artistColor"), _cfg.ArtistColor, delegate(string v)
             { _cfg.ArtistColor = v; _card.ApplyLook(); _cfg.Save(); }));
 

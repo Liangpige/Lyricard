@@ -91,7 +91,8 @@ namespace Amc
         public string BarColor = "";
         public string BarFillColor = "";
         public double ArtSize = 96.0;
-        public int ArtistMaxChars = 15;
+        /// <summary>Legacy: superseded by ModuleConfig.MaxChars. Parsed so old files still load, never applied.</summary>
+        public int ArtistMaxChars = 0;
         public string TextAlign = "right";   // right | center | left
         public double ControlsX = 100.0;   // 0..100, percent of the free width left of the cover
         public double TitleIndent = 31.0;

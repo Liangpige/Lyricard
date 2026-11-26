@@ -83,6 +83,12 @@ namespace Amc
         /// <summary>Paint order; larger draws later (on top).</summary>
         public int ZIndex = 0;
 
+        /// <summary>
+        /// How many characters this module may show, 0 = no character limit (the box alone decides).
+        /// When W is auto this also *drives* the box width, so the frame in the board resizes with it.
+        /// </summary>
+        public int MaxChars = 0;
+
         public ModuleConfig() { }
 
         public ModuleConfig(ModuleKind kind)
@@ -103,6 +109,7 @@ namespace Amc
             c.Color = Color ?? "";
             c.Align = Align;
             c.ZIndex = ZIndex;
+            c.MaxChars = MaxChars;
             return c;
         }
 
@@ -239,6 +246,7 @@ namespace Amc
                 sb.Append("Color=").Append(m.Color ?? "").Append("\r\n");
                 sb.Append("Align=").Append(m.Align.ToString()).Append("\r\n");
                 sb.Append("ZIndex=").Append(m.ZIndex.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
+                sb.Append("MaxChars=").Append(m.MaxChars.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
             }
             return sb.ToString();
         }
@@ -255,6 +263,30 @@ namespace Amc
         /// Load the saved template. A missing or unreadable file means "factory template" — the
         /// first run must behave exactly like the built-in look, never like an empty card.
         /// </summary>
+        /// <summary>
+        /// Turn "this module may show N characters" into a concrete width when the template left W
+        /// auto. The board draws the result, so setting a character cap visibly resizes the frame.
+        /// </summary>
+        public void ResolveMaxCharsWidths()
+        {
+            for (int i = 0; i < Modules.Count; i++)
+            {
+                ModuleConfig m = Modules[i];
+                if (m == null || !m.Enabled || m.MaxChars <= 0) continue;
+                if (m.W > 0) continue;                       // an explicit width wins
+                double size;
+                bool bold;
+                switch (m.Kind)
+                {
+                    case ModuleKind.Title: size = m.FontSize > 0 ? m.FontSize : 15.5; bold = true; break;
+                    case ModuleKind.Artist: size = m.FontSize > 0 ? m.FontSize : 11.5; bold = false; break;
+                    case ModuleKind.Lyrics: size = m.FontSize > 0 ? m.FontSize : 13.5; bold = false; break;
+                    default: continue;                        // not a text module
+                }
+                m.W = TextMetrics.WidthForChars(m.MaxChars, size, bold, m.W);
+            }
+        }
+
         public static CardConfig LoadOr(string path)
         {
             try
@@ -338,6 +370,7 @@ namespace Amc
                 else if (key.Equals("Color", StringComparison.OrdinalIgnoreCase)) current.Color = val;
                 else if (key.Equals("Align", StringComparison.OrdinalIgnoreCase)) current.Align = AlignOf(val);
                 else if (key.Equals("ZIndex", StringComparison.OrdinalIgnoreCase)) current.ZIndex = Int(val, (int)current.Kind);
+                else if (key.Equals("MaxChars", StringComparison.OrdinalIgnoreCase)) current.MaxChars = Int(val, 0);
                 // anything else: ignored, by design
             }
 

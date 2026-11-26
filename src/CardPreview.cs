@@ -147,7 +147,9 @@ namespace Amc
             // The card lays out at 1:1 and multiplies once, via its LayoutTransform. Computing the
             // board from *scaled* metrics and then multiplying by _s again scaled everything twice,
             // which is why the board's boxes were smaller than the card's for the same template.
-            LayoutResult lay = LayoutEngine.Compute(_draft, baseMetrics, true);
+            CardConfig effective = _draft.Clone();
+            effective.ResolveMaxCharsWidths();
+            LayoutResult lay = LayoutEngine.Compute(effective, baseMetrics, true);
 
             // Draw the board at the card's own scale, 1:1. Shrinking the board to fit its panel
             // made every comparison a guess ("looks bigger / looks longer"); at 1:1 a box is the
@@ -315,6 +317,15 @@ namespace Amc
                 MenuItem smaller = new MenuItem { Header = "字号 -1" };
                 smaller.Click += delegate { BumpSize(kind, -1.0); };
                 m.Items.Add(smaller);
+                MenuItem moreChars = new MenuItem { Header = "字符上限 +1" };
+                moreChars.Click += delegate { BumpChars(kind, 1); };
+                m.Items.Add(moreChars);
+                MenuItem lessChars = new MenuItem { Header = "字符上限 -1" };
+                lessChars.Click += delegate { BumpChars(kind, -1); };
+                m.Items.Add(lessChars);
+                MenuItem noCap = new MenuItem { Header = "不限制字符" };
+                noCap.Click += delegate { SetChars(kind, 0); };
+                m.Items.Add(noCap);
                 m.Items.Add(new Separator());
             }
             MenuItem add = new MenuItem { Header = "添加模块" };
@@ -334,6 +345,24 @@ namespace Amc
         }
 
         /// <summary>Add/remove a module. The card lives off the draft, so nothing else moves.</summary>
+        void SetChars(ModuleKind kind, int chars)
+        {
+            ModuleConfig mc = _draft == null ? null : _draft.Find(kind);
+            if (mc == null) return;
+            mc.MaxChars = Math.Max(0, Math.Min(80, chars));
+            if (mc.MaxChars == 0) mc.W = -1;      // back to auto
+            Rebuild();
+            if (_card != null) _card.InvalidateModel();
+        }
+
+        void BumpChars(ModuleKind kind, int delta)
+        {
+            ModuleConfig mc = _draft == null ? null : _draft.Find(kind);
+            if (mc == null) return;
+            int next = mc.MaxChars <= 0 ? 12 : mc.MaxChars + delta;   // first bump starts at 12
+            SetChars(kind, next);
+        }
+
         void SetEnabled(ModuleKind kind, bool on)
         {
             if (_draft == null) return;
