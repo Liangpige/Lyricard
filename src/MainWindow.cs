@@ -1056,6 +1056,7 @@ namespace Amc
             var boardBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 16) };
             boardBar.Children.Add(Pill(Strings.T("board.apply"), delegate { _preview.RaiseApply(); }, true));
             boardBar.Children.Add(Pill(Strings.T("board.cancel"), delegate { _preview.RaiseCancel(); }, false));
+            boardBar.Children.Add(Pill("添加模块…", delegate { _preview.ShowAddMenu(); }, false));
             box.Children.Add(boardBar);
 
             _preview.BeginDraft(_card);

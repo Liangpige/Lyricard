@@ -453,6 +453,20 @@ namespace Amc
             }
         }
 
+        /// <summary>Font size a module asks for, or the fallback the look settings imply.</summary>
+        public double ModuleFontSize(ModuleKind kind)
+        {
+            ModuleConfig m = Model == null ? null : Model.Find(kind);
+            if (m == null || m.FontSize <= 0) return 0.0;
+            return m.FontSize;
+        }
+
+        double ModuleFont(ModuleKind kind, double fallback)
+        {
+            double pinned = ModuleFontSize(kind);
+            return pinned > 0 ? pinned : fallback;
+        }
+
         /// <summary>The artist name, cached so the standalone artist box can show it.</summary>
         string _artistText = "";
 
@@ -522,9 +536,10 @@ namespace Amc
             sc.Artwork = _artEllipse == null ? null : _artEllipse.Fill;
             sc.Spin = _artRotate == null ? 0 : _artRotate.Angle;
             sc.Halo = false;   // the cover glow was removed
-            sc.TitleSize = _baseTitleSize * _cfg.TitleScale;
-            sc.ArtistSize = _baseArtistSize * _cfg.ArtistScale;
-            sc.LyricSize = _baseLyricSize * _cfg.LyricScale;
+            // A module may pin its own size; otherwise the global look scale decides.
+            sc.TitleSize = ModuleFont(ModuleKind.Title, _baseTitleSize * _cfg.TitleScale);
+            sc.ArtistSize = ModuleFont(ModuleKind.Artist, _baseArtistSize * _cfg.ArtistScale);
+            sc.LyricSize = ModuleFont(ModuleKind.Lyrics, _baseLyricSize * _cfg.LyricScale);
             sc.BarThickness = _cfg.BarThickness;
             sc.TitleBrush = _runTitle == null ? Brushes.White : _runTitle.Foreground;
             sc.ArtistBrush = _runArtist == null ? Brushes.White : _runArtist.Foreground;

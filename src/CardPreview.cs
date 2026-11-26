@@ -59,6 +59,7 @@ namespace Amc
             _canvas.MouseLeftButtonDown += OnDown;
             _canvas.MouseMove += OnMove;
             _canvas.MouseLeftButtonUp += OnUp;
+            _canvas.MouseRightButtonDown += OnRightDown;
         }
 
         public bool HasDraft
@@ -247,6 +248,131 @@ namespace Amc
                 IsHitTestVisible = false
             };
             return border;
+        }
+
+        // -- right-click on a module -------------------------------------------
+
+        void OnRightDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_draft == null) return;
+            ModuleKind? kind = KindOf(e.OriginalSource);
+            if (kind == null) return;
+            ContextMenu m = BuildModuleMenu(kind.Value);
+            m.PlacementTarget = this;
+            m.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+            MenuTheme.Apply(m);
+            m.IsOpen = true;
+            e.Handled = true;
+        }
+
+        /// <summary>The "add module" list on its own, for the button under the board.</summary>
+        public void ShowAddMenu()
+        {
+            if (_draft == null) return;
+            ContextMenu m = new ContextMenu();
+            for (int k = 0; k < Enum.GetValues(typeof(ModuleKind)).Length; k++)
+            {
+                ModuleKind kk = (ModuleKind)k;
+                ModuleConfig exist = _draft.Find(kk);
+                if (exist != null && exist.Enabled) continue;
+                MenuItem item = new MenuItem { Header = Label(kk) };
+                ModuleKind captured = kk;
+                item.Click += delegate { SetEnabled(captured, true); };
+                m.Items.Add(item);
+            }
+            if (m.Items.Count == 0) m.Items.Add(new MenuItem { Header = "所有模块都在卡片上了", IsEnabled = false });
+            m.PlacementTarget = this;
+            m.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+            MenuTheme.Apply(m);
+            m.IsOpen = true;
+        }
+
+        /// <summary>Per-module menu: show/hide, delete, and add another module back.</summary>
+        ContextMenu BuildModuleMenu(ModuleKind kind)
+        {
+            ContextMenu m = new ContextMenu();
+            ModuleConfig mc = _draft.Find(kind);
+
+            MenuItem head = new MenuItem { Header = Label(kind), IsEnabled = false };
+            m.Items.Add(head);
+            m.Items.Add(new Separator());
+
+            bool on = mc != null && mc.Enabled;
+            MenuItem toggle = new MenuItem { Header = on ? "隐藏这个模块" : "显示这个模块" };
+            toggle.Click += delegate { SetEnabled(kind, !on); };
+            m.Items.Add(toggle);
+
+            MenuItem del = new MenuItem { Header = "删除这个模块", IsEnabled = on };
+            del.Click += delegate { SetEnabled(kind, false); };
+            m.Items.Add(del);
+
+            m.Items.Add(new Separator());
+            if (kind == ModuleKind.Title || kind == ModuleKind.Artist || kind == ModuleKind.Lyrics)
+            {
+                MenuItem bigger = new MenuItem { Header = "字号 +1" };
+                bigger.Click += delegate { BumpSize(kind, 1.0); };
+                m.Items.Add(bigger);
+                MenuItem smaller = new MenuItem { Header = "字号 -1" };
+                smaller.Click += delegate { BumpSize(kind, -1.0); };
+                m.Items.Add(smaller);
+                m.Items.Add(new Separator());
+            }
+            MenuItem add = new MenuItem { Header = "添加模块" };
+            for (int k = 0; k < Enum.GetValues(typeof(ModuleKind)).Length; k++)
+            {
+                ModuleKind kk = (ModuleKind)k;
+                ModuleConfig exist = _draft.Find(kk);
+                if (exist != null && exist.Enabled) continue;   // already on the card
+                MenuItem item = new MenuItem { Header = Label(kk) };
+                ModuleKind captured = kk;
+                item.Click += delegate { SetEnabled(captured, true); };
+                add.Items.Add(item);
+            }
+            add.IsEnabled = add.Items.Count > 0;
+            m.Items.Add(add);
+            return m;
+        }
+
+        /// <summary>Add/remove a module. The card lives off the draft, so nothing else moves.</summary>
+        void SetEnabled(ModuleKind kind, bool on)
+        {
+            if (_draft == null) return;
+            ModuleConfig mc = _draft.Find(kind);
+            if (mc == null)
+            {
+                mc = new ModuleConfig(kind);
+                _draft.Modules.Add(mc);
+            }
+            mc.Enabled = on;
+            Rebuild();
+            if (_card != null) _card.InvalidateModel();
+        }
+
+        /// <summary>Font size lives on the module: +1/-1 is absolute points, clamped to something legible.</summary>
+        void BumpSize(ModuleKind kind, double delta)
+        {
+            if (_draft == null) return;
+            ModuleConfig mc = _draft.Find(kind);
+            if (mc == null) return;
+            double now = mc.FontSize > 0 ? mc.FontSize : (_card == null ? 15.0 : _card.ModuleFontSize(kind));
+            mc.FontSize = Math.Max(7.0, Math.Min(72.0, now + delta));
+            Rebuild();
+            if (_card != null) _card.InvalidateModel();
+        }
+
+        static string Label(ModuleKind k)
+        {
+            switch (k)
+            {
+                case ModuleKind.Cover: return "封面";
+                case ModuleKind.Title: return "歌名";
+                case ModuleKind.Artist: return "艺人";
+                case ModuleKind.Album: return "专辑";
+                case ModuleKind.Lyrics: return "歌词";
+                case ModuleKind.Progress: return "进度条";
+                case ModuleKind.Controls: return "按钮";
+            }
+            return k.ToString();
         }
 
         // -- dragging ----------------------------------------------------------
