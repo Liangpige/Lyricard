@@ -216,6 +216,7 @@ namespace Amc
             Both("lbl.lyricSize", "歌词字号", "Lyrics size");
             Both("lbl.lyricColor", "歌词颜色", "Lyrics colour");
 
+            Both("lbl.barLength", "进度条长度", "Bar length");
             Both("lbl.barScale", "长度", "Length");
             Both("lbl.barThickness", "粗细", "Thickness");
             Both("lbl.barColor", "轨道颜色", "Track colour");

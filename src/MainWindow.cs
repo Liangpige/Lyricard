@@ -1257,7 +1257,7 @@ namespace Amc
             })));
             // Same story as the cover: these steer the Progress and MusicBars modules, so they
             // sit with the draft controls instead of pretending to be instant repaints.
-            box.Children.Add(Row(Strings.T("lbl.barScale"), Stepper(_cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
+            box.Children.Add(Row(Strings.T("lbl.barLength"), Stepper(_cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
             {
                 double oldScale = _cfg.BarScale <= 0 ? 1.0 : _cfg.BarScale;
                 _cfg.BarScale = v;
