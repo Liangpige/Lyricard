@@ -76,6 +76,12 @@ namespace Amc
                 return;
             }
 
+            if (args != null && args.Length >= 1 && args[0] == "--boardtest")
+            {
+                RunBoardTest();
+                return;
+            }
+
             if (args != null && args.Length >= 1 && args[0] == "--smtcdump")
             {
                 RunSmtcDump();
@@ -474,5 +480,28 @@ namespace Amc
             }
             catch { }
         }
-    }
+    
+        // Head-less check of the template undo path (what the board's Cancel button runs): mutate a
+        // module, stash the previous template, save, then restore. Lets the logic be verified
+        // without driving a mouse.
+        static void RunBoardTest()
+        {
+            string live = CardConfig.DefaultPath;
+            CardConfig model = CardConfig.LoadOr(live);
+            ModuleConfig lyrics = model.Find(ModuleKind.Lyrics);
+            double before = lyrics == null ? double.NaN : lyrics.Y;
+            if (lyrics != null) lyrics.Y = (double.IsNaN(before) ? 0.0 : before) - 40.0;
+            model.Save(live + ".prev");                  // the pre-Apply snapshot
+            model.Save(live);
+            CardConfig saved = CardConfig.LoadOr(live);
+            ModuleConfig a = saved.Find(ModuleKind.Lyrics);
+            Console.WriteLine("saved lyrics.Y=" + (a == null ? "?" : a.Y.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)));
+
+            CardConfig prev = CardConfig.Parse(File.ReadAllText(live + ".prev", System.Text.Encoding.UTF8));
+            ModuleConfig b = prev.Find(ModuleKind.Lyrics);
+            prev.Save(live);
+            Console.WriteLine("restored lyrics.Y=" + (b == null ? "?" : b.Y.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))
+                + " (before " + before.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + ")");
+        }
+}
 }

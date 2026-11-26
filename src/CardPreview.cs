@@ -36,6 +36,7 @@ namespace Amc
 
         CardWindow _card;
         CardConfig _draft;
+        CardConfig _applied;   // what the card looked like before the last Apply (Cancel undoes it)
         LayoutResult _lay;
         double _s = 1.0;
         double _padX, _padY;
@@ -76,9 +77,31 @@ namespace Amc
         }
 
         /// <summary>Discard the draft and go back to what the card is actually using.</summary>
+        /// <summary>
+        /// Cancel means "undo": if an Apply already happened, the card goes back to the template it
+        /// had before that Apply (and that is written to disk again). With no Apply yet it simply
+        /// drops the working draft.
+        /// </summary>
         public void Revert()
         {
             if (_card == null) return;
+            if (_card.RestorePreviousModel())
+            {
+                _applied = null;
+                _draft = _card.Model.Clone();
+                Rebuild();
+                return;
+            }
+            if (_applied != null)
+            {
+                CardConfig live = _card.Model;
+                live.Modules.Clear();
+                for (int i = 0; i < _applied.Modules.Count; i++) live.Modules.Add(_applied.Modules[i].Clone());
+                _applied = null;
+                _card.InvalidateModel();
+                _card.SaveModel();
+                LyricsService.Log("board cancel -> restored template");
+            }
             _draft = _card.Model.Clone();
             Rebuild();
         }
@@ -89,6 +112,8 @@ namespace Amc
             LyricsService.Log("board apply drafts=" + (_draft == null ? -1 : _draft.Modules.Count));
             if (_card == null || _draft == null) return;
             CardConfig live = _card.Model;
+            _applied = live.Clone();                          // memory fallback
+            _card.StorePreviousModel(live.Clone());           // survives the rebuild after Apply
             live.Modules.Clear();
             for (int i = 0; i < _draft.Modules.Count; i++) live.Modules.Add(_draft.Modules[i].Clone());
             _card.InvalidateModel();

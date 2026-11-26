@@ -137,6 +137,11 @@ namespace Amc
 
         public List<ModuleConfig> Modules = new List<ModuleConfig>();
 
+        // The card is exactly this big, in logical units. The editor owns these numbers; the
+        // window and the board both derive their size from them and nothing else.
+        public double CardW = 470;
+        public double CardH = 122;
+
         public CardConfig() { }
 
         /// <summary>
@@ -174,6 +179,8 @@ namespace Amc
         {
             CardConfig c = new CardConfig();
             c.SchemaVersion = SchemaVersion;
+            c.CardW = CardW;
+            c.CardH = CardH;
             for (int i = 0; i < Modules.Count; i++) c.Modules.Add(Modules[i].Clone());
             return c;
         }
@@ -195,6 +202,8 @@ namespace Amc
             StringBuilder sb = new StringBuilder();
             sb.Append("# Lyricard card layout\r\n");
             sb.Append("SchemaVersion=").Append(SchemaVersion.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
+            sb.Append("CardW=").Append(Num(CardW)).Append("\r\n");
+            sb.Append("CardH=").Append(Num(CardH)).Append("\r\n");
 
             int kindCount = Enum.GetValues(typeof(ModuleKind)).Length;
             for (int k = 0; k < kindCount; k++)
@@ -298,6 +307,8 @@ namespace Amc
                     // Only SchemaVersion lives outside a section.
                     if (key.Equals("SchemaVersion", StringComparison.OrdinalIgnoreCase))
                         c.SchemaVersion = Int(val, CardSchema.Version);
+                    else if (key.Equals("CardW", StringComparison.OrdinalIgnoreCase)) c.CardW = Number(val, 470);
+                    else if (key.Equals("CardH", StringComparison.OrdinalIgnoreCase)) c.CardH = Number(val, 122);
                     continue;
                 }
 

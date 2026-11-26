@@ -281,10 +281,50 @@ namespace Amc
             return CardConfig.LoadOr(CardConfig.DefaultPath);
         }
 
-        /// <summary>Persist the live template (called after the board applies a draft).</summary>
+        /// <summary>
+        /// Persist the live template (called after the board applies a draft). The previous file is
+        /// kept as layout.prev.ini so Cancel can put the card back the way it was.
+        /// </summary>
         public bool SaveModel()
         {
-            return Model != null && Model.Save(CardConfig.DefaultPath);
+            CardConfig m = Model;
+            if (m == null) return false;
+            try
+            {
+                string path = CardConfig.DefaultPath;
+                if (System.IO.File.Exists(path)) System.IO.File.Copy(path, path + ".prev", true);
+            }
+            catch (Exception) { }
+            return m.Save(CardConfig.DefaultPath);
+        }
+
+        /// <summary>Stash a template as the "before" state so Cancel can return to it.</summary>
+        public void StorePreviousModel(CardConfig model)
+        {
+            if (model == null) return;
+            model.Save(CardConfig.DefaultPath + ".prev");
+        }
+
+        /// <summary>Undo the last applied template. False when there is nothing to go back to.</summary>
+        public bool RestorePreviousModel()
+        {
+            string prev = CardConfig.DefaultPath + ".prev";
+            try
+            {
+                if (!System.IO.File.Exists(prev)) return false;
+                CardConfig old = CardConfig.Parse(System.IO.File.ReadAllText(prev, System.Text.Encoding.UTF8));
+                CardConfig live = Model;
+                live.Modules.Clear();
+                for (int i = 0; i < old.Modules.Count; i++) live.Modules.Add(old.Modules[i].Clone());
+                live.Save(CardConfig.DefaultPath);
+                InvalidateModel();
+                LyricsService.Log("board cancel -> restored template from layout.prev.ini");
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         /// <summary>Metrics for the current look: fonts follow the scale sliders, width follows BarScale.</summary>
@@ -689,7 +729,7 @@ namespace Amc
                 Width = CardW,
                 Height = double.NaN,   // grows with the content / cover size
                 CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(16, 12, 16, 12),
+                Padding = new Thickness(0),   // coordinates are absolute: no inset anywhere
                 Background = new SolidColorBrush(Color.FromArgb(238, 18, 18, 21)),
                 BorderBrush = White(0.10),
                 BorderThickness = new Thickness(1)

@@ -244,23 +244,16 @@ namespace Amc
             }
             if (result.Rects.Count == 0) { minX = minY = maxX = maxY = 0; }
 
-            if (normalize)
-            {
-                for (int i = 0; i < result.Rects.Count; i++)
-                {
-                    ModuleRect mr = result.Rects[i];
-                    mr.X -= minX;
-                    mr.Y -= minY;
-                    result.Rects[i] = mr;
-                }
-            }
+            // No translation: X/Y in the config is the X/Y on screen.
 
-            result.BoundsX = normalize ? 0 : minX;
-            result.BoundsY = normalize ? 0 : minY;
-            result.BoundsW = maxX - minX;
-            result.BoundsH = maxY - minY;
-            result.CardW = result.BoundsW + (m.PadX + m.Border) * 2;
-            result.CardH = result.BoundsH + (m.PadY + m.Border) * 2;
+            // The editor's numbers are the only truth: no union, no centring, no padding.
+            // A module at (50,20) is drawn at (50,20) whatever else is on the card.
+            result.BoundsX = 0;
+            result.BoundsY = 0;
+            result.BoundsW = cfg.CardW;
+            result.BoundsH = cfg.CardH;
+            result.CardW = cfg.CardW;
+            result.CardH = cfg.CardH;
             return result;
         }
 
