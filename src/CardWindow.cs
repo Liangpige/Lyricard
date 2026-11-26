@@ -438,13 +438,18 @@ namespace Amc
             ModuleRect t, l;
             if (lay.TryFind(ModuleKind.Title, out t) && _title != null)
             {
+                // The host is exactly the module rect. Without that the TextBlock is measured
+                // against the whole canvas and MaxWidth never has anything to trim.
+                if (_hostTitle != null) { _hostTitle.Width = Math.Max(1.0, t.W); _hostTitle.Height = Math.Max(1.0, t.H); _hostTitle.ClipToBounds = true; }
                 _title.MaxWidth = Math.Max(1.0, t.W);
                 _title.TextTrimming = TextTrimming.CharacterEllipsis;
             }
             if (lay.TryFind(ModuleKind.Lyrics, out l) && _lyric != null)
             {
+                if (_hostLyric != null) { _hostLyric.Width = Math.Max(1.0, l.W); _hostLyric.Height = Math.Max(1.0, l.H); _hostLyric.ClipToBounds = true; }
                 _lyric.MaxWidth = Math.Max(1.0, l.W);
                 _lyric.TextTrimming = TextTrimming.CharacterEllipsis;
+                _lyric.TextWrapping = TextWrapping.NoWrap;
             }
         }
 
@@ -740,7 +745,7 @@ namespace Amc
 
             _shadowHost = new Border
             {
-                Padding = new Thickness(ShadowPad),
+                Padding = new Thickness(0),   // no gutter: window size == content size
                 Background = Brushes.Transparent,
                 Child = _card,
                 LayoutTransform = new ScaleTransform(_cfg.Scale, _cfg.Scale)
