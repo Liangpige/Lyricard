@@ -384,7 +384,7 @@ namespace Amc
             _artistText = art ?? "";
             ModuleConfig ac = Model == null ? null : Model.Find(ModuleKind.Artist);
             bool standalone = ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
-            if (_runArtist != null) _runArtist.Text = standalone ? "" : _artistText;
+            if (_runArtist != null) _runArtist.Text = standalone ? "" : ("   " + _artistText);
             if (_artist != null && standalone) _artist.Text = _artistText;
             if (_hostArtist != null) _hostArtist.Visibility = standalone ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -425,7 +425,8 @@ namespace Amc
             Canvas.SetLeft(_hostArtist, ar.X);
             Canvas.SetTop(_hostArtist, ar.Y);
             _artist.Text = _artistText;
-            _artist.MaxWidth = Math.Max(1.0, ar.W);
+            _boxArtistW = Math.Max(1.0, ar.W);
+            _artist.Width = Math.Max(1.0, ar.W);
             UpdateLayout();
         }
 
@@ -441,13 +442,17 @@ namespace Amc
                 // The host is exactly the module rect. Without that the TextBlock is measured
                 // against the whole canvas and MaxWidth never has anything to trim.
                 if (_hostTitle != null) { _hostTitle.Width = Math.Max(1.0, t.W); _hostTitle.Height = Math.Max(1.0, t.H); _hostTitle.ClipToBounds = true; }
-                _title.MaxWidth = Math.Max(1.0, t.W);
+                // Width, not MaxWidth: the box *is* the text box, so the TextBlock has to be told
+                // the exact measure or WPF sizes it against the whole canvas and never trims.
+                _boxTitleW = Math.Max(1.0, t.W);
+                _title.Width = Math.Max(1.0, t.W);
                 _title.TextTrimming = TextTrimming.CharacterEllipsis;
+                _title.TextWrapping = TextWrapping.NoWrap;
             }
             if (lay.TryFind(ModuleKind.Lyrics, out l) && _lyric != null)
             {
                 if (_hostLyric != null) { _hostLyric.Width = Math.Max(1.0, l.W); _hostLyric.Height = Math.Max(1.0, l.H); _hostLyric.ClipToBounds = true; }
-                _lyric.MaxWidth = Math.Max(1.0, l.W);
+                _lyric.Width = Math.Max(1.0, l.W);
                 _lyric.TextTrimming = TextTrimming.CharacterEllipsis;
                 _lyric.TextWrapping = TextWrapping.NoWrap;
             }
@@ -1887,36 +1892,15 @@ namespace Amc
             });
         }
 
-        // ---------------- data tick ----------------
-
-        // TextBlock's own trimming reserves room for the ellipsis, which pushes the
-        // visible right edge away from the column edge. Measure and cut by hand so the
-        // title/artist line, the lyric, the bar and the buttons share one right edge.
-        // Keep the artist line short so a long list of names cannot eat the whole row.
-        string ClipArtist(string a)
-        {
-            if (string.IsNullOrEmpty(a)) return "";
-            int max = _cfg.ArtistMaxChars;
-            if (max < 4) max = 4;
-            if (a.Length <= max) return a;
-            string cut = a.Substring(0, max - 1).TrimEnd();
-            return cut + "…";
-        }
-
         /// <summary>
-        /// Truncate the title so title + artist fit the column on one line. Measured with
-        /// FormattedText at the *scaled* font sizes (TextTrimming would reserve the ellipsis and
-        /// push the right edge inward instead of filling the line).
+        /// The module box IS the text box: a string longer than the box gets an ellipsis at the
+        /// box edge. Measured with FormattedText because a width-constrained TextBlock inside a
+        /// manually laid out canvas does not trim reliably on its own.
         /// </summary>
-        string FitTitle(string ttl, string art)
+        string FitToBox(string text, double boxW, double fontSize, FontWeight weight)
         {
-            double ts = _baseTitleSize * _cfg.TitleScale;
-            double asz = _baseArtistSize * _cfg.ArtistScale;
-            double avail = (_content != null && _content.ActualWidth > 1)
-                ? _content.ActualWidth
-                : Math.Max(120, NaturalCol() * _cfg.BarScale);
-            avail -= _cfg.TitleIndent;
-            if (avail < 24) avail = 24;
+            if (string.IsNullOrEmpty(text)) return "";
+            if (boxW <= 2.0 || fontSize <= 0.0) return text;
             double pw = 1.0;
             try
             {
@@ -1924,17 +1908,24 @@ namespace Amc
                 if (src != null && src.CompositionTarget != null) pw = src.CompositionTarget.TransformToDevice.M11;
             }
             catch { }
-            double wa = MeasureW(art, asz, FontWeights.Normal, pw);
-            if (MeasureW(ttl, ts, FontWeights.SemiBold, pw) + wa <= avail) return ttl;
-            string cut = ttl;
-            while (cut.Length > 4)
+            Typeface tf = new Typeface(FontFamily, FontStyles.Normal, weight, FontStretches.Normal);
+            Func<string, double> w = t => new FormattedText(t, CultureInfo.CurrentUICulture,
+                FlowDirection.LeftToRight, tf, fontSize, Brushes.White, pw).WidthIncludingTrailingWhitespace;
+            if (w(text) <= boxW) return text;
+            int cut = text.Length;
+            while (cut > 1)
             {
-                cut = cut.Substring(0, cut.Length - 1);
-                string cand = cut + "…";
-                if (MeasureW(cand, ts, FontWeights.SemiBold, pw) + wa <= avail) return cand;
+                cut--;
+                string cand = text.Substring(0, cut).TrimEnd() + "…";
+                if (w(cand) <= boxW) return cand;
             }
-            return cut;
+            return "…";
         }
+
+        // ---------------- data tick ----------------
+
+        double _boxTitleW = 320.0;
+        double _boxArtistW = 120.0;
 
         double EdgeX0(FrameworkElement el)
         {
@@ -2120,8 +2111,8 @@ namespace Amc
             TextUtil.SplitArtistAlbum(np.Artist, out artistOut, out albumOut);
 
             string ttl = string.IsNullOrEmpty(np.Title) ? "Apple Music" : np.Title;
-            string art = string.IsNullOrEmpty(artistOut) ? "" : "   " + ClipArtist(artistOut);
-            _runTitle.Text = FitTitle(ttl, art);
+            string art = FitToBox(artistOut, _boxArtistW, _artist.FontSize, FontWeights.Normal);
+            _runTitle.Text = FitToBox(ttl, _boxTitleW, _title.FontSize, FontWeights.SemiBold);
             SetArtistText(art);
             if (np.Key != _titleKey)
             {
