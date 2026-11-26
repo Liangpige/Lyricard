@@ -984,6 +984,9 @@ namespace Amc
             m.Save(CardConfig.DefaultPath);
             _card.InvalidateModel();
             _card.ApplyLook();
+            // Repaint the page: a hand-patched pill kept its old text colour, so let the builder draw
+            // the row again. RebuildAll keeps the scroll offset, so the user stays where they were.
+            RebuildAll();
         }
 
         UIElement Segmented(string[] labels, int selected, Action<int> pick)
