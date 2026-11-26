@@ -180,9 +180,28 @@ namespace Amc
         }
 
     /// <summary>Renders the card's current state into the board, reusing the controls it built last time.</summary>
+        bool _busy;
+
         public void Bind(CardWindow card)
         {
             if (card == null) return;
+            // Paint/Apply below raise layout notifications that can bounce straight back into
+            // Bind; without this the scale was re-applied on every hop and collapsed to zero,
+            // which is what threw "not a valid value for FontSize".
+            if (_busy) return;
+            _busy = true;
+            try
+            {
+                BindCore(card);
+            }
+            finally
+            {
+                _busy = false;
+            }
+        }
+
+        void BindCore(CardWindow card)
+        {
             CardMetrics baseMetrics = card.Metrics();
             CardConfig model = card.Model;   // the live model: board edits and card layout must agree
 
@@ -190,7 +209,10 @@ namespace Amc
             // card shrunk, not a second design. Shrink again when the card is wider than the board.
             double s = Scale <= 0 ? 1.0 : Scale;
             LayoutResult layout = LayoutEngine.Compute(model, LayoutEngine.Scaled(baseMetrics, s));
-            if (layout.CardW > FitWidth && layout.CardW > 0)
+            // One pass of correction then re-measure: with text modules the measured width is not
+            // perfectly linear in s, so a second look keeps the board at FitWidth instead of a few
+            // pixels over.
+            for (int pass = 0; pass < 2 && layout.CardW > FitWidth && layout.CardW > 0; pass++)
             {
                 s *= FitWidth / layout.CardW;
                 layout = LayoutEngine.Compute(model, LayoutEngine.Scaled(baseMetrics, s));
@@ -198,10 +220,11 @@ namespace Amc
 
             // Fonts ride the same factor; the card's own scene carries the desktop sizes.
             CardScene scene = card.Scene();
-            scene.TitleSize *= s;
-            scene.ArtistSize *= s;
-            scene.LyricSize *= s;
-            scene.BarThickness *= s;
+            if (s < 0.05) s = 0.05;   // never let the factor run away
+            scene.TitleSize = Math.Max(1.0, scene.TitleSize * s);
+            scene.ArtistSize = Math.Max(1.0, scene.ArtistSize * s);
+            scene.LyricSize = Math.Max(1.0, scene.LyricSize * s);
+            scene.BarThickness = Math.Max(1.0, scene.BarThickness * s);
 
             _card = card;
             _lay = layout;
