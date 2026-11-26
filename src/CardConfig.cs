@@ -154,17 +154,34 @@ namespace Amc
             CardConfig c = new CardConfig();
             c.Modules.Add(new ModuleConfig(ModuleKind.Cover));
             c.Modules.Add(new ModuleConfig(ModuleKind.Title));
+            // The artist is a module of its own: its own line, its own box, freely placeable.
+            // (The old card glued it to the title with a Run; that is gone.)
             ModuleConfig artist = new ModuleConfig(ModuleKind.Artist);
-            // The artist rides on the title line by default. Give it a real width so the editor
-            // shows a box you can grab instead of one that hides under the title's full-width box.
-            artist.W = 120;
+            artist.X = 0;
+            artist.Y = 46;
+            artist.W = 200;
             c.Modules.Add(artist);
             ModuleConfig album = new ModuleConfig(ModuleKind.Album);
             album.Enabled = false;
             c.Modules.Add(album);
-            c.Modules.Add(new ModuleConfig(ModuleKind.Lyrics));
-            c.Modules.Add(new ModuleConfig(ModuleKind.Progress));
-            c.Modules.Add(new ModuleConfig(ModuleKind.Controls));
+            ModuleConfig lyrics = new ModuleConfig(ModuleKind.Lyrics);
+            lyrics.X = 0;
+            lyrics.Y = 68;
+            lyrics.W = 320;
+            c.Modules.Add(lyrics);
+
+            ModuleConfig bar = new ModuleConfig(ModuleKind.Progress);
+            bar.X = 0;
+            bar.Y = 96;
+            bar.W = 320;
+            c.Modules.Add(bar);
+
+            // Three buttons wide, not the whole column: the editor box must look like the row.
+            ModuleConfig controls = new ModuleConfig(ModuleKind.Controls);
+            controls.X = 0;
+            controls.Y = 104;
+            controls.W = 102;
+            c.Modules.Add(controls);
             return c;
         }
 
