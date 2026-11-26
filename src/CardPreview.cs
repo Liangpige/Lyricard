@@ -38,6 +38,7 @@ namespace Amc
         CardConfig _draft;
         LayoutResult _lay;
         double _s = 1.0;
+        double _padX, _padY;
 
         ModuleKind? _drag;
         bool _started;
@@ -117,17 +118,22 @@ namespace Amc
 
             CardMetrics baseMetrics = _card.Metrics();
             double s = _card.ScaleValue;
-            LayoutResult lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), false);
+            LayoutResult lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), true);
 
             // two measure passes: text width is not perfectly linear in the factor
             for (int pass = 0; pass < 2 && lay.CardW > FitWidth && lay.CardW > 0; pass++)
             {
                 s *= FitWidth / lay.CardW;
-                lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), false);
+                lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), true);
             }
 
             _s = Math.Max(0.05, s);
             _lay = lay;
+            // The card's own Border padding is where content really starts; the board must use the
+            // same origin or every box sits (16,12) model units away from where the card draws it.
+            CardMetrics sm = LayoutEngine.Scaled(baseMetrics, s);
+            _padX = sm.PadX + sm.Border;
+            _padY = sm.PadY + sm.Border;
 
             _canvas.Width = lay.CardW * _s;
             _canvas.Height = lay.CardH * _s;
@@ -164,8 +170,8 @@ namespace Amc
                 else box = Placeholder("按钮", r, false);
 
                 box.Tag = mc.Kind;
-                Canvas.SetLeft(box, r.X * _s);
-                Canvas.SetTop(box, r.Y * _s);
+                Canvas.SetLeft(box, (r.X + _padX) * _s);
+                Canvas.SetTop(box, (r.Y + _padY) * _s);
                 _canvas.Children.Add(box);
                 _boxes[mc.Kind] = box;
             }
@@ -378,7 +384,7 @@ namespace Amc
 
                 if (Math.Abs(or.X - mx) < tol || Math.Abs(or.X + or.W * 0.5 - mx) < tol)
                 {
-                    double gx = (or.X * _s) + CardWindow.CardPadX * _s;
+                    double gx = (or.X + _padX) * _s;
                     _guideV.X1 = gx;
                     _guideV.X2 = gx;
                     _guideV.Y1 = 0;
@@ -387,7 +393,7 @@ namespace Amc
                 }
                 if (Math.Abs(or.Y - my) < tol || Math.Abs(or.Y + or.H * 0.5 - my) < tol)
                 {
-                    double gy = (or.Y * _s) + _card.CardPadTop * _s;
+                    double gy = (or.Y + _padY) * _s;
                     _guideH.Y1 = gy;
                     _guideH.Y2 = gy;
                     _guideH.X1 = 0;

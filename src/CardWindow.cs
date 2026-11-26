@@ -370,7 +370,14 @@ namespace Amc
                     return;
                 }
             }
-            if (!lay.TryFind(ModuleKind.Artist, out ar)) return;
+            if (!lay.TryFind(ModuleKind.Artist, out ar))
+            {
+                LyricsService.Log("artist place: no rect");
+                return;
+            }
+            LyricsService.Log("artist place standalone=" + (explicitPos ? "1" : "0")
+                + " rect=" + ar.X.ToString("0.0") + "," + ar.Y.ToString("0.0") + " " + ar.W.ToString("0.0") + "x" + ar.H.ToString("0.0")
+                + " text=" + (_artistText ?? ""));
             _runArtist.Text = "";
             _hostArtist.Visibility = Visibility.Visible;
             _hostArtist.Width = Math.Max(1.0, ar.W);
