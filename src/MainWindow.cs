@@ -1029,9 +1029,8 @@ namespace Amc
         {
             var box = new StackPanel();
 
-            // A hint is not a section: keeping it out of Section() avoids a stray hairline
-            // and stops it from consuming the "first group has no divider" slot.
-            box.Children.Add(Hint(Strings.T("page.look.hint")));
+            // No subtitle here any more: the divider further down already explains which half of
+            // the page needs Apply and which half is live, and two notes said the same thing twice.
 
             // ---- board: a sketch pad, never a live mirror --------------------
             // Everything dragged here goes into a private draft; the card itself does not
