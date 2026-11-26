@@ -22,8 +22,6 @@ namespace Amc
     {
         // ---- COM ------------------------------------------------------------
 
-        [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-        class MMDeviceEnumerator { }
 
         [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         interface IMMDeviceEnumerator
@@ -206,7 +204,12 @@ namespace Amc
             client = null; capture = null; mixPtr = IntPtr.Zero; why = "";
             try
             {
-                IMMDeviceEnumerator en = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+                // Activate by CLSID rather than by a [ComImport] coclass: AudioPeak already declares
+                // its own coclass for the same CLSID, and two of them in one assembly make the cast
+                // fail with a type name that looks identical ("cannot cast MMDeviceEnumerator to
+                // MMDeviceEnumerator").
+                Type coclass = Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"));
+                IMMDeviceEnumerator en = (IMMDeviceEnumerator)Activator.CreateInstance(coclass);
                 IMMDevice dev;
                 int hr = en.GetDefaultAudioEndpoint(eRender, eConsole, out dev);
                 if (hr != 0 || dev == null) { why = "endpoint hr=0x" + hr.ToString("X8"); return false; }
