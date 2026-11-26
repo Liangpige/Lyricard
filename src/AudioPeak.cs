@@ -215,6 +215,24 @@ namespace Amc
             return null;
         }
 
+        /// <summary>Current peak on the default output device, 0..1. 0 when it cannot be read.</summary>
+        public static double Peak()
+        {
+            lock (_meterLock)
+            {
+                if (!Ensure()) return 0.0;
+                try
+                {
+                    var meter = _meter;
+                    float peak;
+                    if (meter == null || meter.GetPeakValue(out peak) != 0) { _meter = null; return 0.0; }
+                    if (peak < 0f) return 0.0;
+                    return peak > 1f ? 1.0 : peak;
+                }
+                catch { _meter = null; return 0.0; }
+            }
+        }
+
         /// <summary>True when the default output device is producing sound above
         /// <paramref name="threshold"/> (0..1 peak). Returns false on any failure.</summary>
         public static bool IsAudible(double threshold)

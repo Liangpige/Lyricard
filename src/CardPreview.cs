@@ -197,6 +197,7 @@ namespace Amc
                 else if (mc.Kind == ModuleKind.Lyrics) box = Placeholder("歌词", r, false);
                 else if (mc.Kind == ModuleKind.Progress) box = Placeholder("进度条", r, false);
                 else if (mc.Kind == ModuleKind.Controls) box = Placeholder("暂停/播放", r, false);
+                else if (mc.Kind == ModuleKind.MusicBars) box = Placeholder("律动条", r, false);
                 else box = Placeholder("按钮", r, false);
 
                 box.Tag = mc.Kind;
@@ -392,6 +393,7 @@ namespace Amc
                 case ModuleKind.Lyrics: return "歌词";
                 case ModuleKind.Progress: return "进度条";
                 case ModuleKind.Controls: return "暂停/播放";
+                case ModuleKind.MusicBars: return "律动条";
             }
             return k.ToString();
         }

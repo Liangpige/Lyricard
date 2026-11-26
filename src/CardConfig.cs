@@ -41,7 +41,10 @@ namespace Amc
         /// <summary>The transport row. Not user-configurable at first, but it has to take part in
         /// the vertical stack - without it the text column would be shorter than the card and the
         /// title would drift down by half a cover.</summary>
-        Controls = 6
+        Controls = 6,
+        /// <summary>A row of bars that follows the output level. Optional: off until added, so the
+        /// factory card is unchanged for anyone who does not want it.</summary>
+        MusicBars = 7
     }
 
     /// <summary>Horizontal alignment of a module inside its own box.</summary>
@@ -198,6 +201,14 @@ namespace Amc
             controls.Y = 104;
             controls.W = 102;
             c.Modules.Add(controls);
+
+            ModuleConfig bars = new ModuleConfig(ModuleKind.MusicBars);
+            bars.Enabled = false;
+            bars.X = 16;
+            bars.Y = 104;
+            bars.W = 160;
+            bars.H = 24;
+            c.Modules.Add(bars);
             return c;
         }
 

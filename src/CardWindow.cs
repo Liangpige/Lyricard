@@ -100,6 +100,12 @@ namespace Amc
         ScaleTransform _artScale;
         RotateTransform _artRotate;
         bool _spinOn;
+        // Level bars: one Rectangle per bar, grown from the bottom on the card's existing 33 ms tick.
+        Canvas _barsHost;
+        Rectangle[] _bars;
+        double[] _barsEnv;
+        double _barsLastW = -1.0;
+        double _barsLastH = -1.0;
         double _spinAngle;
 
         Btn _btnPlay;
@@ -396,6 +402,7 @@ namespace Amc
             ApplyControlsPos();
             PlaceArtist(model, lay);
             ApplyModuleCaps(lay);
+            ApplyBars(lay);
             NotifyLayoutChanged();
         }
 
@@ -527,6 +534,81 @@ namespace Amc
                 _card == null ? -1 : _card.ActualWidth, _card == null ? -1 : _card.ActualHeight,
                 _cfg.Scale, _cfg.ClearBg, parts));
         }
+
+        /// <summary>Sizes and rebuilds the bar row from the template rect.</summary>
+        void ApplyBars(LayoutResult lay)
+        {
+            if (_barsHost == null) return;
+            ModuleRect r;
+            if (lay == null || !lay.TryFind(ModuleKind.MusicBars, out r) || r.W < 8.0 || r.H < 4.0)
+            {
+                _barsHost.Visibility = Visibility.Collapsed;
+                _bars = null;
+                return;
+            }
+            _barsHost.Visibility = Visibility.Visible;
+            _barsHost.Width = r.W;
+            _barsHost.Height = r.H;
+            Canvas.SetLeft(_barsHost, r.X);
+            Canvas.SetTop(_barsHost, r.Y);
+
+            int n = (int)(r.W / 7.0);
+            if (n < 4) n = 4; else if (n > 64) n = 64;
+            if (_bars != null && _bars.Length == n && Math.Abs(_barsLastW - r.W) < 0.5 && Math.Abs(_barsLastH - r.H) < 0.5) return;
+
+            _barsLastW = r.W;
+            _barsLastH = r.H;
+            _bars = new Rectangle[n];
+            _barsEnv = new double[n];
+            _barsHost.Children.Clear();
+            Color c = Colors.White;
+            Color tmp;
+            if (ParseHex(_cfg.BarFillColor, out tmp)) c = tmp;
+            else if (ParseHex(_cfg.BarColor, out tmp)) c = Color.FromRgb((byte)(tmp.R * 0.8), (byte)(tmp.G * 0.8), (byte)(tmp.B * 0.8));
+            double gap = r.W / n * 0.38;
+            double bw = r.W / n - gap;
+            if (bw < 1.0) bw = 1.0;
+            for (int i = 0; i < n; i++)
+            {
+                Rectangle q = new Rectangle { Width = bw, Height = 1.0, Fill = new SolidColorBrush(c), RadiusX = bw * 0.35, RadiusY = bw * 0.35 };
+                Canvas.SetLeft(q, i * (bw + gap));
+                Canvas.SetTop(q, r.H - 1.0);
+                _barsHost.Children.Add(q);
+                _bars[i] = q;
+            }
+        }
+
+        /// <summary>
+        /// One step of the bars. The level is the device peak (not a spectrum), so the shape comes from
+        /// a fixed arch across the row plus a slow wobble per bar; attack is quick, release is slow, so
+        /// the row breathes instead of flickering.
+        /// </summary>
+        void StepBars(bool playing)
+        {
+            if (_bars == null || _bars.Length == 0 || _barsEnv == null) return;
+            double peak = playing ? AudioPeak.Peak() : 0.0;
+            int n = _bars.Length;
+            double mid = (n - 1) / 2.0;
+            double h = _barsHost.Height;
+            double t = _stepBarsClock++;
+            for (int i = 0; i < n; i++)
+            {
+                double arch = 1.0 - Math.Abs(i - mid) / Math.Max(1.0, mid) * 0.55;
+                double wob = 0.78 + 0.22 * Math.Sin(t * 0.09 + i * 0.55);
+                double target = peak * arch * wob;
+                if (target > 1.0) target = 1.0;
+                double cur = _barsEnv[i];
+                double k = target > cur ? 0.42 : 0.09;
+                cur += (target - cur) * k;
+                _barsEnv[i] = cur;
+                double bh = cur * h;
+                if (bh < 1.0) bh = 1.0;
+                _bars[i].Height = bh;
+                Canvas.SetTop(_bars[i], h - bh);
+            }
+        }
+
+        double _stepBarsClock;
 
         void ApplyModuleCaps(LayoutResult lay)
         {
@@ -970,6 +1052,10 @@ namespace Amc
             bottom.SizeChanged += delegate { ApplyControlsPos(); };
             _content = bottom;
             root.Children.Add(bottom);
+
+            // --- level bars (optional module) ---
+            _barsHost = new Canvas { Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+            root.Children.Add(_barsHost);
 
             // --- cover ---
             var artGrid = new Grid
@@ -2298,6 +2384,7 @@ namespace Amc
                 _spinAngle = (_spinAngle + 360.0 / 36.0 / 30.0) % 360.0;
                 _artRotate.Angle = _spinAngle;
             }
+            StepBars(np.Playing);
 
             var artistOut = "";
             var albumOut = "";
