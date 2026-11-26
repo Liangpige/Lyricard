@@ -98,7 +98,6 @@ namespace Amc
         RotateTransform _artRotate;
         bool _spinOn;
         double _spinAngle;
-        int _spinStep;
 
         Btn _btnPlay;
         bool _playingShown;
@@ -2163,13 +2162,12 @@ namespace Amc
                 SetPlayIcon(np.Playing, true);
             }
             if (np.Playing) SpinResume(); else SpinPause();
-            // A cover turning once every 36 s does not need 60 frames a second, and every frame of a
-            // layered window is a full bitmap push. One degree every 100 ms is indistinguishable on
-            // screen and costs a fraction of what the animation clock did.
-            if (_spinOn && _artRotate != null && ++_spinStep >= 3)
+            // One revolution per 36 s, advanced on the card's own 30 fps timer. A layered window
+            // pushes a full bitmap per frame, so the frame rate *is* the cost; 30 fps halves what
+            // the old 60 fps animation clock burned and still looks continuous.
+            if (_spinOn && _artRotate != null)
             {
-                _spinStep = 0;
-                _spinAngle = (_spinAngle + 1.0) % 360.0;
+                _spinAngle = (_spinAngle + 360.0 / 36.0 / 30.0) % 360.0;
                 _artRotate.Angle = _spinAngle;
             }
 
@@ -2597,7 +2595,6 @@ namespace Amc
         {
             _spinOn = false;
             _spinAngle = 0.0;
-            _spinStep = 0;
             if (_artRotate != null)
             {
                 try { _artRotate.ApplyAnimationClock(RotateTransform.AngleProperty, null); } catch { }
