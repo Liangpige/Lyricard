@@ -157,8 +157,10 @@ namespace Amc
             // The card's own Border padding is where content really starts; the board must use the
             // same origin or every box sits (16,12) model units away from where the card draws it.
             CardMetrics sm = LayoutEngine.Scaled(baseMetrics, s);
-            _padX = sm.PadX + sm.Border;
-            _padY = sm.PadY + sm.Border;
+            // The card is padding-free now: its content origin IS the window origin, so the board
+            // must not add any inset either. Keep the fields (drag maths reads them) at zero.
+            _padX = 0.0;
+            _padY = 0.0;
 
             _canvas.Width = lay.CardW * _s;
             _canvas.Height = lay.CardH * _s;
