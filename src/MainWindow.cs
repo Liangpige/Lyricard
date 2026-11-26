@@ -1091,6 +1091,16 @@ namespace Amc
             _card.LookChanged += OnCardLookChanged;
             _preview.BeginDraft(_card);
 
+            // The board edits a draft template: nothing above this line touches the card until
+            // 应用. Everything below is a live setting that repaints the card as you drag it.
+            box.Children.Add(Rule());
+            var applyNote = Label("以上修改需要点击【应用】才会生效；以下设置改动立即生效。",
+                                  11.5, TextDim, FontWeights.Normal);
+            applyNote.TextWrapping = TextWrapping.Wrap;
+            applyNote.Margin = new Thickness(0, 0, 0, 4);
+            box.Children.Add(applyNote);
+            box.Children.Add(Rule());
+
             // ---- text -------------------------------------------------------
             box.Children.Add(Section(Strings.T("sec.text")));
             box.Children.Add(Row(Strings.T("lbl.titleSize"), Stepper(_cfg.TitleScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
