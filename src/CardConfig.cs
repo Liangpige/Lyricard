@@ -149,7 +149,11 @@ namespace Amc
             CardConfig c = new CardConfig();
             c.Modules.Add(new ModuleConfig(ModuleKind.Cover));
             c.Modules.Add(new ModuleConfig(ModuleKind.Title));
-            c.Modules.Add(new ModuleConfig(ModuleKind.Artist));
+            ModuleConfig artist = new ModuleConfig(ModuleKind.Artist);
+            // The artist rides on the title line by default. Give it a real width so the editor
+            // shows a box you can grab instead of one that hides under the title's full-width box.
+            artist.W = 120;
+            c.Modules.Add(artist);
             ModuleConfig album = new ModuleConfig(ModuleKind.Album);
             album.Enabled = false;
             c.Modules.Add(album);
@@ -214,6 +218,49 @@ namespace Amc
         }
 
         // ---- read ------------------------------------------------------------
+
+        /// <summary>Where the template lives: a sibling of config.ini so a backup is still two files.</summary>
+        public static string DefaultPath
+        {
+            get { return System.IO.Path.Combine(Amc.Config.Dir, "layout.ini"); }
+        }
+
+        /// <summary>
+        /// Load the saved template. A missing or unreadable file means "factory template" — the
+        /// first run must behave exactly like the built-in look, never like an empty card.
+        /// </summary>
+        public static CardConfig LoadOr(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return Default();
+                string text = System.IO.File.ReadAllText(path, Encoding.UTF8);
+                CardConfig c = Parse(text);
+                return c;
+            }
+            catch (Exception)
+            {
+                return Default();
+            }
+        }
+
+        /// <summary>Write the template. Returns false instead of throwing: a failed save must not kill the card.</summary>
+        public bool Save(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path)) return false;
+                string dir = System.IO.Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                System.IO.File.WriteAllText(path, Serialize(), new UTF8Encoding(false));
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
 
         public static CardConfig Parse(string text)
         {

@@ -1032,7 +1032,12 @@ namespace Amc
             if (_preview != null) _card.LayoutChanged -= OnCardLayoutChanged;
             _preview = new CardPreview();
             _preview.FitWidth = 430;
-            _preview.ApplyRequested += delegate { RebuildAll(); };
+            _preview.ApplyRequested += delegate
+            {
+                bool saved = _card.SaveModel();
+                LyricsService.Log("board apply -> layout.ini saved=" + (saved ? "1" : "0"));
+                RebuildAll();
+            };
             _preview.CancelRequested += delegate { RebuildAll(); };
             var board = new Border
             {

@@ -277,7 +277,14 @@ namespace Amc
         {
             // Sizes come from the metrics, never pinned into the model: a pinned 96 px cover or
             // 3 px bar would stay at desktop size when the board renders the same model smaller.
-            return CardConfig.Default();
+            // The template comes from layout.ini; a missing file falls back to the factory look.
+            return CardConfig.LoadOr(CardConfig.DefaultPath);
+        }
+
+        /// <summary>Persist the live template (called after the board applies a draft).</summary>
+        public bool SaveModel()
+        {
+            return Model != null && Model.Save(CardConfig.DefaultPath);
         }
 
         /// <summary>Metrics for the current look: fonts follow the scale sliders, width follows BarScale.</summary>
@@ -325,6 +332,21 @@ namespace Amc
             PlaceArtist(model, lay);
             ApplyModuleCaps(lay);
             NotifyLayoutChanged();
+        }
+
+        /// <summary>
+        /// Keep the inline run and the standalone box in sync with whichever one the template uses.
+        /// Each player tick calls this, so it must not resurrect the inline artist after the board
+        /// moved the artist module onto its own line.
+        /// </summary>
+        void SetArtistText(string art)
+        {
+            _artistText = art ?? "";
+            ModuleConfig ac = Model == null ? null : Model.Find(ModuleKind.Artist);
+            bool standalone = ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
+            if (_runArtist != null) _runArtist.Text = standalone ? "" : _artistText;
+            if (_artist != null && standalone) _artist.Text = _artistText;
+            if (_hostArtist != null) _hostArtist.Visibility = standalone ? Visibility.Visible : Visibility.Collapsed;
         }
 
         /// <summary>
@@ -1930,7 +1952,7 @@ namespace Amc
                     // Lead with the player that is making the noise: that is the one the user has
                     // to fix, and the name fits where the song title normally goes.
                     _runTitle.Text = _hintPlayer ?? "Lyricard";
-                    _runArtist.Text = Strings.T("app.version");
+                    SetArtistText(Strings.T("app.version"));
                     _lyric.Text = Strings.F("idle.nosession.line", _hintPlayer ?? "");
                     _barRow.Visibility = Visibility.Collapsed;
                     _controls.Visibility = Visibility.Collapsed;
@@ -1954,7 +1976,7 @@ namespace Amc
                     _lineText = "";
                     _pos = 0;
                     _runTitle.Text = "Lyricard";
-                    _runArtist.Text = Strings.T("app.version");
+                    SetArtistText(Strings.T("app.version"));
                     _lyric.Text = Strings.F("idle.unbound.line", Players.DisplayName(unbound));
                     _barRow.Visibility = Visibility.Collapsed;
                     _controls.Visibility = Visibility.Collapsed;
@@ -2030,8 +2052,7 @@ namespace Amc
             string ttl = string.IsNullOrEmpty(np.Title) ? "Apple Music" : np.Title;
             string art = string.IsNullOrEmpty(artistOut) ? "" : "   " + ClipArtist(artistOut);
             _runTitle.Text = FitTitle(ttl, art);
-            _runArtist.Text = art;
-            _artistText = art;                 // the standalone artist box reads this
+            SetArtistText(art);
             if (np.Key != _titleKey)
             {
                 _titleKey = np.Key;
