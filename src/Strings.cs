@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // Strings.cs
 //
 /// Every user-visible string, in Chinese and English, behind one lookup. Language is
@@ -39,6 +39,9 @@ namespace Amc
             // board + module editor
             Both("board.addModule", "添加模块…", "Add module...");
             Both("board.refresh", "刷新", "Refresh");
+            Both("board.dragHint",
+                "鼠标拖动画板上的模块可改变其位置，大小在下面的选项改",
+                "Drag a module on the board to move it; sizes are changed with the options below.");
             Both("board.applyNote", "以上修改需要点击【应用】才会生效；以下设置改动立即生效。",
                  "Changes above need Apply; everything below takes effect at once.");
             Both("mod.cover", "封面", "Cover");

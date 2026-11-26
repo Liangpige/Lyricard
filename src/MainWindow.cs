@@ -1220,6 +1220,11 @@ namespace Amc
             boardBar.Children.Add(Pill(Strings.T("board.refresh"), delegate { _preview.RefreshFromCard(); }, false));
             box.Children.Add(boardBar);
 
+            // 画板下的一句话说明：拖是改位置，尺寸在下面那些选项里改。
+            var dragHint = Hint(Strings.T("board.dragHint"));
+            dragHint.Margin = new Thickness(0, -6, 0, 12);
+            box.Children.Add(dragHint);
+
             // 长度上限：it is the character cap, and with the box on auto the cap *is* the width,
             // so these three steer the frames you just saw above.
             var capStack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
