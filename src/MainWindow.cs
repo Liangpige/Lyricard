@@ -878,6 +878,17 @@ namespace Amc
                 }));
             box.Children.Add(Hint(Strings.T("page.home.wheel.hint")));
 
+            box.Children.Add(Section(Strings.T("page.home.fullscreen")));
+            box.Children.Add(Row(Strings.T("lbl.hideFullscreen"),
+                Toggle(_cfg.HideFullscreen, delegate(bool v)
+                {
+                    _cfg.HideFullscreen = v;
+                    _card.HideFullscreen = v;
+                    _cfg.Save();
+                    RebuildAll();
+                })));
+            box.Children.Add(Hint(Strings.T("page.home.fullscreen.hint")));
+
             // startup
             box.Children.Add(Section(Strings.T("page.home.startup")));
             box.Children.Add(Row(Strings.T("page.home.autostart"),

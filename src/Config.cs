@@ -36,6 +36,10 @@ namespace Amc
         /// mouse) or "transport" (the card is see-through except for the transport row, so the
         /// play button keeps working while the rest of the desktop does).</summary>
         public string ClickThroughMode = "off";
+
+        // Hide the card while a window is fullscreen on its monitor. Off by default: a
+        // mis-detection here looks exactly like "the card vanished for no reason".
+        public bool HideFullscreen = false;
         /// <summary>What a mouse-wheel notch over the card does: scale | volume | off.</summary>
         public string WheelAction = "scale";
         // Default off: a fresh copy should never touch somebody else's Run key on first launch.
@@ -311,6 +315,9 @@ namespace Amc
                         case "ClickThrough":
                             if (bool.TryParse(v, out b)) { ClickThrough = b; if (b && ClickThroughMode == "off") ClickThroughMode = "full"; }
                             break;
+                        case "HideFullscreen":
+                            if (bool.TryParse(v, out b)) HideFullscreen = b;
+                            break;
                         case "ClickThroughMode":
                             if (v == "off" || v == "full" || v == "transport") ClickThroughMode = v;
                             break;
@@ -487,6 +494,7 @@ namespace Amc
                 sb.AppendLine("LyricOffset=" + LyricOffset.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("ClickThrough=" + ClickThrough);
                 sb.AppendLine("ClickThroughMode=" + ClickThroughMode);
+                sb.AppendLine("HideFullscreen=" + HideFullscreen);
                 sb.AppendLine("WheelAction=" + WheelAction);
                 sb.AppendLine("AutoStart=" + AutoStart);
                 sb.AppendLine("AutoCheckUpdate=" + AutoCheckUpdate);

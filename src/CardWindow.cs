@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // CardWindow.cs
 //
 /// The desktop card itself: one always-on-top, click-through-where-empty window that
@@ -104,6 +104,7 @@ namespace Amc
         Canvas _barsHost;
         Rectangle[] _bars;
         double[] _barsEnv;
+        string _barsColorKey;
         double _barsLastT;
         double _barsLastW = -1.0;
         double _barsLastH = -1.0;
@@ -150,6 +151,10 @@ namespace Amc
         bool _artPending;
         DateTime _artPendingAt;
         bool _suppressed;
+        bool _fsHidden;
+        int _fsTick;
+        bool _fsPending;
+        int _fsSame;
         // "no player at all" state (Apple Music not installed / not running).
         int _audibleTicks;
         string _hintPlayer;
@@ -157,6 +162,8 @@ namespace Amc
 
         /// <summary>Set for logon launches: stay hidden until some player publishes a session.</summary>
         public bool HideWhenIdle;
+        /// <summary>Hide while a fullscreen window owns the card's monitor (home page option).</summary>
+        public bool HideFullscreen;
 
         public Config Cfg { get { return _cfg; } }
 
@@ -536,6 +543,22 @@ namespace Amc
                 _cfg.Scale, _cfg.ClearBg, parts));
         }
 
+        /// <summary>What the bars should be painted with right now (per-row colour wins).</summary>
+        Color ResolveBarsColour()
+        {
+            Color c = Colors.White, tmp;
+            if (ParseHex(_cfg.BarsColor, out tmp)) c = tmp;
+            else if (ParseHex(_cfg.BarFillColor, out tmp)) c = tmp;
+            else if (ParseHex(_cfg.BarColor, out tmp)) c = Color.FromRgb((byte)(tmp.R * 0.8), (byte)(tmp.G * 0.8), (byte)(tmp.B * 0.8));
+            return c;
+        }
+
+        /// <summary>Changes whenever any of the three colours the row can inherit from changes.</summary>
+        string BarsColourKey()
+        {
+            return (_cfg.BarsColor ?? "") + "|" + (_cfg.BarFillColor ?? "") + "|" + (_cfg.BarColor ?? "");
+        }
+
         /// <summary>Sizes and rebuilds the bar row from the template rect.</summary>
         void ApplyBars(LayoutResult lay)
         {
@@ -563,8 +586,21 @@ namespace Amc
             if (n > fit) n = fit;
             if (n < 2) n = 2;
             if (n > 96) n = 96;
+            Color c = ResolveBarsColour();
+            string ckey = BarsColourKey();
             if (_bars != null && _bars.Length == n && Math.Abs(_barsLastW - r.W) < 0.5 && Math.Abs(_barsLastH - r.H) < 0.5
-                && Math.Abs(_barsLastT - barW) < 0.01) return;
+                && Math.Abs(_barsLastT - barW) < 0.01)
+            {
+                // Same geometry, different colour: retint in place. This early return used to swallow
+                // colour edits, so the row kept its old colour until the app was restarted.
+                if (ckey != _barsColorKey)
+                {
+                    for (int i = 0; i < _bars.Length; i++) _bars[i].Fill = new SolidColorBrush(c);
+                    _barsColorKey = ckey;
+                    LyricsService.Log("bars recolour " + ckey);
+                }
+                return;
+            }
 
             _barsLastW = r.W;
             _barsLastH = r.H;
@@ -572,11 +608,7 @@ namespace Amc
             _bars = new Rectangle[n];
             _barsEnv = new double[n];
             _barsHost.Children.Clear();
-            Color c = Colors.White;
-            Color tmp;
-            if (ParseHex(_cfg.BarsColor, out tmp)) c = tmp;                       // the row's own colour wins
-            else if (ParseHex(_cfg.BarFillColor, out tmp)) c = tmp;
-            else if (ParseHex(_cfg.BarColor, out tmp)) c = Color.FromRgb((byte)(tmp.R * 0.8), (byte)(tmp.G * 0.8), (byte)(tmp.B * 0.8));
+            _barsColorKey = ckey;
             double bw = barW;
             double gap = (r.W - n * bw) / Math.Max(1, n);                          // spread the rest as gaps
             if (gap < 0.5) gap = 0.5;
@@ -2383,18 +2415,48 @@ namespace Amc
             TickBody();
         }
 
+        /// <summary>Reasons to stay off the desktop: the menu toggled us off, or a fullscreen app owns the screen.</summary>
+        bool Hidden() { return _suppressed || _fsHidden; }
+
+        /// <summary>
+        /// Once every ~300 ms, ask whether a fullscreen window took over the monitor the card lives on.
+        /// Two identical answers in a row before acting, so alt-tabbing does not flicker the card.
+        /// </summary>
+        void UpdateFullscreenHide()
+        {
+            if (!HideFullscreen)
+            {
+                if (_fsHidden)
+                {
+                    _fsHidden = false;
+                    LyricsService.Log("fullscreen hide=off (option disabled)");
+                }
+                return;
+            }
+            if (++_fsTick < 9) return;
+            _fsTick = 0;
+            bool now = FullscreenWatch.IsActiveOnCardMonitor(_hwnd);
+            if (now == _fsPending) { if (_fsSame < 3) _fsSame++; }
+            else { _fsPending = now; _fsSame = 1; }
+            if (_fsSame < 2 || _fsHidden == _fsPending) return;
+            _fsHidden = _fsPending;
+            LyricsService.Log("fullscreen hide=" + (_fsHidden ? "on" : "off"));
+            if (_fsHidden && IsVisible) HideAnimated();
+        }
+
         void TickBody()
         {
             // "transport" click-through lives on the same 33 ms beat as everything else: one
             // cursor read plus a rect test, and a style flip only when the mouse crosses the row.
             UpdateTransportHot();
+            UpdateFullscreenHide();
 
             // Nothing else is allowed to bury the card: re-assert the topmost band position
             // about twice a second (cheap, does not activate or repaint).
             if (++_topTicks >= 45)
             {
                 _topTicks = 0;
-                if (IsVisible && !_menuOpen && !Native.ForegroundIsShell()) Native.BringToTop(_hwnd);
+                if (IsVisible && !_menuOpen && !_fsHidden && !Native.ForegroundIsShell()) Native.BringToTop(_hwnd);
             }
 
             var np = _smtc.Current;
@@ -2404,7 +2466,7 @@ namespace Amc
                 // publishes a session.
                 if (HideWhenIdle)
                 {
-                    if (IsVisible && !_suppressed) HideAnimated();
+                    if (IsVisible && !Hidden()) HideAnimated();
                     _idle = false;
                     return;
                 }
@@ -2423,7 +2485,7 @@ namespace Amc
                 if (_audibleTicks >= 4)
                 {
                     _idle = false;
-                    if (!IsVisible && !_suppressed) ShowAnimated();
+                    if (!IsVisible && !Hidden()) ShowAnimated();
                     _doc = null;
                     _docKey = "";
                     _pendingKey = "";
@@ -2473,7 +2535,7 @@ namespace Amc
                 // it is gone for good.
                 if (AmProbe.IsRunning() && SmtcService.AppleMusicWanted)
                 {
-                    if (!IsVisible && !_suppressed) ShowAnimated();
+                    if (!IsVisible && !Hidden()) ShowAnimated();
                     if (!_idle)
                     {
                         _idle = true;
@@ -2498,12 +2560,12 @@ namespace Amc
                 }
                 // Apple Music is closed: keep the desktop clean. The way in is the tray icon
                 // or the shortcut that opens the main window - no "nothing found" card.
-                if (IsVisible && !_suppressed) HideAnimated();
+                if (IsVisible && !Hidden()) HideAnimated();
                 _idle = false;
                 return;
             }
             _idle = false;
-            if (!IsVisible && !_suppressed) ShowAnimated();
+            if (!IsVisible && !Hidden()) ShowAnimated();
             // A track with no artwork at all would otherwise leave the disc dimmed forever.
             if (_artPending && (DateTime.Now - _artPendingAt).TotalSeconds > 1.5) _artPending = false;
             if (_artHost.Opacity < 1.0) _artHost.Opacity = 1.0;

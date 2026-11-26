@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // Program.cs
 //
 /// Entry point: single-instance mutex, command-line switches, and the tray/card/main
@@ -197,6 +197,7 @@ namespace Amc
                 if (!HasArg(args, "--background")) MainWindow.Open(cfg, win);
                 // Logon launch: no main window, and the card waits for a player.
                 win.HideWhenIdle = HasArg(args, "--background");
+                win.HideFullscreen = cfg.HideFullscreen;
 
                 // A second launch (shortcut double-click while we are already running) pings this
                 // event; hop back to the UI thread and show the page.

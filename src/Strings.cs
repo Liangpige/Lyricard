@@ -91,6 +91,9 @@ namespace Amc
             Both("nav.body.empty", "页面还是空的", "This page is still empty");
             Both("page.look.more", "更多设置…", "More settings…");
             Both("page.home.language", "界面语言", "Language");
+            Both("page.home.fullscreen", "全屏时隐藏", "Fullscreen");
+            Both("lbl.hideFullscreen", "有窗口全屏时隐藏卡片", "Hide the card when a window is fullscreen");
+            Both("page.home.fullscreen.hint", "前台窗口铺满卡片所在的那块屏幕时，卡片自动收起，退出全屏后自己回来。其它屏幕上的全屏不影响。", "When a fullscreen window covers the monitor the card sits on, the card steps aside and comes back when you leave fullscreen. Fullscreen on another monitor does not count.");
             Both("page.home.wheel", "卡片滚轮", "Mouse wheel on the card");
             Both("wheel.scale", "缩放卡片", "Scale the card");
             Both("wheel.volume", "系统音量", "System volume");
