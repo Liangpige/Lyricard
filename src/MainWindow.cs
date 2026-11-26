@@ -989,6 +989,28 @@ namespace Amc
             RebuildAll();
         }
 
+        /// <summary>Character cap straight from the template (the steppers used to read a draft that
+        /// could be null, so a saved cap showed as 0 and looked like the setting did nothing).</summary>
+        int CapOf(ModuleKind kind)
+        {
+            CardConfig m = _card.Model;
+            ModuleConfig mc = m == null ? null : m.Find(kind);
+            return mc == null ? 0 : mc.MaxChars;
+        }
+
+        void SetCap(ModuleKind kind, int chars)
+        {
+            if (chars < 0) chars = 0;
+            CardConfig m = _card.Model;
+            ModuleConfig mc = m == null ? null : m.Find(kind);
+            if (mc == null) return;
+            mc.MaxChars = chars;
+            if (chars == 0) mc.W = -1;          // no cap: go back to the automatic width
+            m.Save(CardConfig.DefaultPath);
+            _card.InvalidateModel();
+            RebuildAll();
+        }
+
         UIElement Segmented(string[] labels, int selected, Action<int> pick)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal };
@@ -1144,12 +1166,12 @@ namespace Amc
             // 长度上限：it is the character cap, and with the box on auto the cap *is* the width,
             // so these three steer the frames you just saw above.
             var capStack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
-            capStack.Children.Add(Row("歌名长度上限", Stepper(_preview.MaxCharsOf(ModuleKind.Title), 0, 80, 2, "0",
-                delegate(double v) { _preview.SetMaxChars(ModuleKind.Title, (int)Math.Round(v)); })));
-            capStack.Children.Add(Row("艺人长度上限", Stepper(_preview.MaxCharsOf(ModuleKind.Artist), 0, 60, 2, "0",
-                delegate(double v) { _preview.SetMaxChars(ModuleKind.Artist, (int)Math.Round(v)); })));
-            capStack.Children.Add(Row("歌词长度上限", Stepper(_preview.MaxCharsOf(ModuleKind.Lyrics), 0, 80, 2, "0",
-                delegate(double v) { _preview.SetMaxChars(ModuleKind.Lyrics, (int)Math.Round(v)); })));
+            capStack.Children.Add(Row("歌名长度上限", Stepper(CapOf(ModuleKind.Title), 0, 80, 2, "0",
+                delegate(double v) { SetCap(ModuleKind.Title, (int)Math.Round(v)); })));
+            capStack.Children.Add(Row("艺人长度上限", Stepper(CapOf(ModuleKind.Artist), 0, 60, 2, "0",
+                delegate(double v) { SetCap(ModuleKind.Artist, (int)Math.Round(v)); })));
+            capStack.Children.Add(Row("歌词长度上限", Stepper(CapOf(ModuleKind.Lyrics), 0, 80, 2, "0",
+                delegate(double v) { SetCap(ModuleKind.Lyrics, (int)Math.Round(v)); })));
             box.Children.Add(capStack);
 
             _card.LookChanged += OnCardLookChanged;

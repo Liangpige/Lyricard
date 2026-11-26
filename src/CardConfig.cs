@@ -278,7 +278,9 @@ namespace Amc
             {
                 ModuleConfig m = Modules[i];
                 if (m == null || !m.Enabled || m.MaxChars <= 0) continue;
-                if (m.W > 0) continue;                       // an explicit width wins
+                // A cap wins over the default width: the whole point of the setting is that the box
+                // follows the character budget, and Artist/Lyrics ship with a non-zero default width,
+                // so "only when W is auto" quietly disabled the feature for exactly those two modules.
                 double size;
                 bool bold;
                 switch (m.Kind)

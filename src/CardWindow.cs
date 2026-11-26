@@ -2544,7 +2544,7 @@ namespace Amc
                 _lineText = text;
                 _lineShownAt = DateTime.Now;
                 _lineFaded = false;
-                _lyric.Text = text;
+                _lyric.Text = CapChars(text, ModuleKind.Lyrics);
                 Animate(_lyric, 1.0, 260);
                 var tt = (TranslateTransform)_lyric.RenderTransform;
                 var slide = new DoubleAnimation(6, 0, TimeSpan.FromMilliseconds(300));
