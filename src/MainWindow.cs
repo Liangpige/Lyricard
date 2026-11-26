@@ -1234,6 +1234,28 @@ namespace Amc
 
             // The board edits a draft template: nothing above this line touches the card until
             // 应用. Everything below is a live setting that repaints the card as you drag it.
+            // Cover size is the template's Cover module, so it belongs with the draft controls above
+
+            box.Children.Add(Row(Strings.T("lbl.coverSize"), Stepper(_cfg.ArtSize, 56, 160, 4, "0", delegate(double v)
+            {
+                _cfg.ArtSize = v;
+                // one size for both views: write it into the Cover module, so the board's circle
+                // grows with the disc instead of staying at the old radius
+                CardConfig m2 = _card.Model;
+                if (m2 != null)
+                {
+                    ModuleConfig cov = m2.Find(ModuleKind.Cover);
+                    if (cov != null) { cov.W = v; cov.H = v; }
+                    _card.InvalidateModel();
+                    // the cover size is the template's Cover module: persist it, do not just repaint
+                    bool okSize = _card.SaveModel();
+                    LyricsService.Log("artsize=" + v.ToString("0") + " saved=" + (okSize ? 1 : 0));
+                }
+                _card.ApplyLook();
+                _cfg.Save();
+                _preview.RefreshFromCard();
+            })));
+
             box.Children.Add(Rule());
             var applyNote = Label("以上修改需要点击【应用】才会生效；以下设置改动立即生效。",
                                   11.5, TextDim, FontWeights.Normal);
@@ -1301,9 +1323,12 @@ namespace Amc
                         pr.W = Math.Max(40.0, Math.Round(baseW * v));
                     }
                     _card.InvalidateModel();
+                    // the width lives in the template, so write it there and let the board follow
+                    _card.SaveModel();
                 }
                 _card.ApplyLook();
                 _cfg.Save();
+                _preview.RefreshFromCard();
             })));
             box.Children.Add(Row(Strings.T("lbl.barThickness"), Stepper(_cfg.BarThickness, 2, 8, 0.5, "0.0", delegate(double v)
             { _cfg.BarThickness = v; _card.ApplyLook(); _cfg.Save(); })));
@@ -1314,21 +1339,6 @@ namespace Amc
 
             // ---- artwork ----------------------------------------------------
             box.Children.Add(Section(Strings.T("sec.art")));
-            box.Children.Add(Row(Strings.T("lbl.artSize"), Stepper(_cfg.ArtSize, 56, 160, 4, "0", delegate(double v)
-            {
-                _cfg.ArtSize = v;
-                // one size for both views: write it into the Cover module, so the board's circle
-                // grows with the disc instead of staying at the old radius
-                CardConfig m2 = _card.Model;
-                if (m2 != null)
-                {
-                    ModuleConfig cov = m2.Find(ModuleKind.Cover);
-                    if (cov != null) { cov.W = v; cov.H = v; }
-                    _card.InvalidateModel();
-                }
-                _card.ApplyLook();
-                _cfg.Save();
-            })));
 
             // ---- spectrum bars -------------------------------------------------
             // Length and height write straight into the MusicBars module, so the board's box and the
