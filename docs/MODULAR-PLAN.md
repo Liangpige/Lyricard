@@ -149,7 +149,7 @@ LyricsService.Register(new KugouProvider());
 | 步 | 内容 | 产出 | 验收（缺一不可） |
 | --- | --- | --- | --- |
 | **S0** | 冻结基线 | `docs/BASELINE.md`（旧交互清单 40 条：卡片 20 / 主页面 12 / 托盘 8）+ `docs/shots/*.png`（默认模板、空闲、无词三态、菜单） | 清单逐条人工过一遍并勾选；截图存档 |
-| **S1** | 地基：`Core/Log`、`Core/Anim`、`Core/Settings`（只登记**现有**外观键） | 3 个新文件 | 编译通过；外观页仍由老代码渲染（`Settings` 只写不读）；截图与 S0 一致；`config.ini` 读旧文件行为不变 |
+| **S1** | 配置模型：`src\CardConfig.cs`（`CardConfig` / `ModuleConfig` / `CardSchema`，模块 Cover·Title·Artist·Album·Lyrics·Progress，字段 Enabled·X·Y·W·H·FontSize·Color·Align·ZIndex，H=-1=Auto），只有序列化/反序列化，**不接 UI** | 1 个新文件 + `tools\cfg-roundtrip.cs`（22 条断言） | ✅ 已完成 2026-11-26：`csc exit=0 warnings=0`；`tools\run-cfgtest.cmd` 22/22 PASS（往返幂等、字节级二次稳定、auto/NaN 语义、未知段与未知键忽略、坏值回落、深拷贝）；启动日志无异常 |
 | **S2** | 位置时钟独立 | `Domain/Playback/PositionClock.cs`，`CardWindow.Tick` 只调它 | 连续跟歌 30 分钟无回抽；曲末锁存仍生效（用「侧脸」这类歌验）；截图一致 |
 | **S3** | 卡片元素化 | `Card/ICardElement.cs` + `CardElements` + 7 个元素 + `CardLayout` | 默认模板截图**逐像素**与 S0 相同；字号/颜色/对齐/透明背景/封面旋转全部仍可调 |
 | **S4** | 主页面拆分 | `Main/Widgets.cs` + 四个 Page 文件 | 四页截图与 S0 一致；每个开关点一下仍即时生效并落盘 |
