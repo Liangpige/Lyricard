@@ -72,6 +72,12 @@ namespace Amc
         /// <summary>Height in card units, -1 = auto.</summary>
         public double H = -1;
 
+        /// <summary>
+        /// Floor for the auto height, 0 = none. A single lyric line still occupies one line
+        /// of text, so the card must not collapse when the line is empty or very short.
+        /// </summary>
+        public double MinHeight = 0;
+
         /// <summary>Font size in card units, 0 = inherit the module's default.</summary>
         public double FontSize = 0;
 
@@ -99,6 +105,7 @@ namespace Amc
             c.Y = Y;
             c.W = W;
             c.H = H;
+            c.MinHeight = MinHeight;
             c.FontSize = FontSize;
             c.Color = Color ?? "";
             c.Align = Align;
@@ -115,6 +122,7 @@ namespace Amc
                 && SameNumber(Y, o.Y)
                 && SameNumber(W, o.W)
                 && SameNumber(H, o.H)
+                && SameNumber(MinHeight, o.MinHeight)
                 && SameNumber(FontSize, o.FontSize)
                 && string.Equals(Color ?? "", o.Color ?? "", StringComparison.Ordinal)
                 && Align == o.Align
@@ -205,6 +213,7 @@ namespace Amc
                 if (!double.IsNaN(m.Y)) sb.Append("Y=").Append(Num(m.Y)).Append("\r\n");
                 sb.Append("W=").Append(Num(m.W)).Append("\r\n");
                 sb.Append("H=").Append(Num(m.H)).Append("\r\n");
+                if (m.MinHeight > 0) sb.Append("MinH=").Append(Num(m.MinHeight)).Append("\r\n");
                 sb.Append("FontSize=").Append(Num(m.FontSize)).Append("\r\n");
                 sb.Append("Color=").Append(m.Color ?? "").Append("\r\n");
                 sb.Append("Align=").Append(m.Align.ToString()).Append("\r\n");
@@ -259,6 +268,7 @@ namespace Amc
                 else if (key.Equals("Y", StringComparison.OrdinalIgnoreCase)) current.Y = NumOrAuto(val);
                 else if (key.Equals("W", StringComparison.OrdinalIgnoreCase)) current.W = NumOrAuto(val);
                 else if (key.Equals("H", StringComparison.OrdinalIgnoreCase)) current.H = NumOrAuto(val);
+                else if (key.Equals("MinH", StringComparison.OrdinalIgnoreCase)) current.MinHeight = Math.Max(0, Number(val, 0));
                 else if (key.Equals("FontSize", StringComparison.OrdinalIgnoreCase)) current.FontSize = Number(val, 0);
                 else if (key.Equals("Color", StringComparison.OrdinalIgnoreCase)) current.Color = val;
                 else if (key.Equals("Align", StringComparison.OrdinalIgnoreCase)) current.Align = AlignOf(val);

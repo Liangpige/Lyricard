@@ -65,6 +65,17 @@ namespace Amc
         CardElements _elem;
         // Step 5: every hit test asks the layout where the modules are, not the visual tree.
         LayoutResult _layout;
+
+        // Step 6: while the card is being dragged we only move content around; the window
+        // size is committed once the mouse comes back up, so a transparent window does not
+        // get resized dozens of times per second during the gesture.
+        bool _suspendSize;
+
+        // Height the lyric line currently wants (0 = one line). A line that wraps — or a look
+        // that raises the lyric font — pushes the card taller through this value.
+        double _lyricHeightFloor;
+        string _lyricMeasured;
+        double _pendingW = -1, _pendingH = -1;
         Color _artBg = Color.FromArgb(238, 18, 18, 21);
         bool _hasArtBg;
         TextBlock _title;
@@ -247,6 +258,14 @@ namespace Amc
             if (cov != null && _cfg.ArtSize > 4) { cov.W = _cfg.ArtSize; }
             ModuleConfig pr = c.Find(ModuleKind.Progress);
             if (pr != null) { pr.H = Math.Max(1.0, _cfg.BarThickness); }
+            // The lyric line is trimmed to one line, but it must still be worth one line of
+            // height when the text is empty (waiting / instrumental placeholders).
+            ModuleConfig lyr = c.Find(ModuleKind.Lyrics);
+            if (lyr != null)
+            {
+                lyr.MinHeight = LayoutEngine.LineH(_baseLyricSize * _cfg.LyricScale, new CardMetrics());
+                if (_lyricHeightFloor > 0) lyr.H = _lyricHeightFloor;
+            }
             return c;
         }
 
@@ -273,8 +292,16 @@ namespace Amc
             if (_canvas == null || _card == null) return;
             CardConfig model = CardModel();
             LayoutResult lay = LayoutEngine.Compute(model, Metrics());
-            _card.Width = lay.CardW;
-            _card.Height = lay.CardH;
+            if (_suspendSize)
+            {
+                // content only; CommitCardSize() runs when the drag ends
+                _pendingW = lay.CardW;
+                _pendingH = lay.CardH;
+            }
+            else
+            {
+                ApplyCardSize(lay.CardW, lay.CardH, true);
+            }
             if (_elem == null) _elem = new CardElements();
             _elem.Title = _hostTitle;
             _elem.Lyrics = _hostLyric;
@@ -284,6 +311,77 @@ namespace Amc
             _layout = lay;
             ModuleRenderer.Apply(_canvas, model, lay, _elem);
             ApplyControlsPos();
+        }
+
+        /// <summary>
+        /// Card size changes are eased over 120 ms so a lyric line that grows or shrinks does
+        /// not make the window snap. Width only moves when the look asks for it, so both are
+        /// animated together to keep the cover from sliding while the box grows.
+        /// </summary>
+        void ApplyCardSize(double w, double h, bool animate)
+        {
+            if (_card == null) return;
+            double fromW = _card.ActualWidth > 1 ? _card.ActualWidth : w;
+            double fromH = _card.ActualHeight > 1 ? _card.ActualHeight : h;
+            bool same = Math.Abs(fromW - w) < 0.5 && Math.Abs(fromH - h) < 0.5;
+            if (!animate || same)
+            {
+                _card.BeginAnimation(FrameworkElement.WidthProperty, null);
+                _card.BeginAnimation(FrameworkElement.HeightProperty, null);
+                _card.Width = w;
+                _card.Height = h;
+                return;
+            }
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var aw = new DoubleAnimation(fromW, w, TimeSpan.FromMilliseconds(120)) { EasingFunction = ease };
+            var ah = new DoubleAnimation(fromH, h, TimeSpan.FromMilliseconds(120)) { EasingFunction = ease };
+            _card.BeginAnimation(FrameworkElement.WidthProperty, aw);
+            _card.BeginAnimation(FrameworkElement.HeightProperty, ah);
+        }
+
+        /// <summary>
+        /// Ask the lyric line how tall it really is and re-run the layout when that differs from
+        /// the height the engine reserved. Today the line is trimmed to a single row, so this is
+        /// a no-op — it is the hook that keeps the card honest if wrapping is ever turned on.
+        /// </summary>
+        void SyncLyricHeight()
+        {
+            if (_lyric == null || _layout == null) return;
+            ModuleRect r;
+            if (!_layout.TryFind(ModuleKind.Lyrics, out r) || r.W < 20) return;
+            string text = _lyric.Text ?? "";
+            if (string.Equals(text, _lyricMeasured, System.StringComparison.Ordinal)) return;
+            _lyricMeasured = text;
+            var ft = new System.Windows.Media.FormattedText(
+                text,
+                System.Globalization.CultureInfo.CurrentUICulture,
+                System.Windows.FlowDirection.LeftToRight,
+                new System.Windows.Media.Typeface(_lyric.FontFamily, _lyric.FontStyle, _lyric.FontWeight, _lyric.FontStretch),
+                _lyric.FontSize,
+                System.Windows.Media.Brushes.Black,
+                1.0);
+            ft.MaxTextWidth = r.W;
+            ft.Trimming = System.Windows.TextTrimming.CharacterEllipsis;
+            double want = ft.Height;
+            if (want > r.H + 0.5)
+            {
+                _lyricHeightFloor = want;
+                LyricsService.Log("lyric taller " + r.H.ToString("0.0") + " -> " + want.ToString("0.0"));
+                Render();
+            }
+            else if (_lyricHeightFloor > 0 && want <= r.H - 0.5)
+            {
+                _lyricHeightFloor = 0;
+                LyricsService.Log("lyric height back to auto");
+                Render();
+            }
+        }
+
+        /// <summary>Finish a deferred resize (end of a drag).</summary>
+        void CommitCardSize()
+        {
+            if (_pendingW > 0 && _pendingH > 0) ApplyCardSize(_pendingW, _pendingH, false);
+            _pendingW = _pendingH = -1;
         }
 
         // 100% = flush right (the default). Percent is taken over the FREE width
@@ -1043,7 +1141,10 @@ namespace Amc
             // the progress row handles its own press (seek); dragging from there used to be
             // impossible because the bar swallowed the event - keep that rule, now via the rect
             if (HitModule(e.GetPosition(_canvas), ModuleKind.Progress, 4.0)) return;
+            _suspendSize = true;
             try { DragMove(); } catch { }
+            _suspendSize = false;
+            CommitCardSize();
             RememberPosition();
         }
 
@@ -1105,7 +1206,7 @@ namespace Amc
         // --- hooks used by the settings panel (live preview) ---
         public void ApplyCurrentScale()
         {
-            ApplyScale();
+            ApplyScale(true);
         }
 
         public void ApplyCurrentOpacity()
@@ -1173,12 +1274,31 @@ namespace Amc
             ApplyScale();
         }
 
-        void ApplyScale()
+        /// <summary>
+        /// Resize the whole card. The scale lives in the shadow host's LayoutTransform, so the
+        /// window follows it; easing that transform (120 ms) is what makes a wheel notch glide
+        /// instead of snapping. Animating is skipped on startup and while dragging, where a
+        /// straight jump is what the user expects.
+        /// </summary>
+        void ApplyScale(bool animate = true)
         {
             double oldW = (CardWidthNow() + ShadowPad * 2) * ((ScaleTransform)_shadowHost.LayoutTransform).ScaleX;
             var st = (ScaleTransform)_shadowHost.LayoutTransform;
-            st.ScaleX = _cfg.Scale;
-            st.ScaleY = _cfg.Scale;
+            if (animate && !_suspendSize)
+            {
+                var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+                var ax = new DoubleAnimation(st.ScaleX, _cfg.Scale, TimeSpan.FromMilliseconds(120)) { EasingFunction = ease };
+                var ay = new DoubleAnimation(st.ScaleY, _cfg.Scale, TimeSpan.FromMilliseconds(120)) { EasingFunction = ease };
+                st.BeginAnimation(ScaleTransform.ScaleXProperty, ax);
+                st.BeginAnimation(ScaleTransform.ScaleYProperty, ay);
+            }
+            else
+            {
+                st.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                st.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+                st.ScaleX = _cfg.Scale;
+                st.ScaleY = _cfg.Scale;
+            }
             UpdateLayout();
             double newW = (CardWidthNow() + ShadowPad * 2) * _cfg.Scale;
             if (!double.IsNaN(Left)) Left = Left + (oldW - newW);
@@ -2048,6 +2168,7 @@ namespace Amc
                 _lineShownAt = DateTime.Now;
                 _lineFaded = false;
                 _lyric.Text = text;
+                SyncLyricHeight();
                 Animate(_lyric, 1.0, 260);
                 var tt = (TranslateTransform)_lyric.RenderTransform;
                 var slide = new DoubleAnimation(6, 0, TimeSpan.FromMilliseconds(300));
