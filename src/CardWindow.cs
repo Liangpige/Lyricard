@@ -96,7 +96,10 @@ namespace Amc
         Grid _artHost;
         ScaleTransform _artScale;
         RotateTransform _artRotate;
-        AnimationClock _spin;
+        bool _spinOn;
+        double _spinAngle;
+        int _spinStep;
+
         Btn _btnPlay;
         bool _playingShown;
         DateTime _playCmdAt;
@@ -1930,10 +1933,27 @@ namespace Amc
         /// box edge. Measured with FormattedText because a width-constrained TextBlock inside a
         /// manually laid out canvas does not trim reliably on its own.
         /// </summary>
+        // Fitting is a FormattedText measure plus, when the text is too long, a per-character
+        // loop. It used to run twice on every 30 fps tick with the same inputs, which alone was
+        // a quarter of a core. Inputs change once per song at most, so memoise the last answer.
+        readonly Dictionary<string, string> _fitCache = new Dictionary<string, string>();
+
         string FitToBox(string text, double boxW, double fontSize, FontWeight weight)
         {
             if (string.IsNullOrEmpty(text)) return "";
             if (boxW <= 2.0 || fontSize <= 0.0) return text;
+            string key = fontSize.ToString("F2", CultureInfo.InvariantCulture) + "|"
+                       + boxW.ToString("F0", CultureInfo.InvariantCulture) + "|" + text;
+            string hit;
+            if (_fitCache.TryGetValue(key, out hit)) return hit;
+            string fitted = FitToBoxSlow(text, boxW, fontSize, weight);
+            if (_fitCache.Count > 24) _fitCache.Clear();
+            _fitCache[key] = fitted;
+            return fitted;
+        }
+
+        string FitToBoxSlow(string text, double boxW, double fontSize, FontWeight weight)
+        {
             double pw = 1.0;
             try
             {
@@ -2001,6 +2021,11 @@ namespace Amc
         }
 
         void Tick(object sender, EventArgs e)
+        {
+            TickBody();
+        }
+
+        void TickBody()
         {
             // Nothing else is allowed to bury the card: re-assert the topmost band position
             // about twice a second (cheap, does not activate or repaint).
@@ -2138,6 +2163,15 @@ namespace Amc
                 SetPlayIcon(np.Playing, true);
             }
             if (np.Playing) SpinResume(); else SpinPause();
+            // A cover turning once every 36 s does not need 60 frames a second, and every frame of a
+            // layered window is a full bitmap push. One degree every 100 ms is indistinguishable on
+            // screen and costs a fraction of what the animation clock did.
+            if (_spinOn && _artRotate != null && ++_spinStep >= 3)
+            {
+                _spinStep = 0;
+                _spinAngle = (_spinAngle + 1.0) % 360.0;
+                _artRotate.Angle = _spinAngle;
+            }
 
             var artistOut = "";
             var albumOut = "";
@@ -2145,8 +2179,11 @@ namespace Amc
 
             string ttl = string.IsNullOrEmpty(np.Title) ? "Apple Music" : np.Title;
             string art = FitToBox(CapChars(artistOut, ModuleKind.Artist), _boxArtistW, _artist.FontSize, FontWeights.Normal);
-            _runTitle.Text = FitToBox(CapChars(ttl, ModuleKind.Title), _boxTitleW, _title.FontSize, FontWeights.SemiBold);
-            SetArtistText(art);
+            string titleShown = FitToBox(CapChars(ttl, ModuleKind.Title), _boxTitleW, _title.FontSize, FontWeights.SemiBold);
+            // Assigning .Text invalidates measure/arrange even when the string is identical, and
+            // this runs 30 times a second, so only write when something really changed.
+            if (_runTitle.Text != titleShown) _runTitle.Text = titleShown;
+            if (_artistText != art) SetArtistText(art);
             if (np.Key != _titleKey)
             {
                 _titleKey = np.Key;
@@ -2380,7 +2417,12 @@ namespace Amc
             // track -- it just never advances, which reads as "no progress information" rather
             // than a stalled progress bar.
             double frac = dur2 > 1 ? Config.Clamp(_pos / dur2, 0, 1) : 0;
-            _barFill.Width = Math.Max(0, _barTrack.ActualWidth * frac);
+            // The fill is a layout participant: every Width change forces a measure/arrange pass
+            // over the whole card (TextBlocks included, which rebuild their FormattedText). At
+            // 30 fps that was most of the card's CPU. One pixel of progress is invisible, so only
+            // touch the width when the pixel actually changes.
+            double targetW = Math.Max(0, Math.Round(_barTrack.ActualWidth * frac));
+            if (Math.Abs(_barFill.Width - targetW) >= 1.0) _barFill.Width = targetW;
             // A zero-width rounded Border still paints a 1px nub on the left; without a length
             // the bar is decoration only, so keep the fill out of the picture entirely.
             _barFill.Visibility = dur2 > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -2539,41 +2581,28 @@ namespace Amc
         void SpinResume()
         {
             if (!_cfg.ArtSpin) return;
-            if (_spin == null)
+            if (!_spinOn)
             {
-                var a = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(36));
-                a.RepeatBehavior = RepeatBehavior.Forever;
-                _spin = a.CreateClock();
-                _artRotate.ApplyAnimationClock(RotateTransform.AngleProperty, _spin);
+                _spinOn = true;
                 LyricsService.Log("art spin start");
-            }
-            else if (_spin.CurrentState == ClockState.Stopped)
-            {
-                _spin.Controller.Begin();
-            }
-            else
-            {
-                _spin.Controller.Resume();
             }
         }
 
         void SpinPause()
         {
-            if (_spin != null && _spin.CurrentState == ClockState.Active)
-            {
-                _spin.Controller.Pause();
-            }
+            _spinOn = false;
         }
 
         void SpinStop()
         {
-            if (_spin != null)
+            _spinOn = false;
+            _spinAngle = 0.0;
+            _spinStep = 0;
+            if (_artRotate != null)
             {
-                _spin.Controller.Remove();
-                _spin = null;
+                try { _artRotate.ApplyAnimationClock(RotateTransform.AngleProperty, null); } catch { }
+                _artRotate.Angle = 0;
             }
-            try { _artRotate.ApplyAnimationClock(RotateTransform.AngleProperty, null); _artRotate.Angle = 0; }
-            catch { }
         }
 
         void ApplyArt(byte[] bytes)
