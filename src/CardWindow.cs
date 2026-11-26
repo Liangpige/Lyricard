@@ -998,9 +998,11 @@ namespace Amc
             artGrid.Children.Add(_artTop);
             artGrid.Children.Add(new Ellipse { Stroke = White(0.13), StrokeThickness = 1, Name = "ring" });
             // Same layout slot as the disc, so switching shape never moves or resizes the cover.
-            _artSquare = new Rectangle { Fill = null, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+            // Hit-testable on purpose: the disc catches the press and the card drags with it, so the
+            // square has to do the same or pressing the sleeve does nothing.
+            _artSquare = new Rectangle { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, Fill = null, Visibility = Visibility.Collapsed, IsHitTestVisible = true };
             artGrid.Children.Add(_artSquare);
-            _artSquareRing = new Rectangle { Stroke = White(0.13), StrokeThickness = 1, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+            _artSquareRing = new Rectangle { Stroke = White(0.13), StrokeThickness = 1, Visibility = Visibility.Collapsed, IsHitTestVisible = true, Fill = Brushes.Transparent };
             artGrid.Children.Add(_artSquareRing);
             root.Children.Add(artGrid);
             ApplyArtShape();
