@@ -2763,7 +2763,7 @@ namespace Amc
                 buf[i + 2] = (byte)(r < 0 ? 0 : (r > 255 ? 255 : r));
                 buf[i + 3] = (byte)alpha;
             }
-            LyricsService.Log("fadeart sat=" + t.Sat + " floor=" + t.FloorA + " hi=" + t.HiCut + " maxLum=" + maxIn.ToString("0.0") + " -> " + maxOut.ToString("0.0") + " meanIn=" + (sumIn / Math.Max(1, npx)).ToString("0.0") + " meanOut=" + (sumOut / Math.Max(1, npx)).ToString("0.0"));
+            LyricsService.Log("fadeart sat=" + t.Sat + " floor=" + t.FloorA + " hi=" + t.HiCut + " bri=" + t.Brightness + " con=" + t.Contrast + " warm=" + t.Warmth + " hue=" + (t.HueRad * 180.0 / Math.PI).ToString("0") + " vig=" + t.Vignette + " maxLum=" + maxIn.ToString("0.0") + " -> " + maxOut.ToString("0.0") + " meanIn=" + (sumIn / Math.Max(1, npx)).ToString("0.0") + " meanOut=" + (sumOut / Math.Max(1, npx)).ToString("0.0"));
             var res = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, buf, stride);
             res.Freeze();
             return res;
