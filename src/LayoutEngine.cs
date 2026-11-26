@@ -272,13 +272,19 @@ namespace Amc
         }
 
         /// <summary>Width available to the text column: nominal card width minus chrome, gap and cover.</summary>
+        /// <summary>Nominal cover footprint used to define the text column.</summary>
+        public const double NominalArt = 96.0;
+
         public static double TextColumnWidth(CardConfig cfg, CardMetrics m)
         {
             ModuleConfig cover = cfg.Find(ModuleKind.Cover);
             bool hasCover = cover != null && cover.Enabled;
-            double art = !hasCover ? 0 : (cover.W > 0 ? cover.W : m.ArtSize);
             double gap = hasCover ? m.ColGap : 0;
-            return m.CardW - (m.PadX + m.Border) * 2 - gap - art;
+            // The text column is a fixed width, measured from the card's *nominal* layout (a 96-wide
+            // cover), never from the cover that happens to be there now. Deriving it from the live
+            // cover meant a bigger cover ate the column and the title box shrank while the card
+            // stayed the same size; now the column holds and the card grows to fit the cover.
+            return Math.Max(120.0, m.CardW - (m.PadX + m.Border) * 2 - gap - NominalArt);
         }
 
         public static double LineH(double font, CardMetrics m)
