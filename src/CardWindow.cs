@@ -314,20 +314,47 @@ namespace Amc
             if (LayoutChanged != null) LayoutChanged();
         }
 
-        /// <summary>Push the current state into a preview surface (Look page board).</summary>
+        /// <summary>The card itself — the preview board samples this visual, it does not redraw it.</summary>
+        public FrameworkElement CardVisual
+        {
+            get { return _card; }
+        }
+
+        /// <summary>The artwork element itself (a rotating Ellipse, or null while it has no art).</summary>
+        public FrameworkElement CardArt
+        {
+            get { return _artEllipse; }
+        }
+
+        /// <summary>Vertical padding between the card edge and its content canvas.</summary>
+        public double CardPadTop
+        {
+            get { return 12.0; }
+        }
+
+        /// <summary>Last computed layout, so a view can reuse the card's own rects.</summary>
+        public LayoutResult CardLayout
+        {
+            get { return _layout; }
+        }
+
+        /// <summary>Logical size of the card right now (without the shadow margin).</summary>
+        public double CardWidth
+        {
+            get { return _card != null && _card.Width > 1 ? _card.Width : CardW; }
+        }
+
+        public double CardHeight
+        {
+            get { return _card != null && _card.Height > 1 ? _card.Height : 122.0; }
+        }
+
+        /// <summary>Point the board at this card. Content follows automatically.</summary>
         public void FeedPreview(CardPreview p)
         {
             if (p == null) return;
-            double dur = _durShown;
-            double prog = dur > 0.5 && _pos > 0 ? _pos / dur : 0.0;
-            Brush cover = _artEllipse != null ? _artEllipse.Fill : null;
-            p.Render(CardModel(), Metrics(), _cfg.Scale,
-                _runTitle != null ? _runTitle.Text : "",
-                _runArtist != null ? _runArtist.Text.Trim() : "",
-                // read the text the card is actually showing: _lineText is empty before the first
-                // lyrics arrive, while the card shows the placeholder line.
-                _lyric != null ? (_lyric.Text ?? "") : (_lineText ?? ""),
-                prog, _playingShown, cover, _cfg.ControlsColor);
+            p.Scale = _cfg.Scale;
+            p.Bind(this);
         }
 
         /// <summary>

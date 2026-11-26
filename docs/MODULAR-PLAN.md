@@ -198,3 +198,9 @@ LyricsService.Register(new KugouProvider());
 3. 歌词三态文案、菜单文案、快捷键（Esc 关面板、托盘双击开主页）不变。
 4. 不主动发版（主人明说才发）。
 5. 每一步都必须可回滚：一个步骤一个 commit，`git revert` 能单独撤。
+
+## S7 备注（2026-11-26）
+- 画板不再二次绘制：`CardPreview` 只做一件事 —— 把**主卡片自己的视觉**快照下来（`RenderTargetBitmap`，2× 像素密度），按 `Scale` 缩放显示。
+- 为什么不是 `VisualBrush`：它会把封面那层圆形裁剪渲染成圆角方块（实测四角是封面像素而不是背景色）。
+- 为什么还要一层圆形覆盖：`RenderTargetBitmap` 在卡片开着封面柔光（`DropShadowEffect`）时会丢掉 `Ellipse` 的几何裁剪，同样退化成方块；于是把 `CardArt`（卡片自己的 `Ellipse`）单独再快照一次、用 `LayoutEngine` 的 `Cover` 矩形 + `CardPadX/CardPadTop` 定位并裁成椭圆。
+- 刷新由 `CardWindow.LayoutChanged` 驱动（标题/艺人/歌词/播放态/整秒进度/封面有无 的签名变化），没有定时器。

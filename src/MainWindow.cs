@@ -1022,7 +1022,7 @@ namespace Amc
 
             // ---- board: a live mirror of the desktop card --------------------
             if (_preview != null) _card.LayoutChanged -= OnCardLayoutChanged;
-            _preview = new CardPreview();
+            _preview = new CardPreview { Scale = _cfg.Scale };
             _card.LayoutChanged += OnCardLayoutChanged;
             var board = new Border
             {
