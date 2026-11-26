@@ -1004,6 +1004,14 @@ namespace Amc
             SetPage(_page);
         }
 
+        CardPreview _preview;
+
+        /// <summary>Preview follows the card through its event; nothing here runs on a timer.</summary>
+        void OnCardLayoutChanged()
+        {
+            if (_preview != null) _card.FeedPreview(_preview);
+        }
+
         UIElement LookPage()
         {
             var box = new StackPanel();
@@ -1011,6 +1019,26 @@ namespace Amc
             // A hint is not a section: keeping it out of Section() avoids a stray hairline
             // and stops it from consuming the "first group has no divider" slot.
             box.Children.Add(Hint(Strings.T("page.look.hint")));
+
+            // ---- board: a live mirror of the desktop card --------------------
+            if (_preview != null) _card.LayoutChanged -= OnCardLayoutChanged;
+            _preview = new CardPreview();
+            _card.LayoutChanged += OnCardLayoutChanged;
+            var board = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(12, 255, 255, 255)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(16, 255, 255, 255)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 16, 14, 16),
+                Margin = new Thickness(0, 2, 0, 14)
+            };
+            var boardHost = new Grid { MinHeight = 150 };
+            _preview.FitWidth = 430;
+            boardHost.Children.Add(_preview);
+            board.Child = boardHost;
+            _card.FeedPreview(_preview);
+            box.Children.Add(board);
 
             // ---- text -------------------------------------------------------
             box.Children.Add(Section(Strings.T("sec.text")));

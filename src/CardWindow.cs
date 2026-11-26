@@ -69,6 +69,12 @@ namespace Amc
         // Step 6: while the card is being dragged we only move content around; the window
         // size is committed once the mouse comes back up, so a transparent window does not
         // get resized dozens of times per second during the gesture.
+        /// <summary>
+        /// Raised whenever the model or the look changed. The Look page's preview listens to
+        /// this instead of polling — one owner of the data, several views.
+        /// </summary>
+        public event Action LayoutChanged;
+
         bool _suspendSize;
         double _pendingW = -1, _pendingH = -1;
         Color _artBg = Color.FromArgb(238, 18, 18, 21);
@@ -118,6 +124,7 @@ namespace Amc
         DateTime _switchUntil = DateTime.MinValue;
         double _lastPos = 0;
         double _pos = -1;
+        double _durShown;
         int _lineIdx = -1;
         int _tickCount;
         DateTime _lastTick = DateTime.Now;
@@ -298,6 +305,26 @@ namespace Amc
             _layout = lay;
             ModuleRenderer.Apply(_canvas, model, lay, _elem);
             ApplyControlsPos();
+            NotifyLayoutChanged();
+        }
+
+        /// <summary>Tell every view that the card's look changed. Safe to call by hand.</summary>
+        public void NotifyLayoutChanged()
+        {
+            if (LayoutChanged != null) LayoutChanged();
+        }
+
+        /// <summary>Push the current state into a preview surface (Look page board).</summary>
+        public void FeedPreview(CardPreview p)
+        {
+            if (p == null) return;
+            double dur = _durShown;
+            double prog = dur > 0.5 && _pos > 0 ? _pos / dur : 0.0;
+            Brush cover = _artEllipse != null ? _artEllipse.Fill : null;
+            p.Render(CardModel(), Metrics(), _cfg.Scale,
+                _runTitle != null ? _runTitle.Text : "",
+                _runArtist != null ? _runArtist.Text.Trim() : "",
+                _lineText ?? "", prog, _playingShown, cover, _cfg.ControlsColor);
         }
 
         /// <summary>
@@ -1970,6 +1997,7 @@ namespace Amc
                 return;
             }
             double total = np.Dur.TotalSeconds;
+            _durShown = total;
             double target = np.EstimateSeconds(nowT);
             // End of the track, but the player has not published the next title yet. Park on the
             // last frame and stop doing position math: QQ Music keeps the old title for up to a
