@@ -54,7 +54,7 @@ namespace Amc
         public double ArtBlackAlpha = 1.0;
         public double ArtHiCut = 0.06;
         public bool ArtSpin = true;
-        public bool ArtShadow = true;
+        public bool ArtShadow = false;   // removed: kept only so old configs still parse
         /// <summary>Soft halo behind the text. Off by default (the card looks clean on dark
         /// wallpapers); turn it on when the desktop is light and white text disappears.</summary>
         public bool TextShadow;
@@ -116,7 +116,7 @@ namespace Amc
             LyricOffset = 0.0;
             ClearBg = true;
             ArtSpin = true;
-            ArtShadow = true;
+            ArtShadow = false;
             TextShadow = false;
             ControlsColor = "";
             ArtSat = 0.1;

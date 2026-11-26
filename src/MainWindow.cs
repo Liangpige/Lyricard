@@ -1111,8 +1111,7 @@ namespace Amc
             { _cfg.ArtSat = v; _card.RefreshArt(); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.artHiCut"), Stepper(_cfg.ArtHiCut, 0, 0.6, 0.02, "0.00", delegate(double v)
             { _cfg.ArtHiCut = v; _card.RefreshArt(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artShadow"), Toggle(_cfg.ArtShadow, delegate(bool v)
-            { _cfg.ArtShadow = v; _card.ApplyLook(); _cfg.Save(); })));
+            // the cover glow was removed: the halo bled over the title and lyrics
 
             // ---- card -------------------------------------------------------
             box.Children.Add(Section(Strings.T("sec.card")));

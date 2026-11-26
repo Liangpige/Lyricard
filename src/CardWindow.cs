@@ -521,7 +521,7 @@ namespace Amc
             sc.Playing = _playingShown;
             sc.Artwork = _artEllipse == null ? null : _artEllipse.Fill;
             sc.Spin = _artRotate == null ? 0 : _artRotate.Angle;
-            sc.Halo = _cfg.ArtShadow;
+            sc.Halo = false;   // the cover glow was removed
             sc.TitleSize = _baseTitleSize * _cfg.TitleScale;
             sc.ArtistSize = _baseArtistSize * _cfg.ArtistScale;
             sc.LyricSize = _baseLyricSize * _cfg.LyricScale;
@@ -950,7 +950,7 @@ namespace Amc
                 // halo goes on the static host, not on _artEllipse: the ellipse carries the
                 // spin transform, so an effect there would rotate the shadow with the cover
                 _artEllipse.Effect = null;
-                _artHost.Effect = _cfg.ArtShadow ? ArtHalo() : null;
+                _artHost.Effect = null;   // the glow is gone: it bled over the neighbouring text
 
                 // Only the cover keeps a shadow by default (see ArtHalo). TextShadow is the
                 // opt-in exception for light wallpapers, where white text without it vanishes.
@@ -966,7 +966,7 @@ namespace Amc
                 _card.BorderBrush = White(0.10);
                 _shadowHost.Effect = null;
                 _artEllipse.Effect = null;
-                _artHost.Effect = _cfg.ArtShadow ? ArtHalo() : null;
+                _artHost.Effect = null;   // the glow is gone: it bled over the neighbouring text
                 _card.Background = _hasArtBg
                     ? (Brush)new LinearGradientBrush(_artBg, Color.FromArgb(238, 12, 12, 15), 45)
                     : new SolidColorBrush(Color.FromArgb(238, 18, 18, 21));
