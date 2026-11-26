@@ -989,6 +989,10 @@ namespace Amc
         UIElement Segmented(string[] labels, int selected, Action<int> pick)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal };
+            // Every pill needs to be reachable from every other pill: clicking one has to move the
+            // highlight, and the caller only reports "index N was chosen", so the row repaints itself.
+            var pills = new List<Border>();
+            var brushes = new List<SolidColorBrush>();
             for (int i = 0; i < labels.Length; i++)
             {
                 int idx = i;
@@ -1013,10 +1017,42 @@ namespace Amc
                 b.MouseEnter += delegate { AnimateColor(segBrush, segHot, 120); };
                 b.MouseLeave += delegate { AnimateColor(segBrush, segRest, 170); };
                 PressScale(b);
-                b.MouseLeftButtonUp += delegate { pick(idx); };
+                int captured = idx;
+                b.MouseLeftButtonUp += delegate
+                {
+                    pick(captured);
+                    SelectInRow(row, captured);
+                };
+                pills.Add(b);
+                brushes.Add(segBrush);
                 row.Children.Add(b);
             }
             return row;
+        }
+
+        /// <summary>Repaint a segmented row so the chosen pill is the lit one.</summary>
+        static void SelectInRow(Panel row, int selected)
+        {
+            if (row == null) return;
+            for (int i = 0; i < row.Children.Count; i++)
+            {
+                Border b = row.Children[i] as Border;
+                if (b == null) continue;
+                bool on = (i == selected);
+                SolidColorBrush sb = b.Background as SolidColorBrush;
+                if (sb != null)
+                {
+                    sb.Color = on ? Color.FromArgb(255, 236, 238, 242)
+                                  : Color.FromArgb(20, 255, 255, 255);
+                }
+                TextBlock tb = b.Child as TextBlock;
+                if (tb != null)
+                {
+                    tb.Foreground = on ? (Brush)new SolidColorBrush(Color.FromRgb(20, 20, 22))
+                                       : new SolidColorBrush(TextDim);
+                    tb.FontWeight = on ? FontWeights.SemiBold : FontWeights.Normal;
+                }
+            }
         }
 
         /// <summary>Re-read every string (language switch) and rebuild the whole window.</summary>
