@@ -1176,6 +1176,17 @@ namespace Amc
                 RebuildAll();
             };
             _preview.CancelRequested += delegate { RebuildAll(); };
+
+            // AMC_APPLY_PRESET=<n> applies preset n once at start-up and logs what it did. Preset
+            // chips live at the bottom of a scrolled page, which makes them the one control that is
+            // awkward to drive from a script; this hook keeps them testable.
+            string presetEnv = Environment.GetEnvironmentVariable("AMC_APPLY_PRESET");
+            int presetIdx;
+            if (presetEnv != null && int.TryParse(presetEnv, out presetIdx) && presetIdx >= 0 && presetIdx < _cfg.Presets.Count)
+            {
+                Config.LookPreset target = _cfg.Presets[presetIdx];
+                Dispatcher.BeginInvoke(new Action(delegate { ApplyPreset(target); }), System.Windows.Threading.DispatcherPriority.Background);
+            }
             var board = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(12, 255, 255, 255)),
@@ -1444,7 +1455,10 @@ namespace Amc
                 if (nm.Length == 0) nm = Strings.F("preset.defaultName", _cfg.Presets.Count + 1);
                 if (nm.Length > 14) nm = nm.Substring(0, 14);
                 if (_cfg.Presets.Count >= 10) _cfg.Presets.RemoveAt(0);
-                _cfg.Presets.Add(_cfg.CaptureLook(nm));
+                Config.LookPreset np = _cfg.CaptureLook(nm);
+                string tmpl = ReadTemplateText();
+                if (tmpl != null) np.Data += ";Template=" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tmpl));
+                _cfg.Presets.Add(np);
                 _cfg.Save();
                 SetPage("look");
             }, false);
@@ -1461,6 +1475,45 @@ namespace Amc
         }
 
         // one saved look: click the name to apply it, click the x to delete it
+        // A preset used to be "how the card looks": colours, sizes, cover treatment. Since the
+        // template became the only description of where things sit, it also has to carry the
+        // template, otherwise applying a preset leaves the layout behind and the chip looks broken.
+        static string ReadTemplateText()
+        {
+            try
+            {
+                if (!System.IO.File.Exists(CardConfig.DefaultPath)) return null;
+                return System.IO.File.ReadAllText(CardConfig.DefaultPath, System.Text.Encoding.UTF8);
+            }
+            catch { return null; }
+        }
+
+        void ApplyPreset(Config.LookPreset p)
+        {
+            if (p == null) return;
+            string template = null;
+            foreach (string pair in (p.Data ?? "").Split(';'))
+            {
+                if (!pair.StartsWith("Template=")) continue;
+                try { template = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(pair.Substring(9))); }
+                catch { template = null; }
+            }
+            _cfg.ApplyLookPreset(p);
+            _cfg.Save();
+            _card.ApplyLook();
+            _card.ApplyCurrentScale();
+            _card.ApplyCurrentOpacity();
+            if (template != null)
+            {
+                try { System.IO.File.WriteAllText(CardConfig.DefaultPath, template, System.Text.Encoding.UTF8); }
+                catch { }
+                _card.ReloadModel();
+                _preview.RefreshFromCard();
+            }
+            LyricsService.Log("preset apply name=" + p.Name + " template=" + (template != null));
+            SetPage("look");
+        }
+
         Border PresetChip(Config.LookPreset p)
         {
             Color idle = Color.FromArgb(22, 255, 255, 255);
@@ -1498,12 +1551,7 @@ namespace Amc
             b.MouseLeftButtonUp += delegate
             {
                 if (del.IsMouseOver) return;
-                _cfg.ApplyLookPreset(p);
-                _cfg.Save();
-                _card.ApplyLook();
-                _card.ApplyCurrentScale();
-                _card.ApplyCurrentOpacity();
-                SetPage("look");
+                ApplyPreset(p);
             };
             return b;
         }

@@ -384,6 +384,13 @@ namespace Amc
             l.Add("ArtTintDark=" + ArtTintDark);
             l.Add("ArtTintLight=" + ArtTintLight);
             l.Add("ArtTintMix=" + ArtTintMix.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("BarsCount=" + BarsCount);
+            l.Add("BarsAttack=" + BarsAttack.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("BarsRelease=" + BarsRelease.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("BarsThickness=" + BarsThickness.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("BarsLength=" + BarsLength.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("BarsMaxHeight=" + BarsMaxHeight.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("BarsColor=" + BarsColor);
             l.Add("ArtistMaxChars=" + ArtistMaxChars);
             return l;
         }
