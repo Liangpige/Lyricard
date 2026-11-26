@@ -267,21 +267,16 @@ namespace Amc
         static double HeightOf(ModuleConfig mc, CardMetrics m)
         {
             if (mc.H > 0) return mc.H;
-            double h;
             switch (mc.Kind)
             {
-                case ModuleKind.Cover: h = mc.W > 0 ? mc.W : m.ArtSize; break;
-                case ModuleKind.Progress: h = m.BarThickness; break;
-                case ModuleKind.Controls: h = m.ControlsH; break;
-                case ModuleKind.Title: h = LineH(mc.FontSize > 0 ? mc.FontSize : m.TitleFont, m); break;
-                case ModuleKind.Artist: h = LineH(mc.FontSize > 0 ? mc.FontSize : m.ArtistFont, m); break;
-                case ModuleKind.Album: h = LineH(mc.FontSize > 0 ? mc.FontSize : m.AlbumFont, m); break;
-                default: h = LineH(mc.FontSize > 0 ? mc.FontSize : m.LyricFont, m); break;
+                case ModuleKind.Cover: return mc.W > 0 ? mc.W : m.ArtSize;
+                case ModuleKind.Progress: return m.BarThickness;
+                case ModuleKind.Controls: return m.ControlsH;
+                case ModuleKind.Title: return LineH(mc.FontSize > 0 ? mc.FontSize : m.TitleFont, m);
+                case ModuleKind.Artist: return LineH(mc.FontSize > 0 ? mc.FontSize : m.ArtistFont, m);
+                case ModuleKind.Album: return LineH(mc.FontSize > 0 ? mc.FontSize : m.AlbumFont, m);
+                default: return LineH(mc.FontSize > 0 ? mc.FontSize : m.LyricFont, m);
             }
-            // A floor keeps the card from collapsing when the text is short or empty
-            // (one lyric line still needs one line of height).
-            if (mc.MinHeight > h) h = mc.MinHeight;
-            return h;
         }
 
         static bool HasGap(ModuleKind kind)
