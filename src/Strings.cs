@@ -91,6 +91,13 @@ namespace Amc
             Both("nav.body.empty", "页面还是空的", "This page is still empty");
             Both("page.look.more", "更多设置…", "More settings…");
             Both("page.home.language", "界面语言", "Language");
+            Both("page.home.wheel", "卡片滚轮", "Mouse wheel on the card");
+            Both("wheel.scale", "缩放卡片", "Scale the card");
+            Both("wheel.volume", "系统音量", "System volume");
+            Both("wheel.off", "无操作", "Do nothing");
+            Both("page.home.wheel.hint",
+                "只对桌面卡片生效。音量指系统总音量（等同音量键），不是单独调某个播放器。",
+                "Applies to the desktop card only. Volume is the system master level (same as the volume keys), not one player's slider.");
             Both("page.home.clickthrough", "交互穿透（屏蔽卡片交互）", "Click-through (card ignores the mouse)");
             Both("page.home.clickthrough.hint",
                 "打开后卡片不再接收任何鼠标操作，点在卡片上的动作会落到它下面的窗口；要关掉就从托盘菜单或这一页关。",

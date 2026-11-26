@@ -1632,17 +1632,37 @@ namespace Amc
             }
         }
 
+        // Touchpads deliver many small deltas per gesture, mice deliver 120 per notch. Counting
+        // whole notches keeps one flick from changing the scale (or volume) thirty times.
+        double _wheelPend;
+
         void OnWheel(object s, MouseWheelEventArgs e)
         {
             e.Handled = true;
-            if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
+            _wheelPend += e.Delta;
+            int notches = 0;
+            while (_wheelPend >= 120.0) { notches++; _wheelPend -= 120.0; }
+            while (_wheelPend <= -120.0) { notches--; _wheelPend += 120.0; }
+            ApplyWheel(notches);
+        }
+
+        /// <summary>
+        /// One notch = 0.06 of card scale, or 2 % of the system volume, or nothing at all --
+        /// whichever the user picked on the home page. Split from the event handler so the
+        /// --wheel debug flag can drive it without synthesising input.
+        /// </summary>
+        public void ApplyWheel(int notches)
+        {
+            if (notches == 0) return;
+            string mode = _cfg.WheelAction;
+            LyricsService.Log("wheel " + notches + " mode=" + mode);
+            if (mode == "off") return;
+            if (mode == "volume")
             {
-                NudgeOpacity(e.Delta > 0 ? 0.05 : -0.05);
+                SystemVolume.Nudge(notches * 0.02);
+                return;
             }
-            else
-            {
-                NudgeScale(e.Delta > 0 ? 0.06 : -0.06);
-            }
+            NudgeScale(notches * 0.06);
         }
 
         /// <summary>

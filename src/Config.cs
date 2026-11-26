@@ -31,6 +31,8 @@ namespace Amc
         // stopped dragging) -- being able to use the card as a transparent overlay beats
         // accidentally dragging it.
         public bool ClickThrough = false;
+        /// <summary>What a mouse-wheel notch over the card does: scale | volume | off.</summary>
+        public string WheelAction = "scale";
         // Default off: a fresh copy should never touch somebody else's Run key on first launch.
         public bool AutoStart = false;
         // Update policy: one silent check at startup (never a poller), and a version the user
@@ -302,6 +304,9 @@ namespace Amc
                         case "Opacity": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) Opacity = d; break;
                         case "LyricOffset": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) LyricOffset = d; break;
                         case "ClickThrough": if (bool.TryParse(v, out b)) ClickThrough = b; break;
+                        case "WheelAction":
+                            if (v == "scale" || v == "volume" || v == "off") WheelAction = v;
+                            break;
                         // legacy: "Locked=..." only disabled dragging; ignore it so old files
                         // do not silently turn the card into a non-interactive overlay.
                         case "Locked": break;
@@ -471,6 +476,7 @@ namespace Amc
                 sb.AppendLine("Opacity=" + Opacity.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("LyricOffset=" + LyricOffset.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("ClickThrough=" + ClickThrough);
+                sb.AppendLine("WheelAction=" + WheelAction);
                 sb.AppendLine("AutoStart=" + AutoStart);
                 sb.AppendLine("AutoCheckUpdate=" + AutoCheckUpdate);
                 sb.AppendLine("SkippedVersion=" + SkippedVersion);

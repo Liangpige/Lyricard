@@ -821,6 +821,15 @@ namespace Amc
 
         // ---- pages -------------------------------------------------------------------------
 
+        static readonly string[] WheelModes = new string[] { "scale", "volume", "off" };
+
+        /// <summary>Index of the stored wheel mode; unknown values fall back to scaling.</summary>
+        int WheelIndex()
+        {
+            int i = Array.IndexOf(WheelModes, _cfg.WheelAction);
+            return i < 0 ? 0 : i;
+        }
+
         UIElement HomePage()
         {
             var box = new StackPanel();
@@ -851,6 +860,22 @@ namespace Amc
                     RebuildAll();
                 })));
             box.Children.Add(Hint(Strings.T("page.home.clickthrough.hint")));
+
+            // The wheel is the card's only silent control: without a switch nobody discovers that
+            // it scales, and people who expect it to change volume think it is broken.
+            box.Children.Add(Rule());
+            box.Children.Add(Section(Strings.T("page.home.wheel")));
+            box.Children.Add(Segmented(new string[]
+                {
+                    Strings.T("wheel.scale"), Strings.T("wheel.volume"), Strings.T("wheel.off")
+                }, WheelIndex(), delegate(int idx)
+                {
+                    _cfg.WheelAction = WheelModes[idx];
+                    _cfg.Save();
+                    LyricsService.Log("wheel -> " + _cfg.WheelAction);
+                    RebuildAll();
+                }));
+            box.Children.Add(Hint(Strings.T("page.home.wheel.hint")));
 
             // startup
             box.Children.Add(Section(Strings.T("page.home.startup")));

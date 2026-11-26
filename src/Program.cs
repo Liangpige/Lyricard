@@ -248,6 +248,17 @@ namespace Amc
                         catch (Exception ex) { LyricsService.Log("page startup failed: " + ex.Message); }
                     });
                 }
+                // --wheel <n>: run the wheel dispatch n notches without synthesising input.
+                string wheelArg = ArgValue(args, "--wheel");
+                int wheelNotches;
+                if (wheelArg != null && int.TryParse(wheelArg, out wheelNotches))
+                {
+                    app.Dispatcher.BeginInvoke((Action)delegate
+                    {
+                        try { win.ApplyWheel(wheelNotches); }
+                        catch (Exception ex) { LyricsService.Log("wheel startup failed: " + ex.Message); }
+                    });
+                }
                 // --pick: jump straight to the manual lyric picker (debugging aid, and handy
                 // when the card is not on screen because nothing is playing right now).
                 if (HasArg(args, "--pick"))
