@@ -1040,6 +1040,8 @@ namespace Amc
             _card.InvalidateModel();
             _card.SaveModel();
             _card.ApplyLook();
+            // the board draws the same template, so let it re-read the box we just resized
+            if (_preview != null) _preview.RefreshFromCard();
         }
 
         void SetCap(ModuleKind kind, int chars)
