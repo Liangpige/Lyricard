@@ -586,19 +586,38 @@ namespace Amc
         void StepBars(bool playing)
         {
             if (_bars == null || _bars.Length == 0 || _barsEnv == null) return;
-            double peak = playing ? AudioPeak.Peak() : 0.0;
             int n = _bars.Length;
-            double mid = (n - 1) / 2.0;
             double h = _barsHost.Height;
+
+            // Phase B: real band levels straight from the loopback capture. It returns null while the
+            // device is silent or the capture thread has not warmed up, in which case the row falls
+            // back to the plain level arch instead of going dark.
+            float[] bands = playing ? AudioSpectrum.Bands(n) : null;
+            double peak = 0.0;
             double t = _stepBarsClock++;
+            double mid = (n - 1) / 2.0;
+            if (bands == null) peak = playing ? AudioPeak.Peak() : 0.0;
+
             for (int i = 0; i < n; i++)
             {
-                double arch = 1.0 - Math.Abs(i - mid) / Math.Max(1.0, mid) * 0.55;
-                double wob = 0.78 + 0.22 * Math.Sin(t * 0.09 + i * 0.55);
-                double target = peak * arch * wob;
+                double target;
+                if (bands != null)
+                {
+                    target = bands[i] * 1.15;
+                    // A touch of the arch keeps the row from looking like noise on quiet passages.
+                    double arch = 1.0 - Math.Abs(i - mid) / Math.Max(1.0, mid) * 0.18;
+                    target *= arch;
+                }
+                else
+                {
+                    double arch = 1.0 - Math.Abs(i - mid) / Math.Max(1.0, mid) * 0.55;
+                    double wob = 0.78 + 0.22 * Math.Sin(t * 0.09 + i * 0.55);
+                    target = peak * arch * wob;
+                }
                 if (target > 1.0) target = 1.0;
+                if (target < 0.0) target = 0.0;
                 double cur = _barsEnv[i];
-                double k = target > cur ? 0.42 : 0.09;
+                double k = target > cur ? 0.55 : 0.14;
                 cur += (target - cur) * k;
                 _barsEnv[i] = cur;
                 double bh = cur * h;
