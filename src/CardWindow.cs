@@ -63,6 +63,8 @@ namespace Amc
         Canvas _canvas;
         FrameworkElement _hostTitle, _hostLyric;
         CardElements _elem;
+        // Step 5: every hit test asks the layout where the modules are, not the visual tree.
+        LayoutResult _layout;
         Color _artBg = Color.FromArgb(238, 18, 18, 21);
         bool _hasArtBg;
         TextBlock _title;
@@ -279,6 +281,7 @@ namespace Amc
             _elem.Progress = _barRow;
             _elem.Controls = _content;
             _elem.Cover = _artHost;
+            _layout = lay;
             ModuleRenderer.Apply(_canvas, model, lay, _elem);
             ApplyControlsPos();
         }
@@ -1037,6 +1040,9 @@ namespace Amc
                 return;
             }
             if (_cfg.ClickThrough) return;
+            // the progress row handles its own press (seek); dragging from there used to be
+            // impossible because the bar swallowed the event - keep that rule, now via the rect
+            if (HitModule(e.GetPosition(_canvas), ModuleKind.Progress, 4.0)) return;
             try { DragMove(); } catch { }
             RememberPosition();
         }
@@ -1064,13 +1070,34 @@ namespace Amc
             }
         }
 
+        /// <summary>
+        /// Point-in-module test in card-content units. padY widens a thin row vertically so the
+        /// progress bar stays as easy to hit as it was when it owned a border of its own height.
+        /// </summary>
+        bool HitModule(Point p, ModuleKind kind, double padY)
+        {
+            LayoutResult lay = _layout;
+            if (lay == null) return false;
+            ModuleRect r;
+            if (!lay.TryFind(kind, out r)) return false;
+            return p.X >= r.X && p.X <= r.X + r.W
+                && p.Y >= r.Y - padY && p.Y <= r.Y + r.H + padY;
+        }
+
         void OnBarClick(object s, MouseButtonEventArgs e)
         {
             var np = _smtc.Current;
             if (np == null || !np.Has || np.Dur.TotalSeconds < 5) return;
-            var el = (FrameworkElement)s;
-            double x = e.GetPosition(el).X;
-            double frac = x / Math.Max(1, el.ActualWidth);
+            ModuleRect r;
+            if (_layout == null || !_layout.TryFind(ModuleKind.Progress, out r)) return;
+            Point p = e.GetPosition(_canvas);
+            double frac = (p.X - r.X) / Math.Max(1.0, r.W);
+            if (frac < 0) frac = 0;
+            if (frac > 1) frac = 1;
+            LyricsService.Log("bar seek frac=" + frac.ToString("0.000", CultureInfo.InvariantCulture)
+                + " t=" + (frac * np.Dur.TotalSeconds).ToString("0.0", CultureInfo.InvariantCulture)
+                + " rect=" + r.X.ToString("0.0", CultureInfo.InvariantCulture) + "," + r.Y.ToString("0.0", CultureInfo.InvariantCulture)
+                + " " + r.W.ToString("0.0", CultureInfo.InvariantCulture) + "x" + r.H.ToString("0.0", CultureInfo.InvariantCulture));
             _smtc.Seek(frac * np.Dur.TotalSeconds);
             e.Handled = true;
         }
