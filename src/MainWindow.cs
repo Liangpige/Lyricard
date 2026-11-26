@@ -199,14 +199,71 @@ namespace Amc
             var title = Label(Strings.T(navKey), 17, TextMain, FontWeights.SemiBold);
             title.Margin = new Thickness(0, 0, 0, 12);
             box.Children.Add(title);
-            box.Children.Add(body);
+            box.Children.Add(TwoColumn(body));
             return box;
+        }
+
+        /// <summary>
+        /// Two controls per line wherever the section has room for it. Rows are tagged at creation and
+        /// paired here in one pass, so every page gets the same rhythm without touching each call site.
+        /// Wide rows (colour palettes) and anything that is not a row -- headings, hairlines, buttons,
+        /// prose -- stay alone, which also means a pair never straddles a divider.
+        /// </summary>
+        UIElement TwoColumn(UIElement body)
+        {
+            StackPanel src = body as StackPanel;
+            if (src == null) return body;
+            var items = new System.Collections.Generic.List<UIElement>();
+            foreach (UIElement child in src.Children) items.Add(child);
+            src.Children.Clear();          // detach first: a child cannot have two logical parents
+            var dst = new StackPanel();
+            var pending = new System.Collections.Generic.List<FrameworkElement>();
+            foreach (UIElement child in items)
+            {
+                FrameworkElement fe = child as FrameworkElement;
+                bool pair = fe != null && (fe.Tag as string) == "row";
+                if (pair) { pending.Add(fe); continue; }
+                FlushPairs(dst, pending);
+                StackPanel inner = child as StackPanel;
+                bool innerHasRows = false;
+                if (inner != null && inner.Tag == null)
+                {
+                    foreach (UIElement ic in inner.Children)
+                    {
+                        FrameworkElement ife = ic as FrameworkElement;
+                        if (ife != null && (ife.Tag as string) == "row") { innerHasRows = true; break; }
+                    }
+                }
+                dst.Children.Add(innerHasRows ? TwoColumn(inner) : child);
+            }
+            FlushPairs(dst, pending);
+            return dst;
+        }
+
+        static void FlushPairs(StackPanel target, System.Collections.Generic.List<FrameworkElement> pending)
+        {
+            for (int i = 0; i < pending.Count; i += 2)
+            {
+                if (i + 1 >= pending.Count) { target.Children.Add(pending[i]); break; }
+                var g = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+                g.ColumnDefinitions.Add(new ColumnDefinition());
+                g.ColumnDefinitions.Add(new ColumnDefinition());
+                FrameworkElement a = pending[i], b = pending[i + 1];
+                a.Margin = new Thickness(0, 0, 10, 0);
+                b.Margin = new Thickness(10, 0, 0, 0);
+                Grid.SetColumn(a, 0);
+                Grid.SetColumn(b, 1);
+                g.Children.Add(a);
+                g.Children.Add(b);
+                target.Children.Add(g);
+            }
+            pending.Clear();
         }
 
         /// <summary>Label above its control, matching the settings panel's stacked layout.</summary>
         FrameworkElement Row(string label, UIElement control)
         {
-            var box = new StackPanel { Margin = new Thickness(0, 0, 0, 9) };
+            var box = new StackPanel { Margin = new Thickness(0, 0, 0, 10), Tag = "row" };
             var l = Label(label, 11.5, TextDim, FontWeights.Normal);
             l.Margin = new Thickness(0, 0, 0, 3);
             box.Children.Add(l);
@@ -358,7 +415,9 @@ namespace Amc
             };
             dots.Children.Add(more);
 
-            return Row(label, dots);
+            var wide = Row(label, dots);
+            wide.Tag = "rowwide";
+            return wide;
         }
 
         /// <summary>− value + stepper; every look value in this app uses the same one.</summary>
@@ -1274,6 +1333,7 @@ namespace Amc
 
             // 长度上限：it is the character cap, and with the box on auto the cap *is* the width,
             // so these three steer the frames you just saw above.
+            box.Children.Add(Section(Strings.T("page.look.size")));
             var capStack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
             capStack.Children.Add(Row(Strings.T("cap.title"), Stepper(CapOf(ModuleKind.Title), 0, 80, 2, "0",
                 delegate(double v) { SetCap(ModuleKind.Title, (int)Math.Round(v)); })));
@@ -1281,16 +1341,7 @@ namespace Amc
                 delegate(double v) { SetCap(ModuleKind.Artist, (int)Math.Round(v)); })));
             capStack.Children.Add(Row(Strings.T("cap.lyrics"), Stepper(CapOf(ModuleKind.Lyrics), 0, 80, 2, "0",
                 delegate(double v) { SetCap(ModuleKind.Lyrics, (int)Math.Round(v)); })));
-            box.Children.Add(capStack);
-
-            _card.LookChanged += OnCardLookChanged;
-            _preview.BeginDraft(_card);
-
-            // The board edits a draft template: nothing above this line touches the card until
-            // 应用. Everything below is a live setting that repaints the card as you drag it.
-            // Cover size is the template's Cover module, so it belongs with the draft controls above
-
-            box.Children.Add(Row(Strings.T("lbl.coverSize"), Stepper(_cfg.ArtSize, 56, 160, 4, "0", delegate(double v)
+            capStack.Children.Add(Row(Strings.T("lbl.coverSize"), Stepper(_cfg.ArtSize, 56, 160, 4, "0", delegate(double v)
             {
                 _cfg.ArtSize = v;
                 // one size for both views: write it into the Cover module, so the board's circle
@@ -1311,7 +1362,7 @@ namespace Amc
             })));
             // Same story as the cover: these steer the Progress and MusicBars modules, so they
             // sit with the draft controls instead of pretending to be instant repaints.
-            box.Children.Add(Row(Strings.T("lbl.barLength"), Stepper(_cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
+            capStack.Children.Add(Row(Strings.T("lbl.barLength"), Stepper(_cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
             {
                 double oldScale = _cfg.BarScale <= 0 ? 1.0 : _cfg.BarScale;
                 _cfg.BarScale = v;
@@ -1335,6 +1386,15 @@ namespace Amc
                 _cfg.Save();
                 _preview.RefreshFromCard();
             })));
+            box.Children.Add(TwoColumn(capStack));
+
+            _card.LookChanged += OnCardLookChanged;
+            _preview.BeginDraft(_card);
+
+            // The board edits a draft template: nothing above this line touches the card until
+            // 应用. Everything below is a live setting that repaints the card as you drag it.
+            // Cover size is the template's Cover module, so it belongs with the draft controls above
+
             box.Children.Add(Row(Strings.T("lbl.barsLength"), Stepper(_cfg.BarsLength, 40, 420, 10, "0", delegate(double v)
             {
                 _cfg.BarsLength = v;

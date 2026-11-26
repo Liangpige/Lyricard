@@ -59,6 +59,7 @@ namespace Amc
             Both("menu.addModule", "添加模块", "Add module");
             Both("menu.allPlaced", "所有模块都在卡片上了", "Every module is already on the card");
             // template controls above the divider
+            Both("page.look.size", "模板尺寸", "Template size");
             Both("cap.title", "歌名长度上限", "Title max chars");
             Both("cap.artist", "艺人长度上限", "Artist max chars");
             Both("cap.lyrics", "歌词长度上限", "Lyrics max chars");
