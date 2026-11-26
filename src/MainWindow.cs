@@ -1074,6 +1074,7 @@ namespace Amc
             boardBar.Children.Add(Pill(Strings.T("board.apply"), delegate { _preview.RaiseApply(); }, true));
             boardBar.Children.Add(Pill(Strings.T("board.cancel"), delegate { _preview.RaiseCancel(); }, false));
             boardBar.Children.Add(Pill("添加模块…", delegate { _preview.ShowAddMenu(); }, false));
+            boardBar.Children.Add(Pill("刷新", delegate { _preview.RefreshFromCard(); }, false));
             box.Children.Add(boardBar);
 
             // 长度上限：it is the character cap, and with the box on auto the cap *is* the width,

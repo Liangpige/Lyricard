@@ -325,6 +325,20 @@ namespace Amc
             return m;
         }
 
+        /// <summary>
+        /// Re-seed the draft from the card's current template. Used by the board's 刷新 button:
+        /// edits made elsewhere (bar length, cover size, the length caps in the look page) live on
+        /// the card, and without this the board keeps showing the copy it started with.
+        /// </summary>
+        public void RefreshFromCard()
+        {
+            if (_card == null) return;
+            CardConfig live = _card.Model;
+            _draft = live == null ? null : live.Clone();
+            _applied = _draft == null ? null : _draft.Clone();
+            Rebuild();
+        }
+
         /// <summary>Redraw from the draft with the card's current metrics (fonts, cover size).</summary>
         public void RefreshMetrics()
         {
