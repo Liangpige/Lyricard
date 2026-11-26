@@ -146,12 +146,9 @@ namespace Amc
             double s = _card.ScaleValue;
             LayoutResult lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), true);
 
-            // two measure passes: text width is not perfectly linear in the factor
-            for (int pass = 0; pass < 2 && lay.CardW > FitWidth && lay.CardW > 0; pass++)
-            {
-                s *= FitWidth / lay.CardW;
-                lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), true);
-            }
+            // Draw the board at the card's own scale, 1:1. Shrinking the board to fit its panel
+            // made every comparison a guess ("looks bigger / looks longer"); at 1:1 a box is the
+            // same number of pixels as the card, and the panel scrolls when a template is wide.
 
             _s = Math.Max(0.05, s);
             _lay = lay;

@@ -1048,8 +1048,16 @@ namespace Amc
                 Padding = new Thickness(14, 16, 14, 16),
                 Margin = new Thickness(0, 2, 0, 14)
             };
+            // 1:1 with the card, so the panel scrolls instead of silently rescaling the drawing
+            var boardScroll = new System.Windows.Controls.ScrollViewer
+            {
+                HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Disabled,
+                Content = _preview,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             var boardHost = new Grid { MinHeight = 150 };
-            boardHost.Children.Add(_preview);
+            boardHost.Children.Add(boardScroll);
             board.Child = boardHost;
             box.Children.Add(board);
 

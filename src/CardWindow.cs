@@ -434,6 +434,20 @@ namespace Amc
         /// A module's W is a hard cap: real text is clipped to it with an ellipsis, it never widens
         /// the card. Without this the title/lyric runs could push the window wider than the model.
         /// </summary>
+        int _geoLog;
+
+        void LogGeometry(LayoutResult lay)
+        {
+            if (lay == null) return;
+            ModuleRect rr;
+            string parts = "";
+            if (lay.TryFind(ModuleKind.Title, out rr)) parts += string.Format(" title={0:F0},{1:F0} {2:F0}x{3:F0}", rr.X, rr.Y, rr.W, rr.H);
+            if (lay.TryFind(ModuleKind.Artist, out rr)) parts += string.Format(" artist={0:F0},{1:F0} {2:F0}x{3:F0}", rr.X, rr.Y, rr.W, rr.H);
+            if (lay.TryFind(ModuleKind.Lyrics, out rr)) parts += string.Format(" lyrics={0:F0},{1:F0} {2:F0}x{3:F0}", rr.X, rr.Y, rr.W, rr.H);
+            if (lay.TryFind(ModuleKind.Cover, out rr)) parts += string.Format(" cover={0:F0},{1:F0} {2:F0}x{3:F0}", rr.X, rr.Y, rr.W, rr.H);
+            LyricsService.Log(string.Format("geo card={0:F0}x{1:F0}{2}", lay.BoundsW, lay.BoundsH, parts));
+        }
+
         void ApplyModuleCaps(LayoutResult lay)
         {
             ModuleRect t, l;
@@ -444,6 +458,7 @@ namespace Amc
                 if (_hostTitle != null) { _hostTitle.Width = Math.Max(1.0, t.W); _hostTitle.Height = Math.Max(1.0, t.H); _hostTitle.ClipToBounds = true; }
                 // Width, not MaxWidth: the box *is* the text box, so the TextBlock has to be told
                 // the exact measure or WPF sizes it against the whole canvas and never trims.
+                if ((_geoLog++ % 15) == 0) LogGeometry(lay);
                 _boxTitleW = Math.Max(1.0, t.W);
                 _title.Width = Math.Max(1.0, t.W);
                 _title.TextTrimming = TextTrimming.CharacterEllipsis;
