@@ -597,7 +597,7 @@ namespace Amc
                 {
                     for (int i = 0; i < _bars.Length; i++) _bars[i].Fill = new SolidColorBrush(c);
                     _barsColorKey = ckey;
-                    LyricsService.Log("bars recolour " + ckey);
+                    LyricsService.Log("bars recolour " + ckey + " -> #" + c.A.ToString("X2") + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2"));
                 }
                 return;
             }
@@ -630,6 +630,17 @@ namespace Amc
         void StepBars(bool playing)
         {
             if (_bars == null || _bars.Length == 0 || _barsEnv == null) return;
+            // The row's colour is compared here, on the frame path, because every other entry point
+            // (ApplyLook, Render) can be skipped while the card is idle or hidden. Cheap: one string
+            // compare unless the colour actually changed.
+            string ckeyNow = BarsColourKey();
+            if (ckeyNow != _barsColorKey)
+            {
+                Color cNow = ResolveBarsColour();
+                for (int i = 0; i < _bars.Length; i++) _bars[i].Fill = new SolidColorBrush(cNow);
+                _barsColorKey = ckeyNow;
+                LyricsService.Log("bars retint " + ckeyNow + " -> #" + cNow.A.ToString("X2") + cNow.R.ToString("X2") + cNow.G.ToString("X2") + cNow.B.ToString("X2"));
+            }
             int n = _bars.Length;
             double h = _barsHost.Height;
 
@@ -2994,6 +3005,20 @@ namespace Amc
             c = Colors.Black;
             if (string.IsNullOrEmpty(hex)) return false;
             string h = hex.Trim().TrimStart('#');
+            // The palette writes #AARRGGBB, hand-typed values are usually #RRGGBB. Rejecting the
+            // 8-digit form silently dropped every colour picked from the swatches.
+            if (h.Length == 8)
+            {
+                try
+                {
+                    c = Color.FromArgb(Convert.ToByte(h.Substring(0, 2), 16),
+                                       Convert.ToByte(h.Substring(2, 2), 16),
+                                       Convert.ToByte(h.Substring(4, 2), 16),
+                                       Convert.ToByte(h.Substring(6, 2), 16));
+                    return true;
+                }
+                catch { return false; }
+            }
             if (h.Length != 6) return false;
             try
             {
