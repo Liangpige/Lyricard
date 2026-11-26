@@ -137,6 +137,8 @@ namespace Amc
         string _lineText = "";
         bool _lineFaded;
         byte[] _lastArt;
+        bool _artPending;
+        DateTime _artPendingAt;
         bool _suppressed;
         // "no player at all" state (Apple Music not installed / not running).
         int _audibleTicks;
@@ -2141,7 +2143,9 @@ namespace Amc
             }
             _idle = false;
             if (!IsVisible && !_suppressed) ShowAnimated();
-            if (_artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
+            // A track with no artwork at all would otherwise leave the disc dimmed forever.
+            if (_artPending && (DateTime.Now - _artPendingAt).TotalSeconds > 1.5) _artPending = false;
+            if (!_artPending && _artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
             if (_barRow.Visibility != Visibility.Visible)
             {
                 _barRow.Visibility = Visibility.Visible;
@@ -2289,14 +2293,14 @@ namespace Amc
                 _endHold = false;
                 _switchUntil = nowT.AddMilliseconds(900);
 
-                // Drop the old cover right away. Players publish the title a beat before the
-                // artwork, and Smtc hands us Art=null until the thumbnail arrives -- without this
-                // the previous song's cover stayed on screen (and tinted the backdrop) meanwhile.
+                // Players publish the title a beat before the artwork, so for a few hundred ms there
+                // is no cover for the new track. Blanking the disc made that gap read as a flash;
+                // keep the previous cover instead, dimmed, and let ApplyArt swap it in place.
                 _lastArt = null;
-                LyricsService.Log("art clear " + trackKey);
-                try { _artEllipse.Fill = null; } catch { }
-                _hasArtBg = false;
-                ApplyBackdrop();
+                _artPending = true;
+                _artPendingAt = DateTime.Now;
+                LyricsService.Log("art pending " + trackKey);
+                if (_artEllipse != null && _artEllipse.Fill != null) _artHost.Opacity = 0.5;
             }
             else if (_lastPos - _pos > 3.0
                 && !(np.Dur.TotalSeconds > 1 && _lastPos > np.Dur.TotalSeconds - 1.5))
@@ -2622,8 +2626,14 @@ namespace Amc
 
                 LyricsService.Log("art apply " + bytes.Length + " bytes");
                 var brush = new ImageBrush(shown) { Stretch = Stretch.UniformToFill };
-                FadeIn(_artEllipse, 280);
+                // A fade is only right for the first cover. On a track change the disc already has
+                // artwork; fading it out and back in is exactly the flash we are removing.
+                bool hadArt = _artEllipse.Fill != null;
                 _artEllipse.Fill = brush;
+                _artEllipse.Opacity = 1.0;
+                if (!hadArt) FadeIn(_artEllipse, 280);
+                _artPending = false;
+                _artHost.Opacity = 1.0;
 
                 var c = AverageColor(bi);
                 _artBg = Color.FromArgb(238,
