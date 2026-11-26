@@ -532,21 +532,6 @@ namespace Amc
                 _cfg.ArtistMaxChars = (int)v;
                 _card.ApplyLook();
             });
-            StepRow(Strings.T("lbl.titleIndent"), _cfg.TitleIndent, 0, 120, 2, "0", delegate(double v)
-            {
-                _cfg.TitleIndent = v;
-                _card.ApplyLook();
-            });
-            StepRow(Strings.T("lbl.lyricIndent"), _cfg.LyricIndent, 0, 120, 2, "0", delegate(double v)
-            {
-                _cfg.LyricIndent = v;
-                _card.ApplyLook();
-            });
-            AlignRow(Strings.T("lbl.align"), _cfg.TextAlign, delegate(string v)
-            {
-                _cfg.TextAlign = v;
-                _card.ApplyAlign();
-            });
             ColorRow(Strings.T("lbl.artistColor"), _cfg.ArtistColor, delegate(string v)
             {
                 _cfg.ArtistColor = v;
@@ -623,11 +608,6 @@ namespace Amc
             {
                 _cfg.ControlsColor = v;
                 _card.ApplyLook();
-            });
-            StepRow(Strings.T("lbl.controlsX"), _cfg.ControlsX, 0, 100, 5, "0", delegate(double v)
-            {
-                _cfg.ControlsX = v;
-                _card.ApplyControlsPos();
             });
             ToggleRow(Strings.T("lbl.clearBg"), _cfg.ClearBg, delegate(bool v) { _card.SetClearBg(v); });
             ToggleRow(Strings.T("lbl.spin"), _cfg.ArtSpin, delegate(bool v) { _card.SetArtSpin(v); });

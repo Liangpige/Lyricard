@@ -93,10 +93,6 @@ namespace Amc
         public double ArtSize = 96.0;
         /// <summary>Legacy: superseded by ModuleConfig.MaxChars. Parsed so old files still load, never applied.</summary>
         public int ArtistMaxChars = 0;
-        public string TextAlign = "right";   // right | center | left
-        public double ControlsX = 100.0;   // 0..100, percent of the free width left of the cover
-        public double TitleIndent = 31.0;
-        public double LyricIndent = 0.0;
 
         // user saved looks (settings panel -> 预设). Data is a "k=v;k=v;" blob of the
         // look fields, so adding a field later does not need a new file format.
@@ -135,10 +131,6 @@ namespace Amc
             BarFillColor = "";
             ArtSize = 96.0;
             ArtistMaxChars = 15;
-            TextAlign = "right";
-            ControlsX = 100.0;
-            TitleIndent = 31.0;
-            LyricIndent = 0.0;
         }
 
         static string _dir;
@@ -292,15 +284,7 @@ namespace Amc
                         case "BarFillColor": BarFillColor = v; break;
                         case "ArtSize": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtSize = d; break;
                         case "ArtistMaxChars": if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) ArtistMaxChars = n; break;
-                        case "TextAlign":
-                            {
-                                string t = (v ?? "").Trim().ToLowerInvariant();
-                                if (t == "left" || t == "center" || t == "right") TextAlign = t;
-                            }
-                            break;
-                        case "ControlsX": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ControlsX = d; break;
-                        case "TitleIndent": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) TitleIndent = d; break;
-                        case "LyricIndent": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) LyricIndent = d; break;
+
                     }
         }
 
@@ -331,10 +315,6 @@ namespace Amc
             l.Add("BarFillColor=" + BarFillColor);
             l.Add("ArtSize=" + ArtSize.ToString("0.###", CultureInfo.InvariantCulture));
             l.Add("ArtistMaxChars=" + ArtistMaxChars);
-            l.Add("TextAlign=" + (TextAlign ?? "right"));
-            l.Add("ControlsX=" + ControlsX.ToString("0.##", CultureInfo.InvariantCulture));
-            l.Add("TitleIndent=" + TitleIndent.ToString("0.##", CultureInfo.InvariantCulture));
-            l.Add("LyricIndent=" + LyricIndent.ToString("0.##", CultureInfo.InvariantCulture));
             return l;
         }
 
@@ -372,9 +352,6 @@ namespace Amc
             BarScale = Clamp(BarScale, 0.5, 1.6);
             ArtSize = Clamp(ArtSize, 56.0, 160.0);
             ArtistMaxChars = (int)Clamp(ArtistMaxChars, 4, 40);
-            ControlsX = Clamp(ControlsX, 0.0, 100.0);
-            TitleIndent = Clamp(TitleIndent, 0.0, 200.0);
-            LyricIndent = Clamp(LyricIndent, 0.0, 200.0);
         }
 
         public void Save()
@@ -421,10 +398,6 @@ namespace Amc
                 sb.AppendLine("BarFillColor=" + BarFillColor);
                 sb.AppendLine("ArtSize=" + ArtSize.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("ArtistMaxChars=" + ArtistMaxChars);
-                sb.AppendLine("TextAlign=" + (TextAlign ?? "right"));
-                sb.AppendLine("ControlsX=" + ControlsX.ToString("0.##", CultureInfo.InvariantCulture));
-                sb.AppendLine("TitleIndent=" + TitleIndent.ToString("0.##", CultureInfo.InvariantCulture));
-                sb.AppendLine("LyricIndent=" + LyricIndent.ToString("0.##", CultureInfo.InvariantCulture));
                 for (int i = 0; i < Presets.Count; i++)
                     sb.AppendLine("Preset" + i + "=" + Presets[i].Name + "|" + Presets[i].Data);
                 File.WriteAllText(ConfigPath, sb.ToString(), Encoding.UTF8);

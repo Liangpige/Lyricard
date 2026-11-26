@@ -160,11 +160,13 @@ namespace Amc
         {
             CardConfig c = new CardConfig();
             c.Modules.Add(new ModuleConfig(ModuleKind.Cover));
-            c.Modules.Add(new ModuleConfig(ModuleKind.Title));
+            ModuleConfig title = new ModuleConfig(ModuleKind.Title);
+            title.X = 16;
+            c.Modules.Add(title);
             // The artist is a module of its own: its own line, its own box, freely placeable.
             // (The old card glued it to the title with a Run; that is gone.)
             ModuleConfig artist = new ModuleConfig(ModuleKind.Artist);
-            artist.X = 0;
+            artist.X = 16;
             artist.Y = 46;
             artist.W = 200;
             c.Modules.Add(artist);
@@ -172,20 +174,20 @@ namespace Amc
             album.Enabled = false;
             c.Modules.Add(album);
             ModuleConfig lyrics = new ModuleConfig(ModuleKind.Lyrics);
-            lyrics.X = 0;
+            lyrics.X = 16;
             lyrics.Y = 68;
             lyrics.W = 320;
             c.Modules.Add(lyrics);
 
             ModuleConfig bar = new ModuleConfig(ModuleKind.Progress);
-            bar.X = 0;
+            bar.X = 16;
             bar.Y = 96;
             bar.W = 320;
             c.Modules.Add(bar);
 
             // Three buttons wide, not the whole column: the editor box must look like the row.
             ModuleConfig controls = new ModuleConfig(ModuleKind.Controls);
-            controls.X = 0;
+            controls.X = 16;
             controls.Y = 104;
             controls.W = 102;
             c.Modules.Add(controls);

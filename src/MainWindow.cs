@@ -1087,18 +1087,7 @@ namespace Amc
             box.Children.Add(ColorRow(Strings.T("lbl.lyricColor"), _cfg.LyricColor, delegate(string v)
             { _cfg.LyricColor = v; _card.ApplyLook(); _cfg.Save(); }));
 
-            box.Children.Add(Row(Strings.T("lbl.titleIndent"), Stepper(_cfg.TitleIndent, 0, 200, 2, "0", delegate(double v)
-            { _cfg.TitleIndent = v; _card.ApplyLook(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.lyricIndent"), Stepper(_cfg.LyricIndent, 0, 200, 2, "0", delegate(double v)
-            { _cfg.LyricIndent = v; _card.ApplyLook(); _cfg.Save(); })));
 
-            string[] alignLabels = new string[] { Strings.T("align.left"), Strings.T("align.center"), Strings.T("align.right") };
-            int alignIndex = _cfg.TextAlign == "left" ? 0 : (_cfg.TextAlign == "center" ? 1 : 2);
-            box.Children.Add(Row(Strings.T("lbl.align"), Segmented(alignLabels, alignIndex, delegate(int i)
-            {
-                _cfg.TextAlign = i == 0 ? "left" : (i == 1 ? "center" : "right");
-                _card.ApplyLook(); _cfg.Save();
-            })));
 
             // ---- progress bar -----------------------------------------------
             box.Children.Add(Section(Strings.T("sec.bar")));
@@ -1127,8 +1116,6 @@ namespace Amc
             { _cfg.Scale = v; _card.ApplyCurrentScale(); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.opacity"), Stepper(_cfg.Opacity, 0.25, 1.0, 0.02, "0.00", delegate(double v)
             { _cfg.Opacity = v; _card.ApplyCurrentOpacity(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.controlsX"), Stepper(_cfg.ControlsX, 0, 100, 5, "0", delegate(double v)
-            { _cfg.ControlsX = v; _card.ApplyLook(); _cfg.Save(); })));
             box.Children.Add(ColorRow(Strings.T("lbl.controlsColor"), _cfg.ControlsColor, delegate(string v)
             { _cfg.ControlsColor = v; _card.ApplyLook(); _cfg.Save(); }));
 

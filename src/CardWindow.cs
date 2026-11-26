@@ -659,7 +659,8 @@ namespace Amc
         public void ApplyControlsPos()
         {
             if (_controls == null) return;
-            // The template decides where the transport row sits: the Controls module owns X/Y/W.
+            // The template decides where the transport row sits: the Controls module owns X/Y/W,
+            // and the row is centred inside that box. There is no percentage setting any more.
             ModuleRect rc;
             if (_layout != null && _layout.TryFind(ModuleKind.Controls, out rc))
             {
@@ -667,72 +668,32 @@ namespace Amc
                 double btnW2 = (_controls.ActualWidth > 1) ? _controls.ActualWidth : 90.0;
                 double freeInBox = hostW - btnW2;
                 if (freeInBox < 0) freeInBox = 0;
-                // centre inside its own box; the box itself is already placed by the layout
                 _controls.HorizontalAlignment = HorizontalAlignment.Left;
                 _controls.Margin = new Thickness(freeInBox / 2.0, 0, 0, 0);
-                UpdateLayout();
-                return;
             }
-            double colW = (_content != null && _content.ActualWidth > 1)
-                ? _content.ActualWidth
-                : Math.Max(120, NaturalCol() * _cfg.BarScale);
-            double btnW = (_controls.ActualWidth > 1) ? _controls.ActualWidth : 90.0;
-            double free = colW - btnW;
-            if (free < 0) free = 0;
-            double pct = _cfg.ControlsX;
-            if (pct < 0) pct = 0;
-            if (pct > 100) pct = 100;
-            _controls.HorizontalAlignment = HorizontalAlignment.Left;
-            _controls.Margin = new Thickness(free * pct / 100.0, 0, 0, 0);
+            else
+            {
+                _controls.HorizontalAlignment = HorizontalAlignment.Left;
+                _controls.Margin = new Thickness(0);
+            }
             UpdateLayout();
         }
 
-        // Text alignment. The "indent" setting is the breathing room kept on the side the text
-        // grows away from: right-aligned text reserves it on the left, left-aligned on the right,
-        // centered splits it between both sides.
         /// <summary>
-        /// Left / centre / right for the two text lines. The padding is a left margin in right
-        /// alignment, a right margin in left alignment and half-and-half when centred - which keeps
-        /// "usable width = column width - padding" true in all three cases, so FitTitle needs no
-        /// special casing.
+        /// Text sits at the left edge of its module box and is cut by the box width. Alignment and
+        /// the old indent settings are gone: the template's rectangle is the only thing that decides
+        /// where text starts, so nothing is left to re-apply except the neutral values.
         /// </summary>
         public void ApplyAlign()
         {
             if (_title == null || _lyric == null || _barRow == null) return;
-            // Legacy TitleIndent / LyricIndent / TextAlign are ignored on purpose: the module rect is
-            // the only thing that decides where text sits now, so an old config cannot fight the template.
-            // A module box is the text's box: the text starts at the box's left edge and is cut by
-            // the box width. Right-aligning it made the text look like it lived somewhere else than
-            // the editor's rectangle.
-            string a = "left";
-            HorizontalAlignment ha = HorizontalAlignment.Left;
-            TextAlignment ta = TextAlignment.Left;
-            if (a == "left") { ha = HorizontalAlignment.Left; ta = TextAlignment.Left; }
-            else if (a == "center") { ha = HorizontalAlignment.Center; ta = TextAlignment.Center; }
-            else a = "left";
-
-            double ti = 0.0;
-            double li = 0.0;
-            double tl = 0.0, tr = 0.0, ll = 0.0, lr = 0.0;
-            if (a == "right") { tl = ti; ll = li; }
-            else if (a == "left") { tr = ti; lr = li; }
-            else { tl = tr = ti / 2.0; ll = lr = li / 2.0; }
-
-            _title.HorizontalAlignment = ha;
-            _title.TextAlignment = ta;
-            _title.Margin = new Thickness(tl, 0, tr, 0);
-
-            _lyric.HorizontalAlignment = ha;
-            _lyric.TextAlignment = ta;
-            // vertical gaps belong to LayoutEngine now: applying them twice shifted the lyric
-            // and the bar down inside their hosts (and the clip hid the top of the glyphs)
-            _lyric.Margin = new Thickness(ll, 0, lr, 0);
-
-            // The progress bar does NOT follow the text indent or the alignment: it always spans the
-            // full content column. Tying it to the lyric indent made the bar shrink whenever the text
-            // breathing room grew, which looked like a bug. Keep it independent.
+            _title.HorizontalAlignment = HorizontalAlignment.Left;
+            _title.TextAlignment = TextAlignment.Left;
+            _title.Margin = new Thickness(0);
+            _lyric.HorizontalAlignment = HorizontalAlignment.Left;
+            _lyric.TextAlignment = TextAlignment.Left;
+            _lyric.Margin = new Thickness(0);
             _barRow.Margin = new Thickness(0);
-
             UpdateLayout();
         }
 
@@ -846,9 +807,9 @@ namespace Amc
                 TextTrimming = TextTrimming.None,
                 TextWrapping = TextWrapping.NoWrap,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                TextAlignment = TextAlignment.Right,
+                TextAlignment = TextAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(_cfg.TitleIndent, 0, 0, 0)
+                Margin = new Thickness(0)
             };
             _runTitle = new Run("Apple Music") { FontSize = 15.5, FontWeight = FontWeights.SemiBold, Foreground = White(0.97) };
             _runArtist = new Run("") { FontSize = 11.5, Foreground = White(0.62) };
@@ -883,9 +844,9 @@ namespace Amc
                 Foreground = White(0.95),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 TextWrapping = TextWrapping.NoWrap,
-                Margin = new Thickness(_cfg.LyricIndent, 0, 0, 0),
+                Margin = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Right,
-                TextAlignment = TextAlignment.Right,
+                TextAlignment = TextAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
                 Text = "",
                 RenderTransform = new TranslateTransform(0, 0)
@@ -1359,7 +1320,7 @@ namespace Amc
                                   " edgeB=" + EdgeX(_barTrack).ToString("0.0", CultureInfo.InvariantCulture) +
                                   " edgeC=" + EdgeX(_controls).ToString("0.0", CultureInfo.InvariantCulture) +
                                   " edgeTL=" + EdgeX0(_title).ToString("0.0", CultureInfo.InvariantCulture) +
-                                  " align=" + (_cfg.TextAlign ?? "right") +
+
                                   " leftT=" + EdgeX0(_title).ToString("0.0", CultureInfo.InvariantCulture) +
                                   " leftL=" + EdgeX0(_lyric).ToString("0.0", CultureInfo.InvariantCulture) +
                                   " leftC=" + EdgeX0(_controls).ToString("0.0", CultureInfo.InvariantCulture) +
