@@ -327,7 +327,7 @@ namespace Amc
             }
         }
 
-        /// <summary>Metrics for the current look: fonts follow the scale sliders, width follows BarScale.</summary>
+        /// <summary>Metrics for the current look: fonts follow the scale sliders; the column width is fixed.</summary>
         public CardMetrics Metrics()
         {
             CardMetrics m = new CardMetrics();
@@ -336,7 +336,10 @@ namespace Amc
             m.TitleFont = _baseTitleSize * _cfg.TitleScale;
             m.ArtistFont = _baseArtistSize * _cfg.ArtistScale;
             m.LyricFont = _baseLyricSize * _cfg.LyricScale;
-            double col = Math.Max(120, NaturalCol() * _cfg.BarScale);
+            // The text column must NOT follow BarScale. It used to, so shortening the progress bar
+            // also pulled the auto-placed cover (and the card's width) leftwards, which looked like
+            // the cover moving on its own. Bar length is the Progress module's width and nothing else.
+            double col = Math.Max(120, NaturalCol());
             m.CardW = col + CardBase();
             return m;
         }
