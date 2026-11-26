@@ -54,6 +54,10 @@ namespace Amc
         public double ArtBlackAlpha = 1.0;
         public double ArtHiCut = 0.06;
         public bool ArtSpin = true;
+
+        /// <summary>"circle" (the disc) or "square" (a plain sleeve). A square sleeve does not turn:
+        /// rotating a rectangle reads as a wobbling tile, not as a record.</summary>
+        public string ArtShape = "circle";
         public bool ArtShadow = false;   // removed: kept only so old configs still parse
         /// <summary>Soft halo behind the text. Off by default (the card looks clean on dark
         /// wallpapers); turn it on when the desktop is light and white text disappears.</summary>
@@ -113,6 +117,7 @@ namespace Amc
             LyricOffset = 0.0;
             ClearBg = true;
             ArtSpin = true;
+            ArtShape = "circle";
             ArtShadow = false;
             TextShadow = false;
             ControlsColor = "";
@@ -261,6 +266,9 @@ namespace Amc
                         case "ArtBlackAlpha": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtBlackAlpha = d; break;
                         case "ArtHiCut": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtHiCut = d; break;
                         case "ArtSpin": if (bool.TryParse(v, out b)) ArtSpin = b; break;
+                        case "ArtShape":
+                            ArtShape = string.Equals(v, "square", StringComparison.OrdinalIgnoreCase) ? "square" : "circle";
+                            break;
                         case "ArtShadow": if (bool.TryParse(v, out b)) ArtShadow = b; break;
                         case "TextShadow": if (bool.TryParse(v, out b)) TextShadow = b; break;
                         case "ControlsColor": ControlsColor = v; break;
@@ -300,6 +308,7 @@ namespace Amc
             l.Add("ArtBlackAlpha=" + ArtBlackAlpha.ToString("0.###", CultureInfo.InvariantCulture));
             l.Add("ArtHiCut=" + ArtHiCut.ToString("0.###", CultureInfo.InvariantCulture));
             l.Add("ArtSpin=" + ArtSpin);
+            l.Add("ArtShape=" + ArtShape);
             l.Add("ArtShadow=" + ArtShadow);
             l.Add("TextShadow=" + TextShadow);
             l.Add("ControlsColor=" + ControlsColor);

@@ -1297,6 +1297,10 @@ namespace Amc
 
             box.Children.Add(Row(Strings.T("lbl.clearBg"), Toggle(_cfg.ClearBg, delegate(bool v)
             { _card.SetClearBg(v); _cfg.Save(); })));
+            box.Children.Add(Row(Strings.T("lbl.artshape"), Segmented(
+                new string[] { Strings.T("artshape.circle"), Strings.T("artshape.square") },
+                string.Equals(_cfg.ArtShape, "square", StringComparison.OrdinalIgnoreCase) ? 1 : 0,
+                delegate(int i) { _card.SetArtShape(i == 1 ? "square" : "circle"); RebuildAll(); })));
             box.Children.Add(Row(Strings.T("lbl.spin"), Toggle(_cfg.ArtSpin, delegate(bool v)
             { _card.SetArtSpin(v); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.textShadow"), Toggle(_cfg.TextShadow, delegate(bool v)

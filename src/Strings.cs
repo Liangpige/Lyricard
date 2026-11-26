@@ -75,6 +75,9 @@ namespace Amc
             Both("page.home.players.none", "没找到已安装或正在运行的播放器", "No installed or running player found");
             Both("page.home.players.exe", "或输入程序名（如 spotify.exe）", "or type an executable name (e.g. spotify.exe)");
             Both("page.home.players.custom", "自定义", "custom");
+            Both("lbl.artshape", "封面样式", "Cover style");
+            Both("artshape.circle", "圆形", "Circle");
+            Both("artshape.square", "方形", "Square");
             Both("page.look.hint", "改动立即生效", "Changes apply instantly");
             Both("page.look.scale", "整体缩放", "Scale");
             Both("page.look.opacity", "整体透明度", "Opacity");

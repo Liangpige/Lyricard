@@ -93,6 +93,8 @@ namespace Amc
         FrameworkElement _content;
         Ellipse _artEllipse;
         Ellipse _artTop;
+        Rectangle _artSquare;
+        Rectangle _artSquareRing;
         public Tray TrayRef;
         Grid _artHost;
         ScaleTransform _artScale;
@@ -994,8 +996,14 @@ namespace Amc
             _artTop.RenderTransformOrigin = new Point(0.5, 0.5);
             _artTop.RenderTransform = _artRotate;
             artGrid.Children.Add(_artTop);
-            artGrid.Children.Add(new Ellipse { Stroke = White(0.13), StrokeThickness = 1 });
+            artGrid.Children.Add(new Ellipse { Stroke = White(0.13), StrokeThickness = 1, Name = "ring" });
+            // Same layout slot as the disc, so switching shape never moves or resizes the cover.
+            _artSquare = new Rectangle { Fill = null, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+            artGrid.Children.Add(_artSquare);
+            _artSquareRing = new Rectangle { Stroke = White(0.13), StrokeThickness = 1, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+            artGrid.Children.Add(_artSquareRing);
             root.Children.Add(artGrid);
+            ApplyArtShape();
 
             // --- interactions ---
             _card.MouseLeftButtonDown += OnCardMouseDown;
@@ -1692,6 +1700,37 @@ namespace Amc
             SetClearBg(!_cfg.ClearBg);
         }
 
+        /// <summary>True while the cover is drawn as a disc (the square sleeve never turns).</summary>
+        bool IsRoundArt
+        {
+            get { return !string.Equals(_cfg.ArtShape, "square", StringComparison.OrdinalIgnoreCase); }
+        }
+
+        /// <summary>Circle or square sleeve. Square never turns, so the angle is parked at 0.</summary>
+        public void ApplyArtShape()
+        {
+            bool square = string.Equals(_cfg.ArtShape, "square", StringComparison.OrdinalIgnoreCase);
+            if (_artEllipse != null) _artEllipse.Visibility = square ? Visibility.Collapsed : Visibility.Visible;
+            if (_artTop != null) _artTop.Visibility = square ? Visibility.Collapsed : Visibility.Visible;
+            if (_artSquare != null)
+            {
+                _artSquare.Visibility = square ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (_artSquareRing != null) _artSquareRing.Visibility = square ? Visibility.Visible : Visibility.Collapsed;
+            if (square)
+            {
+                _spinAngle = 0.0;
+                if (_artRotate != null) _artRotate.Angle = 0.0;
+            }
+        }
+
+        public void SetArtShape(string shape)
+        {
+            _cfg.ArtShape = string.Equals(shape, "square", StringComparison.OrdinalIgnoreCase) ? "square" : "circle";
+            _cfg.Save();
+            ApplyArtShape();
+        }
+
         public void SetArtSpin(bool on)
         {
             _cfg.ArtSpin = on;
@@ -2252,7 +2291,7 @@ namespace Amc
             // One revolution per 36 s, advanced on the card's own 30 fps timer. A layered window
             // pushes a full bitmap per frame, so the frame rate *is* the cost; 30 fps halves what
             // the old 60 fps animation clock burned and still looks continuous.
-            if (_spinOn && _artRotate != null)
+            if (_spinOn && _artRotate != null && IsRoundArt)
             {
                 _spinAngle = (_spinAngle + 360.0 / 36.0 / 30.0) % 360.0;
                 _artRotate.Angle = _spinAngle;
@@ -2738,6 +2777,7 @@ namespace Amc
                     _artTop.Fill = null;
                 }
                 _artEllipse.Fill = brush;
+                if (_artSquare != null) _artSquare.Fill = brush;
                 if (firstCover) FadeIn(_artEllipse, 280);
                 _artEllipse.Opacity = 1.0;
                 _artPending = false;
