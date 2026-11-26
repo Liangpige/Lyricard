@@ -162,6 +162,9 @@ namespace Amc
             c.Modules.Add(new ModuleConfig(ModuleKind.Cover));
             ModuleConfig title = new ModuleConfig(ModuleKind.Title);
             title.X = 16;
+            // Explicit Y. With an auto Y the title is centred against the whole content box, so
+            // making the cover bigger pushed the title down -- resizing one module moved another.
+            title.Y = 5;
             c.Modules.Add(title);
             // The artist is a module of its own: its own line, its own box, freely placeable.
             // (The old card glued it to the title with a Run; that is gone.)
