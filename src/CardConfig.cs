@@ -37,7 +37,11 @@ namespace Amc
         Artist = 2,
         Album = 3,
         Lyrics = 4,
-        Progress = 5
+        Progress = 5,
+        /// <summary>The transport row. Not user-configurable at first, but it has to take part in
+        /// the vertical stack - without it the text column would be shorter than the card and the
+        /// title would drift down by half a cover.</summary>
+        Controls = 6
     }
 
     /// <summary>Horizontal alignment of a module inside its own box.</summary>
@@ -151,6 +155,7 @@ namespace Amc
             c.Modules.Add(album);
             c.Modules.Add(new ModuleConfig(ModuleKind.Lyrics));
             c.Modules.Add(new ModuleConfig(ModuleKind.Progress));
+            c.Modules.Add(new ModuleConfig(ModuleKind.Controls));
             return c;
         }
 

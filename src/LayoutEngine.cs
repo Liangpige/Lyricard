@@ -55,6 +55,8 @@ namespace Amc
         public double LyricGap = 4;       // between the title line and the lyrics
         public double BarGap = 8;         // between the lyrics and the bar
         public double BarThickness = 3;
+        public double ControlsGap = 6;    // between the bar and the transport row
+        public double ControlsH = 30;     // button hit box height
 
         /// <summary>
         /// WPF's default line box for a TextBlock: font size times this factor.
@@ -258,6 +260,7 @@ namespace Amc
         {
             if (mc.Kind == ModuleKind.Cover) return m.ArtSize;
             if (mc.Kind == ModuleKind.Progress) return colW;
+            if (mc.Kind == ModuleKind.Controls) return colW;
             return colW;
         }
 
@@ -268,6 +271,7 @@ namespace Amc
             {
                 case ModuleKind.Cover: return mc.W > 0 ? mc.W : m.ArtSize;
                 case ModuleKind.Progress: return m.BarThickness;
+                case ModuleKind.Controls: return m.ControlsH;
                 case ModuleKind.Title: return LineH(mc.FontSize > 0 ? mc.FontSize : m.TitleFont, m);
                 case ModuleKind.Artist: return LineH(mc.FontSize > 0 ? mc.FontSize : m.ArtistFont, m);
                 case ModuleKind.Album: return LineH(mc.FontSize > 0 ? mc.FontSize : m.AlbumFont, m);
@@ -277,7 +281,8 @@ namespace Amc
 
         static bool HasGap(ModuleKind kind)
         {
-            return kind == ModuleKind.Lyrics || kind == ModuleKind.Progress || kind == ModuleKind.Album;
+            return kind == ModuleKind.Lyrics || kind == ModuleKind.Progress
+                || kind == ModuleKind.Album || kind == ModuleKind.Controls;
         }
 
         static double GapBefore(ModuleKind kind, CardMetrics m)
@@ -287,6 +292,7 @@ namespace Amc
                 case ModuleKind.Lyrics: return m.LyricGap;
                 case ModuleKind.Progress: return m.BarGap;
                 case ModuleKind.Album: return m.LyricGap;
+                case ModuleKind.Controls: return m.ControlsGap;
                 default: return 0;
             }
         }

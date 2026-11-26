@@ -1,0 +1,10 @@
+Step 4 visual gate -- pixel diff against docs/shots (Step 0 baseline), same song, same paused position,
+same window geometry (50,775), captured with PrintWindow.
+
+1x    648x213   mean=0.008  max=87   pixels over 8/255: 0.015 %
+0.55x 357x117   mean=0.002  max=11   pixels over 8/255: 0.005 %
+2.2x  1425x468  mean=0.033  max=112  pixels over 8/255: 0.271 %
+
+All residual differences sit on glyph and bar edges (sub-pixel antialiasing); no module is
+displaced. The 2.2x case is larger only because 3 DIP * 2.2 * 1.25 = 8.25 device pixels, so the
+bar edge lands between pixels in one build and not the other.

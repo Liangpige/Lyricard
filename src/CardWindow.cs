@@ -57,7 +57,12 @@ namespace Amc
         int _topTicks;
         bool _menuOpen;
         Border _card;
-        Grid _root;
+        Canvas _root;
+        // Step 4: the card is a canvas of module hosts; LayoutEngine decides the rectangles and
+        // ModuleRenderer pushes them onto these hosts (keeping the elements alive across passes).
+        Canvas _canvas;
+        FrameworkElement _hostTitle, _hostLyric;
+        CardElements _elem;
         Color _artBg = Color.FromArgb(238, 18, 18, 21);
         bool _hasArtBg;
         TextBlock _title;
@@ -68,7 +73,7 @@ namespace Amc
         Border _barTrack;
         Border _barFill;
         StackPanel _controls;
-        StackPanel _content;
+        FrameworkElement _content;
         Ellipse _artEllipse;
         public Tray TrayRef;
         Grid _artHost;
@@ -227,6 +232,57 @@ namespace Amc
         }
 
         // Horizontal placement of the transport buttons: 0% = flush left, 50% = centered,
+        // ---- module layout (Step 4) -----------------------------------------
+
+        /// <summary>
+        /// Build the module model for the current look. Today it is the default template with the
+        /// configured cover size and bar thickness; later steps will load it from config instead.
+        /// </summary>
+        CardConfig CardModel()
+        {
+            CardConfig c = CardConfig.Default();
+            ModuleConfig cov = c.Find(ModuleKind.Cover);
+            if (cov != null && _cfg.ArtSize > 4) { cov.W = _cfg.ArtSize; }
+            ModuleConfig pr = c.Find(ModuleKind.Progress);
+            if (pr != null) { pr.H = Math.Max(1.0, _cfg.BarThickness); }
+            return c;
+        }
+
+        /// <summary>Metrics for the current look: fonts follow the scale sliders, width follows BarScale.</summary>
+        CardMetrics Metrics()
+        {
+            CardMetrics m = new CardMetrics();
+            m.ArtSize = _cfg.ArtSize;
+            m.BarThickness = _cfg.BarThickness;
+            m.TitleFont = _baseTitleSize * _cfg.TitleScale;
+            m.ArtistFont = _baseArtistSize * _cfg.ArtistScale;
+            m.LyricFont = _baseLyricSize * _cfg.LyricScale;
+            double col = Math.Max(120, NaturalCol() * _cfg.BarScale);
+            m.CardW = col + CardBase();
+            return m;
+        }
+
+        /// <summary>
+        /// Recompute the layout and push it onto the living elements. Called after a look change
+        /// and once when the window is built; nothing here creates or destroys visuals.
+        /// </summary>
+        void Render()
+        {
+            if (_canvas == null || _card == null) return;
+            CardConfig model = CardModel();
+            LayoutResult lay = LayoutEngine.Compute(model, Metrics());
+            _card.Width = lay.CardW;
+            _card.Height = lay.CardH;
+            if (_elem == null) _elem = new CardElements();
+            _elem.Title = _hostTitle;
+            _elem.Lyrics = _hostLyric;
+            _elem.Progress = _barRow;
+            _elem.Controls = _content;
+            _elem.Cover = _artHost;
+            ModuleRenderer.Apply(_canvas, model, lay, _elem);
+            ApplyControlsPos();
+        }
+
         // 100% = flush right (the default). Percent is taken over the FREE width
         // (column width minus the button row's own width), so it stays meaningful when the
         // card widens or narrows.
@@ -284,12 +340,14 @@ namespace Amc
 
             _lyric.HorizontalAlignment = ha;
             _lyric.TextAlignment = ta;
-            _lyric.Margin = new Thickness(ll, 4, lr, 0);
+            // vertical gaps belong to LayoutEngine now: applying them twice shifted the lyric
+            // and the bar down inside their hosts (and the clip hid the top of the glyphs)
+            _lyric.Margin = new Thickness(ll, 0, lr, 0);
 
             // The progress bar does NOT follow the text indent or the alignment: it always spans the
             // full content column. Tying it to the lyric indent made the bar shrink whenever the text
             // breathing room grew, which looked like a bug. Keep it independent.
-            _barRow.Margin = new Thickness(0, 8, 0, 0);
+            _barRow.Margin = new Thickness(0);
 
             UpdateLayout();
         }
@@ -357,6 +415,7 @@ namespace Amc
 
             _barFill.Width = _barFill.Width;   // no-op, keeps the fill from being re-measured away
 
+            Render();
             try { UpdateLayout(); } catch { }
             if (!double.IsNaN(Left)) ClampToScreen();
         }
@@ -385,20 +444,17 @@ namespace Amc
             // cover halo (ApplyBackdrop decides whether it is on).
             Content = _shadowHost;
 
-            var root = new Grid();
+            // The card is one canvas with a host per module. Hosts keep the exact alignment
+            // behaviour of the old stack (right-aligned text, margins, clipping) but their
+            // rectangles now come from LayoutEngine instead of stack order.
+            var root = new Canvas { ClipToBounds = false };
             _root = root;
-            root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _canvas = root;
             _card.Child = root;
 
-            // --- content column (right aligned, kept inside the cover's height) ---
-            var left = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 20, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
-            _content = left;
-            left.SizeChanged += delegate { ApplyControlsPos(); };
-            Grid.SetColumn(left, 0);
-            root.Children.Add(left);
-
-            // title + artist on one line: title bold, artist dimmer and smaller
+            // --- title + artist on one line: title bold, artist dimmer and smaller ---
+            var titleHost = new Grid { ClipToBounds = true };
+            _hostTitle = titleHost;
             _title = new TextBlock
             {
                 FontSize = 15.5,
@@ -407,38 +463,44 @@ namespace Amc
                 TextWrapping = TextWrapping.NoWrap,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 TextAlignment = TextAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(_cfg.TitleIndent, 0, 0, 0)
             };
             _runTitle = new Run("Apple Music") { FontSize = 15.5, FontWeight = FontWeights.SemiBold, Foreground = White(0.97) };
             _runArtist = new Run("") { FontSize = 11.5, Foreground = White(0.62) };
             _title.Inlines.Add(_runTitle);
             _title.Inlines.Add(_runArtist);
-            left.Children.Add(_title);
+            titleHost.Children.Add(_title);
+            root.Children.Add(titleHost);
 
+            // --- lyrics ---
+            var lyricHost = new Grid { ClipToBounds = true };
+            _hostLyric = lyricHost;
             _lyric = new TextBlock
             {
                 FontSize = 15,
                 Foreground = White(0.95),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 TextWrapping = TextWrapping.NoWrap,
-                Margin = new Thickness(_cfg.LyricIndent, 4, 0, 0),
+                Margin = new Thickness(_cfg.LyricIndent, 0, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 TextAlignment = TextAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
                 Text = "",
                 RenderTransform = new TranslateTransform(0, 0)
             };
-            left.Children.Add(_lyric);
+            lyricHost.Children.Add(_lyric);
+            root.Children.Add(lyricHost);
 
             // --- progress ---
-            // NOTE: the 8px gap lives on the shared Grid, not on _barTrack — putting it on the
-            // track only shifted the dim bar down 8px and left the bright fill floating above it.
-            var barGrid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+            var barGrid = new Grid();
             _barTrack = new Border
             {
                 Height = 3,
                 CornerRadius = new CornerRadius(1.5),
                 Background = White(0.16),
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center
             };
             _barFill = new Border
             {
@@ -453,10 +515,10 @@ namespace Amc
             barGrid.Children.Add(_barTrack);
             barGrid.Children.Add(_barFill);
             barGrid.MouseLeftButtonDown += OnBarClick;
-            left.Children.Add(barGrid);
+            root.Children.Add(barGrid);
 
             // --- transport controls: their own row, right aligned ---
-            var bottom = new Grid { Margin = new Thickness(0, 6, 0, 0) };
+            var bottom = new Grid();
 
             _controls = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Opacity = ControlsIdle, HorizontalAlignment = HorizontalAlignment.Right };
             _btnPlay = MakeButton("play", delegate { CommandPlayPause(); }, 0);
@@ -465,7 +527,9 @@ namespace Amc
             _controls.Children.Add(MakeButton("next", delegate { _smtc.Next(); }, 1).Root);
 
             bottom.Children.Add(_controls);
-            left.Children.Add(bottom);
+            bottom.SizeChanged += delegate { ApplyControlsPos(); };
+            _content = bottom;
+            root.Children.Add(bottom);
 
             // --- cover ---
             var artGrid = new Grid
@@ -479,7 +543,6 @@ namespace Amc
             _artHost = artGrid;
             _artScale = new ScaleTransform(1, 1);
             artGrid.RenderTransform = _artScale;
-            Grid.SetColumn(artGrid, 1);
             _artEllipse = new Ellipse { Fill = new SolidColorBrush(Color.FromArgb(255, 42, 42, 48)) };
             // the cover itself turns, the ring around it stays put
             _artRotate = new RotateTransform(0);
@@ -503,6 +566,7 @@ namespace Amc
                 Animate(_controls, ControlsIdle, 220);
                 if (_artScale != null) AnimScale(_artScale, 1.0, 260);
             };
+            Render();
             _card.ContextMenu = BuildMenu();
             ApplyBackdrop();
         }
