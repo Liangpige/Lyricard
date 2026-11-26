@@ -1069,6 +1069,17 @@ namespace Amc
             boardBar.Children.Add(Pill("添加模块…", delegate { _preview.ShowAddMenu(); }, false));
             box.Children.Add(boardBar);
 
+            // 长度上限：it is the character cap, and with the box on auto the cap *is* the width,
+            // so these three steer the frames you just saw above.
+            var capStack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
+            capStack.Children.Add(Row("歌名长度上限", Stepper(_preview.MaxCharsOf(ModuleKind.Title), 0, 80, 2, "0",
+                delegate(double v) { _preview.SetMaxChars(ModuleKind.Title, (int)Math.Round(v)); })));
+            capStack.Children.Add(Row("艺人长度上限", Stepper(_preview.MaxCharsOf(ModuleKind.Artist), 0, 60, 2, "0",
+                delegate(double v) { _preview.SetMaxChars(ModuleKind.Artist, (int)Math.Round(v)); })));
+            capStack.Children.Add(Row("歌词长度上限", Stepper(_preview.MaxCharsOf(ModuleKind.Lyrics), 0, 80, 2, "0",
+                delegate(double v) { _preview.SetMaxChars(ModuleKind.Lyrics, (int)Math.Round(v)); })));
+            box.Children.Add(capStack);
+
             _preview.BeginDraft(_card);
 
             // ---- text -------------------------------------------------------

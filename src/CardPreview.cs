@@ -325,6 +325,28 @@ namespace Amc
             return m;
         }
 
+        /// <summary>Character cap of a module in the draft (0 = no cap).</summary>
+        public int MaxCharsOf(ModuleKind kind)
+        {
+            ModuleConfig mc = _draft == null ? null : _draft.Find(kind);
+            return mc == null ? 0 : mc.MaxChars;
+        }
+
+        /// <summary>
+        /// Set the character cap of a text module. With W left on auto the cap drives the box
+        /// width, so the frame in the board and the card end up the same size; 0 restores auto.
+        /// </summary>
+        public void SetMaxChars(ModuleKind kind, int chars)
+        {
+            if (_draft == null) return;
+            ModuleConfig mc = _draft.Find(kind);
+            if (mc == null) return;
+            mc.MaxChars = Math.Max(0, Math.Min(80, chars));
+            if (mc.MaxChars == 0) mc.W = -1;
+            Rebuild();
+            if (_card != null) _card.InvalidateModel();
+        }
+
         void SetEnabled(ModuleKind kind, bool on)
         {
             if (_draft == null) return;
