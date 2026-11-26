@@ -253,6 +253,24 @@ namespace Amc
         /// Build the module model for the current look. Today it is the default template with the
         /// configured cover size and bar thickness; later steps will load it from config instead.
         /// </summary>
+        CardConfig _model;
+
+        /// <summary>The live model: the board edits this, the card renders it.</summary>
+        public CardConfig Model
+        {
+            get
+            {
+                if (_model == null) _model = CardModel();
+                return _model;
+            }
+        }
+
+        /// <summary>Direct edit hook for the board: change Model, then ask for a re-render.</summary>
+        public void InvalidateModel()
+        {
+            Render();
+        }
+
         public CardConfig CardModel()
         {
             // Sizes come from the metrics, never pinned into the model: a pinned 96 px cover or
@@ -281,7 +299,7 @@ namespace Amc
         void Render()
         {
             if (_canvas == null || _card == null) return;
-            CardConfig model = CardModel();
+            CardConfig model = Model;
             LayoutResult lay = LayoutEngine.Compute(model, Metrics());
             if (_suspendSize)
             {

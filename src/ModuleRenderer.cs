@@ -206,6 +206,11 @@ namespace Amc
         static void Hook(CardHooks hooks, ModuleKind kind, FrameworkElement el)
         {
             if (el == null) return;
+            // a transparent background makes the whole module box hit-testable, not just its glyphs
+            var host = el as Panel;
+            if (host != null && host.Background == null) host.Background = Brushes.Transparent;
+            var tb = el as TextBlock;
+            if (tb != null && tb.Background == null) tb.Background = Brushes.Transparent;
             el.Tag = kind;
             hooks.Built(kind, el);
         }
