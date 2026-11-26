@@ -255,12 +255,9 @@ namespace Amc
         /// </summary>
         public CardConfig CardModel()
         {
-            CardConfig c = CardConfig.Default();
-            ModuleConfig cov = c.Find(ModuleKind.Cover);
-            if (cov != null && _cfg.ArtSize > 4) { cov.W = _cfg.ArtSize; }
-            ModuleConfig pr = c.Find(ModuleKind.Progress);
-            if (pr != null) { pr.H = Math.Max(1.0, _cfg.BarThickness); }
-            return c;
+            // Sizes come from the metrics, never pinned into the model: a pinned 96 px cover or
+            // 3 px bar would stay at desktop size when the board renders the same model smaller.
+            return CardConfig.Default();
         }
 
         /// <summary>Metrics for the current look: fonts follow the scale sliders, width follows BarScale.</summary>
@@ -324,6 +321,12 @@ namespace Amc
         public FrameworkElement CardArt
         {
             get { return _artEllipse; }
+        }
+
+        /// <summary>Playback position as 0..1, read straight from the clock the card shows.</summary>
+        public double Progress01
+        {
+            get { return _durShown > 1 ? _pos / _durShown : 0; }
         }
 
         /// <summary>Vertical padding between the card edge and its content canvas.</summary>

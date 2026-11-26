@@ -210,6 +210,17 @@ namespace Amc
             hooks.Built(kind, el);
         }
 
+        /// <summary>Refreshes an already-built tree: repaint, reposition, re-fill. Never rebuilds.</summary>
+        public static void Update(Canvas target, CardElements el, CardConfig model, LayoutResult layout,
+                                  CardScene scene, double progress01, bool playing)
+        {
+            if (target == null || el == null || layout == null) return;
+            Paint(el, scene, null);
+            Apply(target, model, layout, el);
+            SetProgress(el, layout, progress01);
+            SetPlayGlyph(el, playing);
+        }
+
         /// <summary>Repaints the contents (text, fill, cover, colours) without rebuilding the tree.</summary>
         public static void Paint(CardElements el, CardScene scene, CardMetrics metrics)
         {
