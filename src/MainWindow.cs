@@ -1054,7 +1054,9 @@ namespace Amc
                 HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Disabled,
                 Content = _preview,
-                HorizontalAlignment = HorizontalAlignment.Left
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center
             };
             var boardHost = new Grid { MinHeight = 150 };
             boardHost.Children.Add(boardScroll);
