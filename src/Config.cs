@@ -455,6 +455,7 @@ namespace Amc
                 sb.AppendLine("ArtBlackAlpha=" + ArtBlackAlpha.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("ArtHiCut=" + ArtHiCut.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("ArtSpin=" + ArtSpin);
+                sb.AppendLine("ArtShape=" + ArtShape);
                 sb.AppendLine("ArtShadow=" + ArtShadow);
                 sb.AppendLine("TextShadow=" + TextShadow);
                 sb.AppendLine("ControlsColor=" + ControlsColor);
