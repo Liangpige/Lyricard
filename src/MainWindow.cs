@@ -991,6 +991,12 @@ namespace Amc
 
         /// <summary>Character cap straight from the template (the steppers used to read a draft that
         /// could be null, so a saved cap showed as 0 and looked like the setting did nothing).</summary>
+        bool SameLine()
+        {
+            CardConfig m = _card.Model;
+            return m != null && m.TitleArtistInline;
+        }
+
         int CapOf(ModuleKind kind)
         {
             CardConfig m = _card.Model;
@@ -1200,6 +1206,15 @@ namespace Amc
                 AlignIndex(ModuleKind.Artist), delegate(int idx) { SetModuleAlign(ModuleKind.Artist, idx); })));
             box.Children.Add(Row("歌词对齐", Segmented(new string[] { "居左", "居中", "居右" },
                 AlignIndex(ModuleKind.Lyrics), delegate(int idx) { SetModuleAlign(ModuleKind.Lyrics, idx); })));
+            box.Children.Add(Row("歌名艺人同框", Toggle(SameLine(), delegate(bool on)
+            {
+                CardConfig m = _card.Model;
+                if (m == null) return;
+                m.TitleArtistInline = on;
+                m.Save(CardConfig.DefaultPath);
+                _card.InvalidateModel();
+                RebuildAll();
+            })));
             box.Children.Add(ColorRow(Strings.T("lbl.titleColor"), _cfg.TitleColor, delegate(string v)
             { _cfg.TitleColor = v; _card.ApplyLook(); _cfg.Save(); }));
 

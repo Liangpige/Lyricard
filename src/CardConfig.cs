@@ -147,6 +147,10 @@ namespace Amc
         // The card is exactly this big, in logical units. The editor owns these numbers; the
         // window and the board both derive their size from them and nothing else.
         public double CardW = 0;    // 0 = auto: the card hugs its modules
+
+        /// <summary>Title and artist share one line (the pre-template look). Off = the artist module
+        /// owns its own box wherever it was dragged.</summary>
+        public bool TitleArtistInline = false;
         public double CardH = 0;
 
         public CardConfig() { }
@@ -209,6 +213,7 @@ namespace Amc
             CardConfig c = new CardConfig();
             c.SchemaVersion = SchemaVersion;
             c.CardW = CardW;
+            c.TitleArtistInline = TitleArtistInline;
             c.CardH = CardH;
             for (int i = 0; i < Modules.Count; i++) c.Modules.Add(Modules[i].Clone());
             return c;
@@ -232,6 +237,7 @@ namespace Amc
             sb.Append("# Lyricard card layout\r\n");
             sb.Append("SchemaVersion=").Append(SchemaVersion.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
             sb.Append("CardW=").Append(Num(CardW)).Append("\r\n");
+            sb.Append("TitleArtistInline=").Append(TitleArtistInline ? "True" : "False").Append("\r\n");
             sb.Append("CardH=").Append(Num(CardH)).Append("\r\n");
 
             int kindCount = Enum.GetValues(typeof(ModuleKind)).Length;
@@ -364,6 +370,7 @@ namespace Amc
                     if (key.Equals("SchemaVersion", StringComparison.OrdinalIgnoreCase))
                         c.SchemaVersion = Int(val, CardSchema.Version);
                     else if (key.Equals("CardW", StringComparison.OrdinalIgnoreCase)) c.CardW = Number(val, 0);
+                    else if (key.Equals("TitleArtistInline", StringComparison.OrdinalIgnoreCase)) c.TitleArtistInline = val.Equals("True", StringComparison.OrdinalIgnoreCase) || val == "1";
                     else if (key.Equals("CardH", StringComparison.OrdinalIgnoreCase)) c.CardH = Number(val, 0);
                     continue;
                 }

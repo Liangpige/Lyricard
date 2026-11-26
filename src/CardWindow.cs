@@ -397,7 +397,8 @@ namespace Amc
         {
             _artistText = art ?? "";
             ModuleConfig ac = Model == null ? null : Model.Find(ModuleKind.Artist);
-            bool standalone = ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
+            bool sameLine = Model != null && Model.TitleArtistInline;
+            bool standalone = !sameLine && ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
             if (_runArtist != null) _runArtist.Text = standalone ? "" : ("   " + _artistText);
             if (_artist != null && standalone) _artist.Text = _artistText;
             if (_hostArtist != null) _hostArtist.Visibility = standalone ? Visibility.Visible : Visibility.Collapsed;
@@ -413,7 +414,8 @@ namespace Amc
             if (_artist == null || _hostArtist == null || _runArtist == null) return;
             ModuleConfig ac = model.Find(ModuleKind.Artist);
             ModuleRect ar;
-            bool explicitPos = ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
+            bool explicitPos = !model.TitleArtistInline
+                && ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
             if (!explicitPos || !lay.TryFind(ModuleKind.Artist, out ar))
             {
                 if (!explicitPos)
