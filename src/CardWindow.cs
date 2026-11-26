@@ -622,12 +622,15 @@ namespace Amc
             if (_title == null || _lyric == null || _barRow == null) return;
             // Legacy TitleIndent / LyricIndent / TextAlign are ignored on purpose: the module rect is
             // the only thing that decides where text sits now, so an old config cannot fight the template.
-            string a = "right";
-            HorizontalAlignment ha = HorizontalAlignment.Right;
-            TextAlignment ta = TextAlignment.Right;
+            // A module box is the text's box: the text starts at the box's left edge and is cut by
+            // the box width. Right-aligning it made the text look like it lived somewhere else than
+            // the editor's rectangle.
+            string a = "left";
+            HorizontalAlignment ha = HorizontalAlignment.Left;
+            TextAlignment ta = TextAlignment.Left;
             if (a == "left") { ha = HorizontalAlignment.Left; ta = TextAlignment.Left; }
             else if (a == "center") { ha = HorizontalAlignment.Center; ta = TextAlignment.Center; }
-            else a = "right";
+            else a = "left";
 
             double ti = 0.0;
             double li = 0.0;
