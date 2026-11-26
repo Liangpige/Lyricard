@@ -2666,7 +2666,14 @@ namespace Amc
         /// Hovering animates it to 1.0. Was 0.62 before 2026-11-22 (+10 points).</summary>
         const double ControlsIdle = 0.72;
 
-        static BitmapSource FadeArt(BitmapSource src, double sat, double floorA, double hiCut)
+        /// <summary>Everything the cover needs to know about how it should look. One struct so the
+        /// pixel loop stays a single pass: adding a slider must not add another traversal.</summary>
+        struct ArtTune
+        {
+            public double Sat, FloorA, HiCut, Brightness, Contrast, Warmth, HueRad, Vignette;
+        }
+
+        static BitmapSource FadeArt(BitmapSource src, ArtTune t)
         {
             var bgra = new FormatConvertedBitmap(src, PixelFormats.Bgra32, null, 0);
             int w = bgra.PixelWidth, h = bgra.PixelHeight, stride = w * 4;
@@ -2679,27 +2686,73 @@ namespace Amc
                 double b = buf[i], g = buf[i + 1], r = buf[i + 2], a = buf[i + 3];
                 double lum = 0.299 * r + 0.587 * g + 0.114 * b;
                 if (lum > maxIn) maxIn = lum;
+
+                // Grading first, so saturation and the highlight knee work on the graded pixel.
+                // Brightness is a plain gain, contrast pivots on mid grey, warmth tilts red against
+                // blue, and hue rotates in YIQ (no lookup table needed, and it keeps luminance).
+                if (t.Brightness != 1.0)
+                {
+                    r *= t.Brightness; g *= t.Brightness; b *= t.Brightness;
+                }
+                if (t.Contrast != 1.0)
+                {
+                    r = (r - 128.0) * t.Contrast + 128.0;
+                    g = (g - 128.0) * t.Contrast + 128.0;
+                    b = (b - 128.0) * t.Contrast + 128.0;
+                }
+                if (t.Warmth != 0.0)
+                {
+                    r += t.Warmth * 26.0;
+                    b -= t.Warmth * 26.0;
+                }
+                if (t.HueRad != 0.0)
+                {
+                    double cs = Math.Cos(t.HueRad), sn = Math.Sin(t.HueRad);
+                    double y2 = 0.299 * r + 0.587 * g + 0.114 * b;
+                    double i2 = 0.596 * r - 0.274 * g - 0.322 * b;
+                    double q2 = 0.211 * r - 0.523 * g + 0.312 * b;
+                    double i3 = i2 * cs - q2 * sn;
+                    double q3 = i2 * sn + q2 * cs;
+                    r = y2 + 0.956 * i3 + 0.621 * q3;
+                    g = y2 - 0.272 * i3 - 0.647 * q3;
+                    b = y2 - 1.106 * i3 + 1.703 * q3;
+                }
+                if (r < 0) r = 0; else if (r > 255) r = 255;
+                if (g < 0) g = 0; else if (g > 255) g = 255;
+                if (b < 0) b = 0; else if (b > 255) b = 255;
+                lum = 0.299 * r + 0.587 * g + 0.114 * b;
                 sumIn += lum;
-                r = lum + (r - lum) * sat;
-                g = lum + (g - lum) * sat;
-                b = lum + (b - lum) * sat;
+                r = lum + (r - lum) * t.Sat;
+                g = lum + (g - lum) * t.Sat;
+                b = lum + (b - lum) * t.Sat;
                 // Soft highlight rolloff: leave everything below the knee alone and pull the
                 // bright end down by up to hiCut (12% at pure white), so a bright cover stops
                 // glowing without looking dimmed.
-                if (hiCut > 0.0005)
+                if (t.HiCut > 0.0005)
                 {
                     double lt = lum / 255.0;
                     double kt = (lt - HiKnee) / (1.0 - HiKnee);
                     if (kt > 0.0)
                     {
                         if (kt > 1.0) kt = 1.0;
-                        double f = 1.0 - hiCut * kt;
+                        double f = 1.0 - t.HiCut * kt;
                         r *= f; g *= f; b *= f;
                         lum *= f;
                     }
                 }
-                double t = lum / 255.0;
-                double alpha = 255.0 * (floorA + (1.0 - floorA) * Math.Pow(t, 0.85));
+                double lt2 = lum / 255.0;
+                if (t.Vignette > 0.0)
+                {
+                    int pix = i >> 2;
+                    double dx = ((pix % w) / (double)w) - 0.5;
+                    double dy = ((pix / w) / (double)h) - 0.5;
+                    double d = Math.Sqrt(dx * dx + dy * dy) * 1.4142;
+                    double f2 = 1.0 - t.Vignette * d * d;
+                    if (f2 < 0) f2 = 0;
+                    r *= f2; g *= f2; b *= f2;
+                    lt2 *= f2;
+                }
+                double alpha = 255.0 * (t.FloorA + (1.0 - t.FloorA) * Math.Pow(lt2, 0.85));
                 if (alpha > 255.0) alpha = 255.0;
                 if (alpha < 0.0) alpha = 0.0;
                 alpha = alpha * (a / 255.0);
@@ -2710,7 +2763,7 @@ namespace Amc
                 buf[i + 2] = (byte)(r < 0 ? 0 : (r > 255 ? 255 : r));
                 buf[i + 3] = (byte)alpha;
             }
-            LyricsService.Log("fadeart sat=" + sat + " floor=" + floorA + " hi=" + hiCut + " maxLum=" + maxIn.ToString("0.0") + " -> " + maxOut.ToString("0.0") + " meanIn=" + (sumIn / Math.Max(1, npx)).ToString("0.0") + " meanOut=" + (sumOut / Math.Max(1, npx)).ToString("0.0"));
+            LyricsService.Log("fadeart sat=" + t.Sat + " floor=" + t.FloorA + " hi=" + t.HiCut + " maxLum=" + maxIn.ToString("0.0") + " -> " + maxOut.ToString("0.0") + " meanIn=" + (sumIn / Math.Max(1, npx)).ToString("0.0") + " meanOut=" + (sumOut / Math.Max(1, npx)).ToString("0.0"));
             var res = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, buf, stride);
             res.Freeze();
             return res;
@@ -2759,8 +2812,17 @@ namespace Amc
                 bi.Freeze();
 
                 BitmapSource shown = bi;
-                if (_cfg.ArtSat < 0.999 || _cfg.ArtBlackAlpha < 0.999 || _cfg.ArtHiCut > 0.0005)
-                    shown = FadeArt(bi, _cfg.ArtSat, _cfg.ArtBlackAlpha, _cfg.ArtHiCut);
+                if (_cfg.ArtSat < 0.999 || _cfg.ArtBlackAlpha < 0.999 || _cfg.ArtHiCut > 0.0005
+                    || _cfg.ArtBrightness != 1.0 || _cfg.ArtContrast != 1.0 || _cfg.ArtWarmth != 0.0
+                    || _cfg.ArtHue != 0.0 || _cfg.ArtVignette > 0.0005)
+                {
+                    ArtTune tune = new ArtTune();
+                    tune.Sat = _cfg.ArtSat; tune.FloorA = _cfg.ArtBlackAlpha; tune.HiCut = _cfg.ArtHiCut;
+                    tune.Brightness = _cfg.ArtBrightness; tune.Contrast = _cfg.ArtContrast;
+                    tune.Warmth = _cfg.ArtWarmth; tune.Vignette = _cfg.ArtVignette;
+                    tune.HueRad = _cfg.ArtHue * Math.PI / 180.0;
+                    shown = FadeArt(bi, tune);
+                }
 
                 LyricsService.Log("art apply " + bytes.Length + " bytes");
                 var brush = new ImageBrush(shown) { Stretch = Stretch.UniformToFill };

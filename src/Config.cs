@@ -95,6 +95,14 @@ namespace Amc
         public string BarColor = "";
         public string BarFillColor = "";
         public double ArtSize = 96.0;
+
+        // Cover grading. Everything is computed once per cover (192x192), never per frame, so these
+        // cost exactly nothing while the card is running.
+        public double ArtBrightness = 1.0;
+        public double ArtContrast = 1.0;
+        public double ArtWarmth = 0.0;   // -1 cool .. +1 warm
+        public double ArtHue = 0.0;      // -180 .. +180 degrees
+        public double ArtVignette = 0.0; // 0 .. 0.8
         /// <summary>Legacy: superseded by ModuleConfig.MaxChars. Parsed so old files still load, never applied.</summary>
         public int ArtistMaxChars = 0;
 
@@ -135,6 +143,11 @@ namespace Amc
             BarColor = "";
             BarFillColor = "";
             ArtSize = 96.0;
+            ArtBrightness = 1.0;
+            ArtContrast = 1.0;
+            ArtWarmth = 0.0;
+            ArtHue = 0.0;
+            ArtVignette = 0.0;
             ArtistMaxChars = 15;
         }
 
@@ -291,6 +304,11 @@ namespace Amc
                         case "BarColor": BarColor = v; break;
                         case "BarFillColor": BarFillColor = v; break;
                         case "ArtSize": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtSize = d; break;
+                        case "ArtBrightness": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtBrightness = d; break;
+                        case "ArtContrast": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtContrast = d; break;
+                        case "ArtWarmth": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtWarmth = d; break;
+                        case "ArtHue": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtHue = d; break;
+                        case "ArtVignette": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtVignette = d; break;
                         case "ArtistMaxChars": if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) ArtistMaxChars = n; break;
 
                     }
@@ -323,6 +341,11 @@ namespace Amc
             l.Add("BarColor=" + BarColor);
             l.Add("BarFillColor=" + BarFillColor);
             l.Add("ArtSize=" + ArtSize.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("ArtBrightness=" + ArtBrightness.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("ArtContrast=" + ArtContrast.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("ArtWarmth=" + ArtWarmth.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("ArtHue=" + ArtHue.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("ArtVignette=" + ArtVignette.ToString("0.###", CultureInfo.InvariantCulture));
             l.Add("ArtistMaxChars=" + ArtistMaxChars);
             return l;
         }

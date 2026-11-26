@@ -1284,6 +1284,16 @@ namespace Amc
             { _cfg.ArtSat = v; _card.RefreshArt(); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.artHiCut"), Stepper(_cfg.ArtHiCut, 0, 0.6, 0.02, "0.00", delegate(double v)
             { _cfg.ArtHiCut = v; _card.RefreshArt(); _cfg.Save(); })));
+            box.Children.Add(Row(Strings.T("lbl.artBright"), Stepper(_cfg.ArtBrightness, 0.5, 1.6, 0.02, "0.00", delegate(double v)
+            { _cfg.ArtBrightness = v; _card.RefreshArt(); _cfg.Save(); })));
+            box.Children.Add(Row(Strings.T("lbl.artContrast"), Stepper(_cfg.ArtContrast, 0.5, 1.8, 0.02, "0.00", delegate(double v)
+            { _cfg.ArtContrast = v; _card.RefreshArt(); _cfg.Save(); })));
+            box.Children.Add(Row(Strings.T("lbl.artWarmth"), Stepper(_cfg.ArtWarmth, -1, 1, 0.05, "0.00", delegate(double v)
+            { _cfg.ArtWarmth = v; _card.RefreshArt(); _cfg.Save(); })));
+            box.Children.Add(Row(Strings.T("lbl.artHue"), Stepper(_cfg.ArtHue, -180, 180, 5, "0", delegate(double v)
+            { _cfg.ArtHue = v; _card.RefreshArt(); _cfg.Save(); })));
+            box.Children.Add(Row(Strings.T("lbl.artVignette"), Stepper(_cfg.ArtVignette, 0, 0.8, 0.02, "0.00", delegate(double v)
+            { _cfg.ArtVignette = v; _card.RefreshArt(); _cfg.Save(); })));
             // the cover glow was removed: the halo bled over the title and lyrics
 
             // ---- card -------------------------------------------------------
