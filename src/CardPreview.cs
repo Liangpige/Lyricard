@@ -160,6 +160,7 @@ namespace Amc
                 else if (mc.Kind == ModuleKind.Album) box = Placeholder("专辑", r, false);
                 else if (mc.Kind == ModuleKind.Lyrics) box = Placeholder("歌词", r, false);
                 else if (mc.Kind == ModuleKind.Progress) box = Placeholder("进度条", r, false);
+                else if (mc.Kind == ModuleKind.Controls) box = GlyphRow(r);
                 else box = Placeholder("按钮", r, false);
 
                 box.Tag = mc.Kind;
@@ -171,6 +172,75 @@ namespace Amc
 
             _canvas.Children.Add(_guideV);
             _canvas.Children.Add(_guideH);
+        }
+
+        /// <summary>
+        /// The transport module is not a placeholder: it shows the real icons (previous, play/pause,
+        /// next) laid out exactly where the card puts them, so the step sizes are honest.
+        /// </summary>
+        FrameworkElement GlyphRow(ModuleRect r)
+        {
+            double w = Math.Max(2.0, r.W * _s);
+            double h = Math.Max(2.0, r.H * _s);
+            var host = new Canvas { Width = w, Height = h, Background = Brushes.Transparent };
+            double size = Math.Max(6.0, h * 0.62);
+            double gap = size * 0.75;
+            double total = size * 3 + gap * 2;
+            double x0 = Math.Max(0.0, (w - total) / 2.0);
+            for (int i = 0; i < 3; i++)
+            {
+                var g = Glyph(i, size);
+                Canvas.SetLeft(g, x0 + i * (size + gap));
+                Canvas.SetTop(g, (h - size) / 2.0);
+                host.Children.Add(g);
+            }
+            host.IsHitTestVisible = false;
+            return host;
+        }
+
+        /// <summary>0 = previous, 1 = play, 2 = next — bars plus a solid triangle, like the card.</summary>
+        FrameworkElement Glyph(int kind, double size)
+        {
+            double bar = Math.Max(1.0, size * 0.18);
+            double mid = size / 2.0;
+            double triSpan = size - bar * 1.6;
+            var geo = new GeometryGroup { FillRule = FillRule.Nonzero };
+            if (kind == 1)
+            {
+                // play: one right-pointing triangle
+                geo.Children.Add(Geometry.Parse(string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "M 0,0 L 0,{0} L {1},{2} Z", size, size * 0.92, mid)));
+            }
+            else if (kind == 0)
+            {
+                // previous: bar on the left, triangle pointing left
+                geo.Children.Add(Geometry.Parse(string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "M 0,0 L {0},0 L {0},{1} L 0,{1} Z", bar, size)));
+                geo.Children.Add(Geometry.Parse(string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "M {0},0 L {0},{1} L {2},{3} Z", size, size, bar * 1.6, mid)));
+            }
+            else
+            {
+                // next: triangle pointing right, bar on the right
+                geo.Children.Add(Geometry.Parse(string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "M 0,0 L 0,{0} L {1},{2} Z", size, triSpan, mid)));
+                geo.Children.Add(Geometry.Parse(string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "M {0},0 L {1},0 L {1},{2} L {0},{2} Z", size - bar, size, size)));
+            }
+            return new Path
+            {
+                Data = geo,
+                Fill = new SolidColorBrush(Color.FromArgb(215, 255, 255, 255)),
+                Width = size,
+                Height = size,
+                Stretch = Stretch.None,
+                IsHitTestVisible = false
+            };
         }
 
         FrameworkElement Placeholder(string label, ModuleRect r, bool round)

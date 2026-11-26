@@ -61,7 +61,8 @@ namespace Amc
         // Step 4: the card is a canvas of module hosts; LayoutEngine decides the rectangles and
         // ModuleRenderer pushes them onto these hosts (keeping the elements alive across passes).
         Canvas _canvas;
-        FrameworkElement _hostTitle, _hostLyric;
+        FrameworkElement _hostTitle, _hostLyric, _hostArtist;
+        TextBlock _artist;
         CardElements _elem;
         // Step 5: every hit test asks the layout where the modules are, not the visual tree.
         LayoutResult _layout;
@@ -321,8 +322,42 @@ namespace Amc
             _layout = lay;
             ModuleRenderer.Apply(_canvas, model, lay, _elem);
             ApplyControlsPos();
+            PlaceArtist(model, lay);
             ApplyModuleCaps(lay);
             NotifyLayoutChanged();
+        }
+
+        /// <summary>
+        /// The artist can be dragged anywhere: once its module carries explicit coordinates it gets
+        /// its own box and the inline run on the title line is cleared. Left alone it keeps riding
+        /// on the title line, which is the default look.
+        /// </summary>
+        void PlaceArtist(CardConfig model, LayoutResult lay)
+        {
+            if (_artist == null || _hostArtist == null || _runArtist == null) return;
+            ModuleConfig ac = model.Find(ModuleKind.Artist);
+            ModuleRect ar;
+            bool explicitPos = ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
+            if (!explicitPos || !lay.TryFind(ModuleKind.Artist, out ar))
+            {
+                if (!explicitPos)
+                {
+                    _artist.Visibility = Visibility.Collapsed;
+                    _hostArtist.Visibility = Visibility.Collapsed;
+                    _hostArtist.Width = 0; _hostArtist.Height = 0;
+                    return;
+                }
+            }
+            if (!lay.TryFind(ModuleKind.Artist, out ar)) return;
+            _runArtist.Text = "";
+            _hostArtist.Visibility = Visibility.Visible;
+            _hostArtist.Width = Math.Max(1.0, ar.W);
+            _hostArtist.Height = Math.Max(1.0, ar.H);
+            Canvas.SetLeft(_hostArtist, ar.X);
+            Canvas.SetTop(_hostArtist, ar.Y);
+            _artist.Text = _artistText;
+            _artist.MaxWidth = Math.Max(1.0, ar.W);
+            UpdateLayout();
         }
 
         /// <summary>
@@ -343,6 +378,9 @@ namespace Amc
                 _lyric.TextTrimming = TextTrimming.CharacterEllipsis;
             }
         }
+
+        /// <summary>The artist name, cached so the standalone artist box can show it.</summary>
+        string _artistText = "";
 
         /// <summary>Tell every view that the card's look changed. Safe to call by hand.</summary>
         public void NotifyLayoutChanged()
@@ -473,6 +511,20 @@ namespace Amc
         public void ApplyControlsPos()
         {
             if (_controls == null) return;
+            // The template decides where the transport row sits: the Controls module owns X/Y/W.
+            ModuleRect rc;
+            if (_layout != null && _layout.TryFind(ModuleKind.Controls, out rc))
+            {
+                double hostW = rc.W;
+                double btnW2 = (_controls.ActualWidth > 1) ? _controls.ActualWidth : 90.0;
+                double freeInBox = hostW - btnW2;
+                if (freeInBox < 0) freeInBox = 0;
+                // centre inside its own box; the box itself is already placed by the layout
+                _controls.HorizontalAlignment = HorizontalAlignment.Left;
+                _controls.Margin = new Thickness(freeInBox / 2.0, 0, 0, 0);
+                UpdateLayout();
+                return;
+            }
             double colW = (_content != null && _content.ActualWidth > 1)
                 ? _content.ActualWidth
                 : Math.Max(120, NaturalCol() * _cfg.BarScale);
@@ -499,15 +551,17 @@ namespace Amc
         public void ApplyAlign()
         {
             if (_title == null || _lyric == null || _barRow == null) return;
-            string a = (_cfg.TextAlign ?? "right").Trim().ToLowerInvariant();
+            // Legacy TitleIndent / LyricIndent / TextAlign are ignored on purpose: the module rect is
+            // the only thing that decides where text sits now, so an old config cannot fight the template.
+            string a = "right";
             HorizontalAlignment ha = HorizontalAlignment.Right;
             TextAlignment ta = TextAlignment.Right;
             if (a == "left") { ha = HorizontalAlignment.Left; ta = TextAlignment.Left; }
             else if (a == "center") { ha = HorizontalAlignment.Center; ta = TextAlignment.Center; }
             else a = "right";
 
-            double ti = _cfg.TitleIndent;
-            double li = _cfg.LyricIndent;
+            double ti = 0.0;
+            double li = 0.0;
             double tl = 0.0, tr = 0.0, ll = 0.0, lr = 0.0;
             if (a == "right") { tl = ti; ll = li; }
             else if (a == "left") { tr = ti; lr = li; }
@@ -651,6 +705,23 @@ namespace Amc
             _title.Inlines.Add(_runArtist);
             titleHost.Children.Add(_title);
             root.Children.Add(titleHost);
+
+            // --- artist as its own draggable module (hidden while it rides on the title line) ---
+            var artistHost = new Grid { ClipToBounds = true, Visibility = Visibility.Collapsed };
+            _hostArtist = artistHost;
+            _artist = new TextBlock
+            {
+                FontSize = 11.5,
+                Foreground = White(0.62),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.NoWrap,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                TextAlignment = TextAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                Text = ""
+            };
+            artistHost.Children.Add(_artist);
+            root.Children.Add(artistHost);
 
             // --- lyrics ---
             var lyricHost = new Grid { ClipToBounds = true };
@@ -1960,6 +2031,7 @@ namespace Amc
             string art = string.IsNullOrEmpty(artistOut) ? "" : "   " + ClipArtist(artistOut);
             _runTitle.Text = FitTitle(ttl, art);
             _runArtist.Text = art;
+            _artistText = art;                 // the standalone artist box reads this
             if (np.Key != _titleKey)
             {
                 _titleKey = np.Key;
