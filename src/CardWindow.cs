@@ -324,7 +324,10 @@ namespace Amc
             p.Render(CardModel(), Metrics(), _cfg.Scale,
                 _runTitle != null ? _runTitle.Text : "",
                 _runArtist != null ? _runArtist.Text.Trim() : "",
-                _lineText ?? "", prog, _playingShown, cover, _cfg.ControlsColor);
+                // read the text the card is actually showing: _lineText is empty before the first
+                // lyrics arrive, while the card shows the placeholder line.
+                _lyric != null ? (_lyric.Text ?? "") : (_lineText ?? ""),
+                prog, _playingShown, cover, _cfg.ControlsColor);
         }
 
         /// <summary>
@@ -2098,6 +2101,26 @@ namespace Amc
 
 
             UpdateLyric();
+            PreviewPing();
+        }
+
+        /// <summary>
+        /// Tell the Look-page board when something it shows actually changed. Rendering the whole
+        /// preview on every tick would be wasteful; a track change or a new lyric line is enough.
+        /// </summary>
+        string _pvSig = null;
+        void PreviewPing()
+        {
+            if (LayoutChanged == null) return;
+            string sig = (_runTitle != null ? _runTitle.Text : "") + "\u0001"
+                       + (_runArtist != null ? _runArtist.Text : "") + "\u0001"
+                       + (_lyric != null ? _lyric.Text : "") + "\u0001"
+                       + (_playingShown ? "1" : "0") + "\u0001"
+                       + ((int)_pos).ToString() + "\u0001"
+                       + (_artEllipse != null && _artEllipse.Fill != null ? "a" : "-");
+            if (sig == _pvSig) return;
+            _pvSig = sig;
+            NotifyLayoutChanged();
         }
 
         static string Fmt(double seconds)

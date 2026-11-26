@@ -51,7 +51,7 @@ namespace Amc
 
         public CardPreview()
         {
-            HorizontalAlignment = HorizontalAlignment.Left;
+            HorizontalAlignment = HorizontalAlignment.Center;
             VerticalAlignment = VerticalAlignment.Top;
             Build();
         }
@@ -174,10 +174,15 @@ namespace Amc
             if (ms.CardW > want) ms = Scaled(metrics, Math.Max(0.2, s * want / Math.Max(1.0, ms.CardW)));
 
             _lay = LayoutEngine.Compute(model, ms);
+            // LayoutEngine's rects start at the card's content origin, i.e. inside the same
+            // Padding the desktop card uses. Without this the whole layout slides up-left and
+            // the artwork hangs off the right edge.
+            var pad = new Thickness(ms.PadX, ms.PadY, ms.PadX, ms.PadY);
+            _card.Padding = pad;
             _card.Width = _lay.CardW;
             _card.Height = _lay.CardH;
-            _canvas.Width = _lay.CardW;
-            _canvas.Height = _lay.CardH;
+            _canvas.Width = Math.Max(0, _lay.CardW - pad.Left - pad.Right);
+            _canvas.Height = Math.Max(0, _lay.CardH - pad.Top - pad.Bottom);
             Width = _lay.CardW;
             Height = _lay.CardH;
 
