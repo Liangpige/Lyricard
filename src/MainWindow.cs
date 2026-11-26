@@ -1255,6 +1255,45 @@ namespace Amc
                 _cfg.Save();
                 _preview.RefreshFromCard();
             })));
+            // Same story as the cover: these steer the Progress and MusicBars modules, so they
+            // sit with the draft controls instead of pretending to be instant repaints.
+            box.Children.Add(Row(Strings.T("lbl.barScale"), Stepper(_cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
+            {
+                double oldScale = _cfg.BarScale <= 0 ? 1.0 : _cfg.BarScale;
+                _cfg.BarScale = v;
+                // The bar's length is the Progress module's width. Scale the width that is already
+                // there instead of recomputing from a constant, so a width dragged in the board is
+                // kept: newW = oldW * (new / old).
+                CardConfig m2 = _card.Model;
+                if (m2 != null)
+                {
+                    ModuleConfig pr = m2.Find(ModuleKind.Progress);
+                    if (pr != null)
+                    {
+                        double baseW = pr.W > 0 ? pr.W / oldScale : 320.0;
+                        pr.W = Math.Max(40.0, Math.Round(baseW * v));
+                    }
+                    _card.InvalidateModel();
+                    // the width lives in the template, so write it there and let the board follow
+                    _card.SaveModel();
+                }
+                _card.ApplyLook();
+                _cfg.Save();
+                _preview.RefreshFromCard();
+            })));
+            box.Children.Add(Row("频谱长度", Stepper(_cfg.BarsLength, 40, 420, 10, "0", delegate(double v)
+            {
+                _cfg.BarsLength = v;
+                BarsModule(v, -1);
+                _cfg.Save();
+            })));
+            box.Children.Add(Row("频谱最大高度", Stepper(_cfg.BarsMaxHeight, 8, 90, 2, "0", delegate(double v)
+            {
+                _cfg.BarsMaxHeight = v;
+                BarsModule(-1, v);
+                _cfg.Save();
+            })));
+
 
             box.Children.Add(Rule());
             var applyNote = Label("以上修改需要点击【应用】才会生效；以下设置改动立即生效。",
@@ -1306,30 +1345,6 @@ namespace Amc
 
             // ---- progress bar -----------------------------------------------
             box.Children.Add(Section(Strings.T("sec.bar")));
-            box.Children.Add(Row(Strings.T("lbl.barScale"), Stepper(_cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
-            {
-                double oldScale = _cfg.BarScale <= 0 ? 1.0 : _cfg.BarScale;
-                _cfg.BarScale = v;
-                // The bar's length is the Progress module's width. Scale the width that is already
-                // there instead of recomputing from a constant, so a width dragged in the board is
-                // kept: newW = oldW * (new / old).
-                CardConfig m2 = _card.Model;
-                if (m2 != null)
-                {
-                    ModuleConfig pr = m2.Find(ModuleKind.Progress);
-                    if (pr != null)
-                    {
-                        double baseW = pr.W > 0 ? pr.W / oldScale : 320.0;
-                        pr.W = Math.Max(40.0, Math.Round(baseW * v));
-                    }
-                    _card.InvalidateModel();
-                    // the width lives in the template, so write it there and let the board follow
-                    _card.SaveModel();
-                }
-                _card.ApplyLook();
-                _cfg.Save();
-                _preview.RefreshFromCard();
-            })));
             box.Children.Add(Row(Strings.T("lbl.barThickness"), Stepper(_cfg.BarThickness, 2, 8, 0.5, "0.0", delegate(double v)
             { _cfg.BarThickness = v; _card.ApplyLook(); _cfg.Save(); })));
             box.Children.Add(ColorRow(Strings.T("lbl.barColor"), _cfg.BarColor, delegate(string v)
@@ -1344,18 +1359,6 @@ namespace Amc
             // Length and height write straight into the MusicBars module, so the board's box and the
             // card's row always agree; the rest are pure look knobs that only need a repaint.
             box.Children.Add(Section("频谱"));
-            box.Children.Add(Row("频谱长度", Stepper(_cfg.BarsLength, 40, 420, 10, "0", delegate(double v)
-            {
-                _cfg.BarsLength = v;
-                BarsModule(v, -1);
-                _cfg.Save();
-            })));
-            box.Children.Add(Row("频谱最大高度", Stepper(_cfg.BarsMaxHeight, 8, 90, 2, "0", delegate(double v)
-            {
-                _cfg.BarsMaxHeight = v;
-                BarsModule(-1, v);
-                _cfg.Save();
-            })));
             box.Children.Add(Row("条数（0=自动）", Stepper(_cfg.BarsCount, 0, 96, 1, "0", delegate(double v)
             {
                 _cfg.BarsCount = (int)Math.Round(v);
