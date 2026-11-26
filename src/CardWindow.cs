@@ -601,30 +601,29 @@ namespace Amc
             int n = _bars.Length;
             double h = _barsHost.Height;
 
-            // Phase B: real band levels straight from the loopback capture. It returns null while the
-            // device is silent or the capture thread has not warmed up, in which case the row falls
-            // back to the plain level arch instead of going dark.
+            // Real band levels, and nothing but real band levels. When the capture is unavailable the
+            // row reads as silence (all bars down) rather than switching to an invented shape: a row
+            // that guesses is worse than a row that admits it has nothing to show.
             float[] bands = playing ? AudioSpectrum.Bands(n) : null;
-            double peak = 0.0;
             double t = _stepBarsClock++;
             double mid = (n - 1) / 2.0;
-            if (bands == null) peak = playing ? AudioPeak.Peak() : 0.0;
 
             for (int i = 0; i < n; i++)
             {
                 double target;
                 if (bands != null)
                 {
-                    target = bands[i] * 1.15;
+                    // Bands arrive as linear amplitudes and a loud mix still only reaches ~0.4, so a
+                    // straight mapping draws a low dashed line. A gamma lifts the middle of the range
+                    // where most music lives, which is what makes the row read as a spectrum.
+                    target = Math.Pow(bands[i], 0.62) * 1.05;
                     // A touch of the arch keeps the row from looking like noise on quiet passages.
                     double arch = 1.0 - Math.Abs(i - mid) / Math.Max(1.0, mid) * 0.18;
                     target *= arch;
                 }
                 else
                 {
-                    double arch = 1.0 - Math.Abs(i - mid) / Math.Max(1.0, mid) * 0.55;
-                    double wob = 0.78 + 0.22 * Math.Sin(t * 0.09 + i * 0.55);
-                    target = peak * arch * wob;
+                    target = 0.0;
                 }
                 if (target > 1.0) target = 1.0;
                 if (target < 0.0) target = 0.0;
