@@ -103,6 +103,13 @@ namespace Amc
         public double ArtWarmth = 0.0;   // -1 cool .. +1 warm
         public double ArtHue = 0.0;      // -180 .. +180 degrees
         public double ArtVignette = 0.0; // 0 .. 0.8
+
+        // Duotone: map luminance onto a dark->light ramp. Off by default; while it is on the
+        // saturation slider is disabled because the ramp already defines the hue.
+        public bool ArtTint = false;
+        public string ArtTintDark = "#3A0A0A";
+        public string ArtTintLight = "#FFB4B4";
+        public double ArtTintMix = 1.0;
         /// <summary>Legacy: superseded by ModuleConfig.MaxChars. Parsed so old files still load, never applied.</summary>
         public int ArtistMaxChars = 0;
 
@@ -148,6 +155,10 @@ namespace Amc
             ArtWarmth = 0.0;
             ArtHue = 0.0;
             ArtVignette = 0.0;
+            ArtTint = false;
+            ArtTintDark = "#3A0A0A";
+            ArtTintLight = "#FFB4B4";
+            ArtTintMix = 1.0;
             ArtistMaxChars = 15;
         }
 
@@ -309,6 +320,10 @@ namespace Amc
                         case "ArtWarmth": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtWarmth = d; break;
                         case "ArtHue": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtHue = d; break;
                         case "ArtVignette": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtVignette = d; break;
+                        case "ArtTint": if (bool.TryParse(v, out b)) ArtTint = b; break;
+                        case "ArtTintDark": ArtTintDark = v; break;
+                        case "ArtTintLight": ArtTintLight = v; break;
+                        case "ArtTintMix": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) ArtTintMix = d; break;
                         case "ArtistMaxChars": if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) ArtistMaxChars = n; break;
 
                     }
@@ -346,6 +361,10 @@ namespace Amc
             l.Add("ArtWarmth=" + ArtWarmth.ToString("0.###", CultureInfo.InvariantCulture));
             l.Add("ArtHue=" + ArtHue.ToString("0.###", CultureInfo.InvariantCulture));
             l.Add("ArtVignette=" + ArtVignette.ToString("0.###", CultureInfo.InvariantCulture));
+            l.Add("ArtTint=" + ArtTint);
+            l.Add("ArtTintDark=" + ArtTintDark);
+            l.Add("ArtTintLight=" + ArtTintLight);
+            l.Add("ArtTintMix=" + ArtTintMix.ToString("0.###", CultureInfo.InvariantCulture));
             l.Add("ArtistMaxChars=" + ArtistMaxChars);
             return l;
         }

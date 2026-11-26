@@ -2671,6 +2671,32 @@ namespace Amc
         struct ArtTune
         {
             public double Sat, FloorA, HiCut, Brightness, Contrast, Warmth, HueRad, Vignette;
+            public bool Tint;
+            public double TintDarkR, TintDarkG, TintDarkB, TintLightR, TintLightG, TintLightB, TintMix;
+        }
+
+        static bool ParseHex(string hex, out Color c)
+        {
+            c = Colors.Black;
+            if (string.IsNullOrEmpty(hex)) return false;
+            string h = hex.Trim().TrimStart('#');
+            if (h.Length != 6) return false;
+            try
+            {
+                c = Color.FromRgb(Convert.ToByte(h.Substring(0, 2), 16),
+                                  Convert.ToByte(h.Substring(2, 2), 16),
+                                  Convert.ToByte(h.Substring(4, 2), 16));
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Push the current tint stops through the same pipeline as a new cover.</summary>
+        public void SetArtTint(bool on)
+        {
+            _cfg.ArtTint = on;
+            _cfg.Save();
+            RefreshArt();
         }
 
         static BitmapSource FadeArt(BitmapSource src, ArtTune t)
@@ -2700,6 +2726,21 @@ namespace Amc
                     g = (g - 128.0) * t.Contrast + 128.0;
                     b = (b - 128.0) * t.Contrast + 128.0;
                 }
+                if (t.Tint)
+                {
+                    double tl = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                    if (tl < 0.0) tl = 0.0; else if (tl > 1.0) tl = 1.0;
+                    // A slight gamma keeps the deep end from collapsing: a raw linear ramp spends
+                    // most of its range on the bright half and the shadow colour barely shows.
+                    double g2 = Math.Pow(tl, 0.85);
+                    double tr = t.TintDarkR + (t.TintLightR - t.TintDarkR) * g2;
+                    double tg = t.TintDarkG + (t.TintLightG - t.TintDarkG) * g2;
+                    double tb = t.TintDarkB + (t.TintLightB - t.TintDarkB) * g2;
+                    double mix = t.TintMix < 0 ? 0 : (t.TintMix > 1 ? 1 : t.TintMix);
+                    r = r + (tr - r) * mix;
+                    g = g + (tg - g) * mix;
+                    b = b + (tb - b) * mix;
+                }
                 if (t.Warmth != 0.0)
                 {
                     r += t.Warmth * 26.0;
@@ -2722,9 +2763,12 @@ namespace Amc
                 if (b < 0) b = 0; else if (b > 255) b = 255;
                 lum = 0.299 * r + 0.587 * g + 0.114 * b;
                 sumIn += lum;
-                r = lum + (r - lum) * t.Sat;
-                g = lum + (g - lum) * t.Sat;
-                b = lum + (b - lum) * t.Sat;
+                // With a duotone ramp the hue is decided by the two stops, so the saturation slider is
+                // disabled in the UI and must not fight the ramp here either.
+                double satUse = t.Tint ? 1.0 : t.Sat;
+                r = lum + (r - lum) * satUse;
+                g = lum + (g - lum) * satUse;
+                b = lum + (b - lum) * satUse;
                 // Soft highlight rolloff: leave everything below the knee alone and pull the
                 // bright end down by up to hiCut (12% at pure white), so a bright cover stops
                 // glowing without looking dimmed.
@@ -2812,7 +2856,7 @@ namespace Amc
                 bi.Freeze();
 
                 BitmapSource shown = bi;
-                if (_cfg.ArtSat < 0.999 || _cfg.ArtBlackAlpha < 0.999 || _cfg.ArtHiCut > 0.0005
+                if (_cfg.ArtTint || _cfg.ArtSat < 0.999 || _cfg.ArtBlackAlpha < 0.999 || _cfg.ArtHiCut > 0.0005
                     || _cfg.ArtBrightness != 1.0 || _cfg.ArtContrast != 1.0 || _cfg.ArtWarmth != 0.0
                     || _cfg.ArtHue != 0.0 || _cfg.ArtVignette > 0.0005)
                 {
@@ -2821,6 +2865,11 @@ namespace Amc
                     tune.Brightness = _cfg.ArtBrightness; tune.Contrast = _cfg.ArtContrast;
                     tune.Warmth = _cfg.ArtWarmth; tune.Vignette = _cfg.ArtVignette;
                     tune.HueRad = _cfg.ArtHue * Math.PI / 180.0;
+                    tune.Tint = _cfg.ArtTint;
+                    tune.TintMix = _cfg.ArtTintMix;
+                    Color cd, cl;
+                    if (ParseHex(_cfg.ArtTintDark, out cd)) { tune.TintDarkR = cd.R; tune.TintDarkG = cd.G; tune.TintDarkB = cd.B; }
+                    if (ParseHex(_cfg.ArtTintLight, out cl)) { tune.TintLightR = cl.R; tune.TintLightG = cl.G; tune.TintLightB = cl.B; }
                     shown = FadeArt(bi, tune);
                 }
 

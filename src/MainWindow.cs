@@ -972,6 +972,15 @@ namespace Amc
             return i < 0 ? 0 : i;
         }
 
+        /// <summary>Which preset matches the stored stops; -1 means "custom".</summary>
+        int TintPresetIndex()
+        {
+            if (_cfg.ArtTintDark == "#3A0A0A" && _cfg.ArtTintLight == "#FFB4B4") return 0;
+            if (_cfg.ArtTintDark == "#061826" && _cfg.ArtTintLight == "#A9D6FF") return 1;
+            if (_cfg.ArtTintDark == "#1A0A2E" && _cfg.ArtTintLight == "#D9B8FF") return 2;
+            return 0;
+        }
+
         void SetModuleAlign(ModuleKind kind, int idx)
         {
             if (idx < 0 || idx >= AlignValues.Length) return;
@@ -1280,10 +1289,31 @@ namespace Amc
                 _card.ApplyLook();
                 _cfg.Save();
             })));
-            box.Children.Add(Row(Strings.T("lbl.artSat"), Stepper(_cfg.ArtSat, 0, 1, 0.05, "0.00", delegate(double v)
-            { _cfg.ArtSat = v; _card.RefreshArt(); _cfg.Save(); })));
+            if (_cfg.ArtTint)
+                box.Children.Add(Label(Strings.T("artSat.off"), 11.5, TextDim, FontWeights.Normal));
+            else
+                box.Children.Add(Row(Strings.T("lbl.artSat"), Stepper(_cfg.ArtSat, 0, 1, 0.05, "0.00", delegate(double v)
+                { _cfg.ArtSat = v; _card.RefreshArt(); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.artHiCut"), Stepper(_cfg.ArtHiCut, 0, 0.6, 0.02, "0.00", delegate(double v)
             { _cfg.ArtHiCut = v; _card.RefreshArt(); _cfg.Save(); })));
+            // Duotone sits right above the grading sliders: it decides the hue, they shape the tone.
+            box.Children.Add(Row(Strings.T("lbl.artTint"), Toggle(_cfg.ArtTint, delegate(bool v)
+            { _card.SetArtTint(v); RebuildAll(); })));
+            box.Children.Add(Row(Strings.T("lbl.artTintPreset"), Segmented(
+                new string[] { Strings.T("tint.warm"), Strings.T("tint.cool"), Strings.T("tint.violet") },
+                TintPresetIndex(),
+                delegate(int i)
+                {
+                    if (i == 0) { _cfg.ArtTintDark = "#3A0A0A"; _cfg.ArtTintLight = "#FFB4B4"; }
+                    else if (i == 1) { _cfg.ArtTintDark = "#061826"; _cfg.ArtTintLight = "#A9D6FF"; }
+                    else { _cfg.ArtTintDark = "#1A0A2E"; _cfg.ArtTintLight = "#D9B8FF"; }
+                    _cfg.ArtTint = true;
+                    _card.SetArtTint(true);
+                    _cfg.Save();
+                    RebuildAll();
+                })));
+            box.Children.Add(Row(Strings.T("lbl.artTintMix"), Stepper(_cfg.ArtTintMix, 0, 1, 0.05, "0.00", delegate(double v)
+            { _cfg.ArtTintMix = v; _cfg.Save(); _card.RefreshArt(); })));
             box.Children.Add(Row(Strings.T("lbl.artBright"), Stepper(_cfg.ArtBrightness, 0.5, 1.6, 0.02, "0.00", delegate(double v)
             { _cfg.ArtBrightness = v; _card.RefreshArt(); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.artContrast"), Stepper(_cfg.ArtContrast, 0.5, 1.8, 0.02, "0.00", delegate(double v)
