@@ -854,12 +854,13 @@ namespace Amc
             // A hairline keeps it from reading as a third language option.
             box.Children.Add(Rule());
             box.Children.Add(Row(Strings.T("page.home.clickthrough"),
-                Toggle(_cfg.ClickThrough, delegate(bool v)
-                {
-                    _card.SetClickThrough(v);
-                    RebuildAll();
-                })));
-            box.Children.Add(Hint(Strings.T("page.home.clickthrough.hint")));
+                Segmented(new string[] { Strings.T("ct.off"), Strings.T("ct.full"), Strings.T("ct.transport") },
+                    ClickThroughIndex(), delegate(int i)
+                    {
+                        _card.SetClickThrough(ClickThroughModes[i]);
+                        RebuildAll();
+                    })));
+            box.Children.Add(Hint(Strings.T("ct.hint")));
 
             // The wheel is the card's only silent control: without a switch nobody discovers that
             // it scales, and people who expect it to change volume think it is broken.
@@ -982,6 +983,16 @@ namespace Amc
             t.TextWrapping = TextWrapping.Wrap;
             t.Margin = new Thickness(0, 0, 0, 12);
             return t;
+        }
+
+        static readonly string[] ClickThroughModes = { "off", "full", "transport" };
+
+        /// <summary>Home page order: off, everything, buttons only.</summary>
+        int ClickThroughIndex()
+        {
+            string m = _cfg.ClickThroughMode;
+            for (int i = 0; i < ClickThroughModes.Length; i++) if (ClickThroughModes[i] == m) return i;
+            return 0;
         }
 
         /// <summary>Segmented control: one row of pills, exactly one selected.</summary>

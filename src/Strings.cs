@@ -98,7 +98,7 @@ namespace Amc
             Both("page.home.wheel.hint",
                 "只对桌面卡片生效。音量指系统总音量（等同音量键），不是单独调某个播放器。",
                 "Applies to the desktop card only. Volume is the system master level (same as the volume keys), not one player's slider.");
-            Both("page.home.clickthrough", "交互穿透（屏蔽卡片交互）", "Click-through (card ignores the mouse)");
+            Both("page.home.clickthrough", "交互穿透（让点击落到下层）", "Click-through (let clicks fall through)");
             Both("page.home.clickthrough.hint",
                 "打开后卡片不再接收任何鼠标操作，点在卡片上的动作会落到它下面的窗口；要关掉就从托盘菜单或这一页关。",
                 "With this on the card stops taking mouse input -- clicks go to the window below it. Turn it off from the tray menu or this page.");
@@ -210,6 +210,11 @@ namespace Amc
             Both("menu.fadeMore", "更透明", "More transparent");
             Both("menu.fadeLess", "更不透明", "Less transparent");
             Both("menu.clickthrough", "交互穿透（屏蔽卡片交互）", "Click-through (ignore the mouse)");
+            Both("ct.off", "关闭", "Off");
+            Both("ct.full", "全部穿透", "Everything");
+            Both("ct.transport", "只留按钮", "Buttons only");
+            Both("ct.hint", "「全部穿透」时卡片完全不接鼠标；「只留按钮」时卡片透传，只有下面那排按钮（上一首/播放/下一首）还能点。滚轮在两种穿透下都用不了。",
+                 "\"Everything\" makes the whole card transparent to the mouse. \"Buttons only\" pushes clicks through everywhere except the transport row, so pause/next still work. The wheel is off in both.");
             Both("menu.clearBg", "透明背景（只留文字）", "Transparent background (text only)");
             Both("menu.clearBgShort", "透明背景", "Transparent background");
             Both("menu.spin", "封面旋转", "Spin artwork");

@@ -28,6 +28,8 @@ namespace Amc
 
         public const int WS_EX_TOPMOST = 0x00000008;
         public const int SWP_NOSIZE = 0x0001;
+        public const int SWP_NOZORDER = 0x0004;
+        public const int SWP_FRAMECHANGED = 0x0020;
         public const int SWP_NOMOVE = 0x0002;
         public const int SWP_NOACTIVATE = 0x0010;
         public const int SWP_NOOWNERZORDER = 0x0200;

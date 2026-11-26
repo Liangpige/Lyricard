@@ -1490,10 +1490,12 @@ namespace Amc
             IntPtr hwnd = new WindowInteropHelper(this).Handle;
             int ex = Native.GetWindowLong(hwnd, Native.GWL_EXSTYLE);
             ex |= Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE;
-            if (_cfg.ClickThrough) ex |= Native.WS_EX_TRANSPARENT;
+            if (_cfg.ClickThroughMode != "off") { ex |= Native.WS_EX_TRANSPARENT; _ctTransparent = true; }
             Native.SetWindowLong(hwnd, Native.GWL_EXSTYLE, ex);
             _hwnd = hwnd;
             Native.BringToTop(_hwnd);
+            // "transport" mode needs the initial hot test; "full"/"off" are already settled above.
+            ApplyClickThrough();
         }
 
         void OnLoaded(object sender, EventArgs e)
@@ -1611,7 +1613,7 @@ namespace Amc
                 e.Handled = true;
                 return;
             }
-            if (_cfg.ClickThrough) return;
+            if (_cfg.ClickThroughMode != "off") return;
             // the progress row handles its own press (seek); dragging from there used to be
             // impossible because the bar swallowed the event - keep that rule, now via the rect
             if (HitModule(e.GetPosition(_canvas), ModuleKind.Progress, 4.0)) return;
@@ -1819,21 +1821,113 @@ namespace Amc
         /// <summary>Click-through on/off. While it is on the card stops receiving mouse input
         /// altogether (no drag, no clicks, no context menu) and every click lands on the
         /// window below -- the tray menu and the Home page stay available to turn it back off.</summary>
-        public void SetClickThrough(bool on)
+        public void SetClickThrough(bool on) { SetClickThrough(on ? "full" : "off"); }
+
+        /// <summary>"off" | "full" (card ignores the mouse) | "transport" (only the transport row
+        /// answers; everything else falls through to the window below).</summary>
+        public void SetClickThrough(string mode)
         {
-            _cfg.ClickThrough = on;
+            if (mode != "full" && mode != "transport") mode = "off";
+            _cfg.ClickThroughMode = mode;
+            _cfg.ClickThrough = mode != "off";
             _cfg.Save();
             ApplyClickThrough();
         }
 
+        bool _ctTransparent;
+        bool _ctHot;
+
         void ApplyClickThrough()
         {
             if (_hwnd == IntPtr.Zero) return;
+            string mode = _cfg.ClickThroughMode;
+            // A layered window is hit-tested per pixel, so a truly transparent pixel never sees
+            // the mouse even with WS_EX_TRANSPARENT cleared. The transport row therefore gets a
+            // 1/255 black background while this mode is on: invisible to the eye, solid to the
+            // hit test, and it covers the gaps between the three glyphs.
+            if (_controls != null)
+                _controls.Background = mode == "transport"
+                    ? new SolidColorBrush(Color.FromArgb(1, 0, 0, 0))
+                    : null;
+            if (mode == "full") SetTransparent(true);
+            else if (mode == "transport")
+            {
+                _ctHot = CursorOverTransport();
+                SetTransparent(!_ctHot);
+                var r = TransportRectOnScreen();
+                LyricsService.Log("ct transport rect=" + (int)r.X + "," + (int)r.Y + " " + (int)r.Width + "x" + (int)r.Height);
+            }
+            else { _ctHot = false; SetTransparent(false); }
+            LyricsService.Log("click-through mode=" + mode + " transparent=" + _ctTransparent);
+        }
+
+        /// <summary>
+        /// Flip WS_EX_TRANSPARENT. The style change alone is cached by the hit-test, so the window
+        /// is nudged with SWP_FRAMECHANGED; without it a click can still be eaten for a while.
+        /// </summary>
+        void SetTransparent(bool on)
+        {
+            if (_hwnd == IntPtr.Zero || _ctTransparent == on) return;
             int ex = Native.GetWindowLong(_hwnd, Native.GWL_EXSTYLE);
-            ex = _cfg.ClickThrough ? (ex | Native.WS_EX_TRANSPARENT)
-                                   : (ex & ~Native.WS_EX_TRANSPARENT);
+            ex = on ? (ex | Native.WS_EX_TRANSPARENT) : (ex & ~Native.WS_EX_TRANSPARENT);
             Native.SetWindowLong(_hwnd, Native.GWL_EXSTYLE, ex);
-            LyricsService.Log("click-through " + (_cfg.ClickThrough ? "on" : "off") + " ex=0x" + ex.ToString("X"));
+            Native.SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOZORDER | Native.SWP_FRAMECHANGED);
+            _ctTransparent = on;
+        }
+
+        /// <summary>True while the mouse sits on the transport row (previous / play / next).
+        /// Both corners go through PointToScreen so the answer is in real screen pixels.</summary>
+        Rect _ctRect = Rect.Empty;
+        double _ctRectW = -1;
+        int _ctRectAge = 999;
+
+        /// <summary>
+        /// The transport row in screen pixels. PointToScreen is not free, and this is asked 30 times
+        /// a second, so the answer is cached and refreshed about three times a second -- the card
+        /// cannot move or resize while this mode is on anyway (no drag, no wheel).
+        /// </summary>
+        Rect TransportRectOnScreen()
+        {
+            if (_controls == null || _controls.ActualWidth < 1.0) return Rect.Empty;
+            bool stale = _ctRect.IsEmpty || _ctRectAge >= 10 || Math.Abs(_ctRectW - _controls.ActualWidth) > 0.5;
+            if (stale)
+            {
+                _ctRectAge = 0;
+                _ctRectW = _controls.ActualWidth;
+                try
+                {
+                    Point a = _controls.PointToScreen(new Point(0, 0));
+                    Point b = _controls.PointToScreen(new Point(_controls.ActualWidth, _controls.ActualHeight));
+                    _ctRect = new Rect(a, b);
+                }
+                catch { _ctRect = Rect.Empty; }
+            }
+            else _ctRectAge++;
+            return _ctRect;
+        }
+
+        bool CursorOverTransport()
+        {
+            Rect r = TransportRectOnScreen();
+            if (r.IsEmpty) return false;
+            Native.POINT cur;
+            if (!Native.GetCursorPos(out cur)) return false;
+            const double pad = 3.0;
+            return cur.X >= r.X - pad && cur.X <= r.Right + pad
+                && cur.Y >= r.Y - pad && cur.Y <= r.Bottom + pad;
+        }
+
+        /// <summary>Cheap per-tick guard for the "transport" mode: one cursor read and a rect test,
+        /// and a style flip only when the mouse crosses the row.</summary>
+        void UpdateTransportHot()
+        {
+            if (_cfg.ClickThroughMode != "transport" || _hwnd == IntPtr.Zero) return;
+            bool hot = CursorOverTransport();
+            if (hot == _ctHot) return;
+            _ctHot = hot;
+            SetTransparent(!hot);
+            LyricsService.Log("click-through transport hot=" + hot);
         }
 
         public void ToggleClearBg()
@@ -1919,8 +2013,19 @@ namespace Amc
             m.Items.Add(Item(Strings.T("menu.lyricEarly"), delegate { NudgeOffset(0.1); }));
             m.Items.Add(Item(Strings.T("menu.lyricLate"), delegate { NudgeOffset(-0.1); }));
             m.Items.Add(new Separator());
-            var passItem = new MenuItem { Header = Strings.T("menu.clickthrough"), IsCheckable = true, IsChecked = _cfg.ClickThrough };
-            passItem.Click += delegate { SetClickThrough(!_cfg.ClickThrough); passItem.IsChecked = _cfg.ClickThrough; };
+            var passItem = new MenuItem { Header = Strings.T("menu.clickthrough") };
+            var ctItems = new System.Collections.Generic.List<MenuItem>();
+            Action<string, string> addCt = delegate(string mode, string label)
+            {
+                var mi = new MenuItem { Header = label, IsCheckable = true, IsChecked = _cfg.ClickThroughMode == mode };
+                string m2 = mode;
+                mi.Click += delegate { SetClickThrough(m2); foreach (var x in ctItems) x.IsChecked = (x == mi); };
+                ctItems.Add(mi);
+                passItem.Items.Add(mi);
+            };
+            addCt("off", Strings.T("ct.off"));
+            addCt("full", Strings.T("ct.full"));
+            addCt("transport", Strings.T("ct.transport"));
             m.Items.Add(passItem);
             m.Items.Add(new Separator());
             m.Items.Add(Item(Strings.T("menu.close"), delegate { Quit(); }));
@@ -1934,7 +2039,7 @@ namespace Amc
                 // While the menu is open the 1.5s topmost re-check must stand down, otherwise
                 // it lifts the card above the menu's own popup window.
                 _menuOpen = true;
-                passItem.IsChecked = _cfg.ClickThrough;
+                foreach (var x in ctItems) { }
                 // Measure the menu live inside the predicate: at Opened time the popup has not
                 // been laid out yet (ActualWidth is the 208px MinWidth), so a rect captured once
                 // would mark every click as "outside" and the hook would swallow it - menu items
@@ -2280,6 +2385,10 @@ namespace Amc
 
         void TickBody()
         {
+            // "transport" click-through lives on the same 33 ms beat as everything else: one
+            // cursor read plus a rect test, and a style flip only when the mouse crosses the row.
+            UpdateTransportHot();
+
             // Nothing else is allowed to bury the card: re-assert the topmost band position
             // about twice a second (cheap, does not activate or repaint).
             if (++_topTicks >= 45)
