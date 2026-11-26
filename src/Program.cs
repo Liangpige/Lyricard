@@ -55,6 +55,27 @@ namespace Amc
                 return;
             }
 
+            // --updcheck: run the update check from the console and print what happened. The
+            // About page reports the same failures, but a headless run is the quickest way to tell
+            // "GitHub is unreachable" apart from "the payload changed shape".
+            if (args != null && args.Length >= 1 && args[0] == "--updcheck")
+            {
+                try
+                {
+                    UpdateInfo u = Updater.Check();
+                    Console.WriteLine(u == null
+                        ? "up to date (" + Strings.T("app.version") + ")"
+                        : "update " + u.Tag + " asset=" + u.AssetName + " size=" + u.Size);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("check failed: " + ex.GetType().Name + ": " + ex.Message);
+                    if (ex.InnerException != null)
+                        Console.WriteLine("  inner: " + ex.InnerException.GetType().Name + ": " + ex.InnerException.Message);
+                }
+                return;
+            }
+
             if (args != null && args.Length >= 1 && args[0] == "--smtcdump")
             {
                 RunSmtcDump();

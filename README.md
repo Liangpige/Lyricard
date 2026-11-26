@@ -5,7 +5,7 @@
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.2.6-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.7-blue.svg)](https://github.com/Liangpige/Lyricard/releases)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#重新编译)
 
 ![卡片样子](docs/card.png)
@@ -279,6 +279,7 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 | `--pick` | 启动后直接打开「选择歌词…」面板（没有播放器也能看） |
 | `--page <home\|look\|lyrics\|about>` | 启动时直接落在主页面某一页（截图/直达用） |
 | `--traymenu` | 在鼠标当前位置弹出托盘菜单（核对菜单样式用） |
+| `--updcheck` | 在控制台跑一次更新检查并打印结果（区分「连不上」和「返回格式变了」） |
 | `--uninstall [--silent]` | 卸载：退出程序、清开机自启、删 `data\`、删 exe（`--silent` 不弹确认框） |
 
 ## 卸载
@@ -352,12 +353,19 @@ bash build.sh                 # 编译到 bin\，并（如果有安装目录）�
 - 没有内置任何第三方库或二进制，发行包里只有 `Lyricard.exe` 和几份说明文件（不含任何 dll / winmd / 快捷方式）。
 
 - **更新检查要能访问 `api.github.com`**（有代理就走系统代理）；下载失败会在程序目录留 `update-failed.txt`。
+- **「检查失败：请求被终止，未能创建 SSL/TLS 安全通道」**：这是系统 .NET Framework 默认只协商到 TLS 1.0、而 GitHub 早已只收 TLS 1.2+ 的典型报错。v0.2.7 起程序启动时会把 `ServicePointManager.SecurityProtocol` 补上 TLS 1.2（歌词接口共用这一处设置），不必再改注册表；如果你看到这个提示，说明还在跑 0.2.6 或更早的版本。
 
 ## 更新
 
 ![「关于」页的更新区](docs/update-about.png)
 
 ## 更新记录
+
+### v0.2.7（2026-11-26）
+
+- **修：「检查更新」报「未能创建 SSL/TLS 安全通道」**。.NET Framework 的默认协商只到 TLS 1.0，GitHub 的 API 早就不收了，所以按钮必失败。新增 `src\Net.cs`：第一次发请求前把 `ServicePointManager.SecurityProtocol` 按位补上 TLS 1.2（写死数值 3072，因为工程是用 .NET 4.0 的引用程序集编译的，枚举里还没有 `Tls12`）。
+- **同一处还修了歌词接口**：`https://lrclib.net` 与 `music.163.com` 之前也在报 SSL 失败（日志里 `http fail WebException`），现在共用同一份 TLS 初始化。
+- **新调试开关 `--updcheck`**：命令行跑一次更新检查并打印 `up to date (v0.2.x)` 或 `update v0.2.x asset=…`，失败时打印异常类型、消息与内层异常——排查「连不上」还是「返回格式变了」不用再翻 GUI。
 
 ### v0.2.6（2026-11-25）
 

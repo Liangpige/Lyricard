@@ -73,6 +73,7 @@ namespace Amc
 
         static HttpWebRequest Request(string url)
         {
+            Net.EnsureTls();
             var r = (HttpWebRequest)WebRequest.Create(url);
             r.UserAgent = "Lyricard-Updater (+https://github.com/" + Repo + ")";
             r.Accept = "application/vnd.github+json";
