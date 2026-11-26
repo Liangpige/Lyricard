@@ -139,8 +139,8 @@ namespace Amc
 
         // The card is exactly this big, in logical units. The editor owns these numbers; the
         // window and the board both derive their size from them and nothing else.
-        public double CardW = 470;
-        public double CardH = 122;
+        public double CardW = 0;    // 0 = auto: the card hugs its modules
+        public double CardH = 0;
 
         public CardConfig() { }
 
@@ -307,8 +307,8 @@ namespace Amc
                     // Only SchemaVersion lives outside a section.
                     if (key.Equals("SchemaVersion", StringComparison.OrdinalIgnoreCase))
                         c.SchemaVersion = Int(val, CardSchema.Version);
-                    else if (key.Equals("CardW", StringComparison.OrdinalIgnoreCase)) c.CardW = Number(val, 470);
-                    else if (key.Equals("CardH", StringComparison.OrdinalIgnoreCase)) c.CardH = Number(val, 122);
+                    else if (key.Equals("CardW", StringComparison.OrdinalIgnoreCase)) c.CardW = Number(val, 0);
+                    else if (key.Equals("CardH", StringComparison.OrdinalIgnoreCase)) c.CardH = Number(val, 0);
                     continue;
                 }
 

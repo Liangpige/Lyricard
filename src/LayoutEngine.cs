@@ -246,14 +246,16 @@ namespace Amc
 
             // No translation: X/Y in the config is the X/Y on screen.
 
-            // The editor's numbers are the only truth: no union, no centring, no padding.
-            // A module at (50,20) is drawn at (50,20) whatever else is on the card.
+            // Coordinates are absolute: a module at (50,20) is drawn at (50,20) whatever else is
+            // on the card, and nothing is translated to the origin. The card size is either what
+            // the editor pinned (CardW/CardH > 0) or, by default, exactly the box the modules
+            // occupy -- so dragging a module outward grows the card and dragging it back shrinks it.
             result.BoundsX = 0;
             result.BoundsY = 0;
-            result.BoundsW = cfg.CardW;
-            result.BoundsH = cfg.CardH;
-            result.CardW = cfg.CardW;
-            result.CardH = cfg.CardH;
+            result.BoundsW = cfg.CardW > 0 ? cfg.CardW : Math.Max(0.0, maxX);
+            result.BoundsH = cfg.CardH > 0 ? cfg.CardH : Math.Max(0.0, maxY);
+            result.CardW = result.BoundsW;
+            result.CardH = result.BoundsH;
             return result;
         }
 
