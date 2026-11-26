@@ -1015,7 +1015,7 @@ namespace Amc
         /// <summary>Preview follows the card through its event; nothing here runs on a timer.</summary>
         void OnCardLayoutChanged()
         {
-            if (_preview != null) _card.FeedPreview(_preview);
+            // The board is a sketch pad with its own draft: it deliberately ignores this.
         }
 
         UIElement LookPage()
@@ -1026,11 +1026,14 @@ namespace Amc
             // and stops it from consuming the "first group has no divider" slot.
             box.Children.Add(Hint(Strings.T("page.look.hint")));
 
-            // ---- board: a live mirror of the desktop card --------------------
+            // ---- board: a sketch pad, never a live mirror --------------------
+            // Everything dragged here goes into a private draft; the card itself does not
+            // move until the user presses Apply, which is what keeps this silky.
             if (_preview != null) _card.LayoutChanged -= OnCardLayoutChanged;
-            _preview = new CardPreview { Scale = _cfg.Scale };
-            _preview.ModuleClicked += OnBoardModuleClicked;
-            _card.LayoutChanged += OnCardLayoutChanged;
+            _preview = new CardPreview();
+            _preview.FitWidth = 430;
+            _preview.ApplyRequested += delegate { RebuildAll(); };
+            _preview.CancelRequested += delegate { RebuildAll(); };
             var board = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(12, 255, 255, 255)),
@@ -1041,11 +1044,16 @@ namespace Amc
                 Margin = new Thickness(0, 2, 0, 14)
             };
             var boardHost = new Grid { MinHeight = 150 };
-            _preview.FitWidth = 430;
             boardHost.Children.Add(_preview);
             board.Child = boardHost;
-            _card.FeedPreview(_preview);
             box.Children.Add(board);
+
+            var boardBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 16) };
+            boardBar.Children.Add(Pill(Strings.T("board.apply"), delegate { _preview.RaiseApply(); }, true));
+            boardBar.Children.Add(Pill(Strings.T("board.cancel"), delegate { _preview.RaiseCancel(); }, false));
+            box.Children.Add(boardBar);
+
+            _preview.BeginDraft(_card);
 
             // ---- text -------------------------------------------------------
             box.Children.Add(Section(Strings.T("sec.text")));

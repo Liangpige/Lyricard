@@ -268,6 +268,7 @@ namespace Amc
         /// <summary>Direct edit hook for the board: change Model, then ask for a re-render.</summary>
         public void InvalidateModel()
         {
+            LyricsService.Log("model invalidate -> re-render");
             Render();
         }
 
@@ -341,6 +342,12 @@ namespace Amc
             get { return _artEllipse; }
         }
 
+        /// <summary>The configured overall scale, so a sketch can draw at the same factor.</summary>
+        public double ScaleValue
+        {
+            get { return _cfg.Scale; }
+        }
+
         /// <summary>Playback position as 0..1, read straight from the clock the card shows.</summary>
         public double Progress01
         {
@@ -397,12 +404,10 @@ namespace Amc
             return sc;
         }
 
-        public void FeedPreview(CardPreview p)
-        {
-            if (p == null) return;
-            p.Scale = _cfg.Scale;
-            p.Bind(this);
-        }
+        /// <summary>
+        /// Retired with the sketch pad: the board draws placeholders from its own draft and
+        /// never mirrors the card, so there is nothing to feed it any more.
+        /// </summary>
 
         /// <summary>
         /// Card size changes are eased over 120 ms so a lyric line that grows or shrinks does

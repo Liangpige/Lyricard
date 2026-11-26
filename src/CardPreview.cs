@@ -1,14 +1,14 @@
 // ---------------------------------------------------------------------------
 // CardPreview.cs
 //
-/// The board on the settings page: a real Canvas holding real module controls.
-///
-/// It owns no drawing code. Everything visible comes from ModuleRenderer.Draw — the same call the
-/// card uses — with the metrics scaled down to fit. Because the modules are live controls, the
-/// board can tag them, hit-test them and (next step) drag them; a bitmap could not.
+/// The layout board shown at the top of the Look page. It is a *sketch pad*, not a
+/// copy of the card: every module is drawn as a plain placeholder box, and edits go
+/// into a private draft copy of the model. The real card only changes when the user
+/// presses Apply — that is what keeps dragging silky and the card perfectly still.
 // ---------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -19,41 +19,313 @@ namespace Amc
 {
     public class CardPreview : Grid
     {
-        readonly Canvas _canvas = new Canvas();
-        CardElements _el;
-        DateTime _loggedAt = DateTime.MinValue;
-
-        // --- drag state (Step 8) ---
-        CardWindow _card;
-        LayoutResult _lay;
-        double _s = 1.0;
-        ModuleKind? _drag;
-        Point _grab;
-        double _startX, _startY;
-        bool _moving;
-        readonly Line _guideV = new Line { Stroke = Brushes.White, StrokeThickness = 1, StrokeDashArray = { 3, 3 }, Opacity = 0.5, Visibility = Visibility.Collapsed };
-        readonly Line _guideH = new Line { Stroke = Brushes.White, StrokeThickness = 1, StrokeDashArray = { 3, 3 }, Opacity = 0.5, Visibility = Visibility.Collapsed };
-
-        /// <summary>Widest the board will draw, in device-independent pixels.</summary>
+        /// <summary>Widest the sketch is allowed to grow before it is scaled down again.</summary>
         public double FitWidth = 430;
 
-        /// <summary>The card's own Scale, so the board looks like the thing on the desktop.</summary>
-        public double Scale = 1.0;
-
-        /// <summary>Last module the user clicked; the acceptance check reads this.</summary>
-        public ModuleKind? LastHit;
-
-        /// <summary>Raised when a module is clicked (drag handling comes next).</summary>
-        public event Action<ModuleKind, FrameworkElement> ModuleClicked;
-
-        /// <summary>Grid the drag snaps to, in model units.</summary>
+        /// <summary>Grid the dragged boxes snap to, in model units.</summary>
         public double Snap = 4.0;
 
-        void HookDrag()
+        /// <summary>Raised when the user presses Apply (draft committed) or Cancel (draft binned).</summary>
+        public event Action ApplyRequested;
+        public event Action CancelRequested;
+
+        readonly Canvas _canvas = new Canvas();
+        readonly Dictionary<ModuleKind, FrameworkElement> _boxes = new Dictionary<ModuleKind, FrameworkElement>();
+        readonly Line _guideV = new Line { Stroke = new SolidColorBrush(Color.FromArgb(90, 120, 190, 255)), StrokeThickness = 1, Visibility = Visibility.Collapsed };
+        readonly Line _guideH = new Line { Stroke = new SolidColorBrush(Color.FromArgb(90, 120, 190, 255)), StrokeThickness = 1, Visibility = Visibility.Collapsed };
+
+        CardWindow _card;
+        CardConfig _draft;
+        LayoutResult _lay;
+        double _s = 1.0;
+
+        ModuleKind? _drag;
+        bool _started;
+        Point _grab;
+        double _seedX, _seedY, _startX, _startY, _limitW;
+
+        static readonly Brush BoxStroke = new SolidColorBrush(Color.FromArgb(120, 255, 255, 255));
+        static readonly Brush BoxFill = new SolidColorBrush(Color.FromArgb(14, 255, 255, 255));
+        static readonly Brush LabelBrush = new SolidColorBrush(Color.FromArgb(170, 255, 255, 255));
+
+        public CardPreview()
         {
-            _canvas.MouseLeftButtonDown += OnBoardDown;
-            _canvas.MouseMove += OnBoardMove;
-            _canvas.MouseLeftButtonUp += OnBoardUp;
+            Children.Add(_canvas);
+            HorizontalAlignment = HorizontalAlignment.Center;
+            VerticalAlignment = VerticalAlignment.Top;
+            _canvas.Background = Brushes.Transparent;
+            _canvas.MouseLeftButtonDown += OnDown;
+            _canvas.MouseMove += OnMove;
+            _canvas.MouseLeftButtonUp += OnUp;
+        }
+
+        public bool HasDraft
+        {
+            get { return _draft != null; }
+        }
+
+        // -- draft lifecycle ---------------------------------------------------
+
+        /// <summary>Start (or restart) a draft from the card's live model.</summary>
+        public void BeginDraft(CardWindow card)
+        {
+            _card = card;
+            _draft = card == null ? null : card.Model.Clone();
+            Rebuild();
+        }
+
+        /// <summary>Discard the draft and go back to what the card is actually using.</summary>
+        public void Revert()
+        {
+            if (_card == null) return;
+            _draft = _card.Model.Clone();
+            Rebuild();
+        }
+
+        /// <summary>Push the draft onto the card and make it permanently active.</summary>
+        public void Commit()
+        {
+            LyricsService.Log("board apply drafts=" + (_draft == null ? -1 : _draft.Modules.Count));
+            if (_card == null || _draft == null) return;
+            CardConfig live = _card.Model;
+            live.Modules.Clear();
+            for (int i = 0; i < _draft.Modules.Count; i++) live.Modules.Add(_draft.Modules[i].Clone());
+            _card.InvalidateModel();
+            _draft = _card.Model.Clone();
+            Rebuild();
+        }
+
+        public void RaiseApply()
+        {
+            Commit();
+            if (ApplyRequested != null) ApplyRequested();
+        }
+
+        public void RaiseCancel()
+        {
+            Revert();
+            if (CancelRequested != null) CancelRequested();
+        }
+
+        // -- drawing -----------------------------------------------------------
+
+        void Rebuild()
+        {
+            _canvas.Children.Clear();
+            _boxes.Clear();
+            if (_draft == null || _card == null) return;
+
+            CardMetrics baseMetrics = _card.Metrics();
+            double s = _card.ScaleValue;
+            LayoutResult lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s));
+
+            // two measure passes: text width is not perfectly linear in the factor
+            for (int pass = 0; pass < 2 && lay.CardW > FitWidth && lay.CardW > 0; pass++)
+            {
+                s *= FitWidth / lay.CardW;
+                lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s));
+            }
+
+            _s = Math.Max(0.05, s);
+            _lay = lay;
+
+            _canvas.Width = lay.CardW * _s;
+            _canvas.Height = lay.CardH * _s;
+            Width = _canvas.Width;
+            Height = _canvas.Height;
+
+            Border frame = new Border
+            {
+                Width = _canvas.Width,
+                Height = _canvas.Height,
+                CornerRadius = new CornerRadius(10),
+                Background = new SolidColorBrush(Color.FromArgb(12, 255, 255, 255)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                BorderThickness = new Thickness(1),
+                IsHitTestVisible = false
+            };
+            _canvas.Children.Add(frame);
+
+            for (int i = 0; i < _draft.Modules.Count; i++)
+            {
+                ModuleConfig mc = _draft.Modules[i];
+                if (!mc.Enabled) continue;
+                ModuleRect r;
+                if (!lay.TryFind(mc.Kind, out r)) continue;
+
+                FrameworkElement box;
+                if (mc.Kind == ModuleKind.Cover) box = Placeholder("封面", r, true);
+                else if (mc.Kind == ModuleKind.Title) box = Placeholder("歌名", r, false);
+                else if (mc.Kind == ModuleKind.Artist) box = Placeholder("艺人", r, false);
+                else if (mc.Kind == ModuleKind.Album) box = Placeholder("专辑", r, false);
+                else if (mc.Kind == ModuleKind.Lyrics) box = Placeholder("歌词", r, false);
+                else if (mc.Kind == ModuleKind.Progress) box = Placeholder("进度条", r, false);
+                else box = Placeholder("按钮", r, false);
+
+                box.Tag = mc.Kind;
+                Canvas.SetLeft(box, r.X * _s + CardWindow.CardPadX * _s);
+                Canvas.SetTop(box, r.Y * _s + _card.CardPadTop * _s);
+                _canvas.Children.Add(box);
+                _boxes[mc.Kind] = box;
+            }
+
+            _canvas.Children.Add(_guideV);
+            _canvas.Children.Add(_guideH);
+        }
+
+        FrameworkElement Placeholder(string label, ModuleRect r, bool round)
+        {
+            double w = Math.Max(2.0, r.W * _s);
+            double h = Math.Max(2.0, r.H * _s);
+
+            if (round)
+            {
+                double d = Math.Min(w, h);
+                var ring = new Ellipse
+                {
+                    Width = d,
+                    Height = d,
+                    Stroke = BoxStroke,
+                    StrokeThickness = 1,
+                    Fill = BoxFill
+                };
+                var wrap = new Grid { Width = w, Height = h, Background = Brushes.Transparent };
+                wrap.Children.Add(ring);
+                return wrap;
+            }
+
+            var border = new Border
+            {
+                Width = w,
+                Height = h,
+                CornerRadius = new CornerRadius(3),
+                BorderBrush = BoxStroke,
+                BorderThickness = new Thickness(1),
+                Background = BoxFill
+            };
+            border.Child = new TextBlock
+            {
+                Text = label,
+                FontSize = Math.Max(8.0, 9.0 * Math.Max(0.65, _s)),
+                Foreground = LabelBrush,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false
+            };
+            return border;
+        }
+
+        // -- dragging ----------------------------------------------------------
+
+        void OnDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_draft == null || _lay == null) return;
+            ModuleKind? kind = KindOf(e.OriginalSource);
+            if (kind == null) return;
+            ModuleRect r;
+            if (!_lay.TryFind(kind.Value, out r)) return;
+            ModuleConfig mc = _draft.Find(kind.Value);
+            if (mc == null) return;
+
+            // seed lazily: a click that never moves must leave the draft untouched
+            _seedX = double.IsNaN(mc.X) ? r.X : mc.X;
+            _seedY = double.IsNaN(mc.Y) ? r.Y : mc.Y;
+            _startX = _seedX;
+            _startY = _seedY;
+            _limitW = r.W;
+            _started = false;
+            _drag = kind;
+            _grab = e.GetPosition(_canvas);
+            _canvas.CaptureMouse();
+            e.Handled = true;
+        }
+
+        void OnMove(object sender, MouseEventArgs e)
+        {
+            if (_drag == null || _draft == null) return;
+            Point p = e.GetPosition(_canvas);
+
+            if (!_drag.HasValue || e.LeftButton != MouseButtonState.Pressed) return;
+
+            if (!_started)
+            {
+                if (Math.Abs(p.X - _grab.X) < 3.0 && Math.Abs(p.Y - _grab.Y) < 3.0) return;
+                ModuleConfig seed = _draft.Find(_drag.Value);
+                if (seed != null)
+                {
+                    seed.X = _seedX;
+                    seed.Y = _seedY;
+                }
+                _started = true;
+            }
+
+            double mx = _startX + (p.X - _grab.X) / _s;
+            double my = _startY + (p.Y - _grab.Y) / _s;
+
+            ShowGuides(mx, my);
+            if (Snap > 0.5)
+            {
+                mx = Math.Round(mx / Snap) * Snap;
+                my = Math.Round(my / Snap) * Snap;
+            }
+
+            double contentW = Math.Max(0.0, _lay.CardW - CardWindow.CardPadX * 2);
+            double maxX = Math.Max(0.0, contentW - _limitW);
+            if (mx < 0) mx = 0;
+            if (mx > maxX) mx = maxX;
+            if (my < 0) my = 0;
+
+            ModuleConfig mc = _draft.Find(_drag.Value);
+            if (mc == null) return;
+            if (Math.Abs(mc.X - mx) < 0.01 && Math.Abs(mc.Y - my) < 0.01) return;
+            mc.X = mx;
+            mc.Y = my;
+            Rebuild();
+        }
+
+        void OnUp(object sender, MouseButtonEventArgs e)
+        {
+            _drag = null;
+            _started = false;
+            _guideV.Visibility = Visibility.Collapsed;
+            _guideH.Visibility = Visibility.Collapsed;
+            _canvas.ReleaseMouseCapture();
+            Rebuild();
+        }
+
+        void ShowGuides(double mx, double my)
+        {
+            _guideV.Visibility = Visibility.Collapsed;
+            _guideH.Visibility = Visibility.Collapsed;
+            if (_draft == null || _lay == null) return;
+
+            const double tol = 2.0;
+            for (int i = 0; i < _draft.Modules.Count; i++)
+            {
+                ModuleConfig other = _draft.Modules[i];
+                if (!other.Enabled || _drag == other.Kind) continue;
+                ModuleRect or;
+                if (!_lay.TryFind(other.Kind, out or)) continue;
+
+                if (Math.Abs(or.X - mx) < tol || Math.Abs(or.X + or.W * 0.5 - mx) < tol)
+                {
+                    double gx = (or.X * _s) + CardWindow.CardPadX * _s;
+                    _guideV.X1 = gx;
+                    _guideV.X2 = gx;
+                    _guideV.Y1 = 0;
+                    _guideV.Y2 = _canvas.Height;
+                    _guideV.Visibility = Visibility.Visible;
+                }
+                if (Math.Abs(or.Y - my) < tol || Math.Abs(or.Y + or.H * 0.5 - my) < tol)
+                {
+                    double gy = (or.Y * _s) + _card.CardPadTop * _s;
+                    _guideH.Y1 = gy;
+                    _guideH.Y2 = gy;
+                    _guideH.X1 = 0;
+                    _guideH.X2 = _canvas.Width;
+                    _guideH.Visibility = Visibility.Visible;
+                }
+            }
         }
 
         static ModuleKind? KindOf(object source)
@@ -65,206 +337,6 @@ namespace Amc
                 el = el.Parent as FrameworkElement;
             }
             return null;
-        }
-
-        void OnBoardDown(object sender, MouseButtonEventArgs e)
-        {
-            if (_card == null || _lay == null) return;
-            ModuleKind? kind = KindOf(e.OriginalSource);
-            if (kind == null) return;
-            ModuleRect r;
-            if (!_lay.TryFind(kind.Value, out r)) return;
-
-            ModuleConfig mc = _card.Model.Find(kind.Value);
-            if (mc == null) return;
-
-            // seed explicit coordinates from where auto-layout put it, then drag from there
-            if (double.IsNaN(mc.X)) mc.X = r.X / _s;
-            if (double.IsNaN(mc.Y)) mc.Y = r.Y / _s;
-            // Derive the factor from this model at both scales. The card's own last layout can be
-            // stale (it lags a settings change), which made 2.2x drags move 13% too little.
-            LayoutResult baseLay = LayoutEngine.Compute(_card.Model, _card.Metrics());
-            if (baseLay.CardW > 0) _s = _lay.CardW / baseLay.CardW;
-
-            _drag = kind;
-            _grab = e.GetPosition(_canvas);
-            _startX = mc.X;
-            _startY = mc.Y;
-            _moving = false;
-            _canvas.CaptureMouse();
-            e.Handled = true;
-        }
-
-        void OnBoardMove(object sender, MouseEventArgs e)
-        {
-            if (_drag == null || _card == null) return;
-            Point p = e.GetPosition(_canvas);
-            // canvas units are already scaled by s, so divide to get model units
-            double mx = _startX + (p.X - _grab.X) / _s;
-            double my = _startY + (p.Y - _grab.Y) / _s;
-
-            ApplyGuides(ref mx, ref my);
-            if (Snap > 0.5)
-            {
-                mx = Math.Round(mx / Snap) * Snap;
-                my = Math.Round(my / Snap) * Snap;
-            }
-            if (mx < 0) mx = 0;
-            if (my < 0) my = 0;
-
-            ModuleConfig mc = _card.Model.Find(_drag.Value);
-            if (mc == null) return;
-            if (Math.Abs(mc.X - mx) < 0.01 && Math.Abs(mc.Y - my) < 0.01) return;
-            mc.X = mx;
-            mc.Y = my;
-            _moving = true;
-            _card.InvalidateModel();          // card re-renders, raises LayoutChanged, board rebinds
-        }
-
-        void OnBoardUp(object sender, MouseButtonEventArgs e)
-        {
-            if (_drag != null && _moving)
-                LyricsService.Log("board drag " + _drag.Value + " -> " + _card.Model.Find(_drag.Value).X.ToString("0.0") + "," + _card.Model.Find(_drag.Value).Y.ToString("0.0") + " s=" + _s.ToString("0.000"));
-            _drag = null;
-            _moving = false;
-            _guideV.Visibility = Visibility.Collapsed;
-            _guideH.Visibility = Visibility.Collapsed;
-            _canvas.ReleaseMouseCapture();
-        }
-
-        /// <summary>Snaps onto a sibling's edges or centre line when close, and shows the guide.</summary>
-        void ApplyGuides(ref double mx, ref double my)
-        {
-            _guideV.Visibility = Visibility.Collapsed;
-            _guideH.Visibility = Visibility.Collapsed;
-            if (_lay == null || _drag == null) return;
-
-            ModuleRect self;
-            if (!_lay.TryFind(_drag.Value, out self)) return;
-
-            const double near = 3.0;
-            double bestX = double.NaN, bestY = double.NaN;
-            foreach (ModuleRect r in _lay.Rects)
-            {
-                if (Math.Abs(r.X - self.X) < 0.01 && Math.Abs(r.Y - self.Y) < 0.01) continue; // self
-                double[] xs = { r.X / _s, (r.X + r.W / 2) / _s, (r.X + r.W) / _s };
-                double[] ys = { r.Y / _s, (r.Y + r.H / 2) / _s, (r.Y + r.H) / _s };
-                foreach (double x in xs) if (Math.Abs(mx - x) <= near) bestX = x;
-                foreach (double y in ys) if (Math.Abs(my - y) <= near) bestY = y;
-            }
-            if (!double.IsNaN(bestX))
-            {
-                mx = bestX;
-                _guideV.X1 = _guideV.X2 = bestX * _s;
-                _guideV.Y1 = 0;
-                _guideV.Y2 = _lay.CardH;
-                _guideV.Visibility = Visibility.Visible;
-            }
-            if (!double.IsNaN(bestY))
-            {
-                my = bestY;
-                _guideH.Y1 = _guideH.Y2 = bestY * _s;
-                _guideH.X1 = 0;
-                _guideH.X2 = _lay.CardW;
-                _guideH.Visibility = Visibility.Visible;
-            }
-        }
-
-        public CardPreview()
-        {
-            Children.Add(_canvas);
-            Children.Add(_guideV);
-            Children.Add(_guideH);
-            HorizontalAlignment = HorizontalAlignment.Center;
-            VerticalAlignment = VerticalAlignment.Top;
-        }
-
-    /// <summary>Renders the card's current state into the board, reusing the controls it built last time.</summary>
-        bool _busy;
-
-        public void Bind(CardWindow card)
-        {
-            if (card == null) return;
-            // Paint/Apply below raise layout notifications that can bounce straight back into
-            // Bind; without this the scale was re-applied on every hop and collapsed to zero,
-            // which is what threw "not a valid value for FontSize".
-            if (_busy) return;
-            _busy = true;
-            try
-            {
-                BindCore(card);
-            }
-            finally
-            {
-                _busy = false;
-            }
-        }
-
-        void BindCore(CardWindow card)
-        {
-            CardMetrics baseMetrics = card.Metrics();
-            CardConfig model = card.Model;   // the live model: board edits and card layout must agree
-
-            // Everything geometric comes from LayoutEngine at the effective scale: the board is the
-            // card shrunk, not a second design. Shrink again when the card is wider than the board.
-            double s = Scale <= 0 ? 1.0 : Scale;
-            LayoutResult layout = LayoutEngine.Compute(model, LayoutEngine.Scaled(baseMetrics, s));
-            // One pass of correction then re-measure: with text modules the measured width is not
-            // perfectly linear in s, so a second look keeps the board at FitWidth instead of a few
-            // pixels over.
-            for (int pass = 0; pass < 2 && layout.CardW > FitWidth && layout.CardW > 0; pass++)
-            {
-                s *= FitWidth / layout.CardW;
-                layout = LayoutEngine.Compute(model, LayoutEngine.Scaled(baseMetrics, s));
-            }
-
-            // Fonts ride the same factor; the card's own scene carries the desktop sizes.
-            CardScene scene = card.Scene();
-            if (s < 0.05) s = 0.05;   // never let the factor run away
-            scene.TitleSize = Math.Max(1.0, scene.TitleSize * s);
-            scene.ArtistSize = Math.Max(1.0, scene.ArtistSize * s);
-            scene.LyricSize = Math.Max(1.0, scene.LyricSize * s);
-            scene.BarThickness = Math.Max(1.0, scene.BarThickness * s);
-
-            _card = card;
-            _lay = layout;
-            _s = s;
-            HookDrag();
-
-            if (_el == null)
-            {
-                var hooks = new CardHooks();
-                hooks.Built = delegate(ModuleKind kind, FrameworkElement el)
-                {
-                    el.MouseLeftButtonDown += delegate
-                    {
-                        LastHit = kind;
-                        if (ModuleClicked != null) ModuleClicked(kind, el);
-                    };
-                };
-                _el = ModuleRenderer.Draw(_canvas, model, LayoutEngine.Scaled(baseMetrics, s), layout, scene, hooks);
-            }
-
-            ModuleRenderer.Update(_canvas, _el, model, layout, scene, card.Progress01, scene.Playing);
-            // one comparison line a second is enough to prove the board is the card shrunk by s
-            if ((DateTime.Now - _loggedAt).TotalMilliseconds > 1000)
-            {
-                _loggedAt = DateTime.Now;
-                LayoutResult cardLayout = card.CardLayout;
-                string cardDump = cardLayout == null ? "<none>" : cardLayout.Dump().Replace("\r", "").Replace("\n", " | ");
-                try
-                {
-                    Point pt = PointToScreen(new Point(0, 0));
-                    LyricsService.Log("board at " + (int)pt.X + "," + (int)pt.Y + " size=" + (int)Width + "x" + (int)Height);
-                }
-                catch { }
-                LyricsService.Log("layout s=" + s.ToString("0.000") + " card[" + cardDump + "] board[" + layout.Dump().Replace("\r", "").Replace("\n", " | ") + "]");
-            }
-
-            Width = layout.CardW;
-            Height = layout.CardH;
-            _canvas.Width = layout.CardW;
-            _canvas.Height = layout.CardH;
         }
     }
 }

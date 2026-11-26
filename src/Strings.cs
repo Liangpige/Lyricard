@@ -32,6 +32,7 @@ namespace Amc
         static void E(string k, string v) { En[k] = v; }
         static void Both(string k, string zh, string en) { Z(k, zh); E(k, en); }
 
+
         static Strings()
         {
             Both("app.title", "Lyricard", "Lyricard");
@@ -230,6 +231,8 @@ namespace Amc
             Both("footer.live", "改动即时生效", "Changes apply instantly");
             Both("btn.done", "完成", "Done");
             Both("btn.reset", "恢复默认", "Restore defaults");
+            Both("board.apply", "应用", "Apply");
+            Both("board.cancel", "取消", "Cancel");
         }
 
         // CultureInfo.CurrentUICulture follows the system locale, which can differ from the
