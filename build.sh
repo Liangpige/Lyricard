@@ -21,7 +21,7 @@ GAC="C:/Windows/Microsoft.NET/assembly/GAC_MSIL"
 REF="C:/Program Files (x86)/Reference Assemblies/Microsoft/Framework/.NETFramework/v4.7.2"
 
 APP="Lyricard"
-VERSION="0.3.0"
+VERSION="0.3.1"
 INSTALL="/e/APPLE MUSIC GeCi"
 
 mkdir -p "$PROJ/bin"

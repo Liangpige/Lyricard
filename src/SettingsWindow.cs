@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // SettingsWindow.cs
 //
 /// RETIRED. The old standalone settings dialog, kept only as the fallback that
@@ -44,7 +44,7 @@ namespace Amc
 
         TextBlock _headTitle;
         TextBlock _footHint;
-        const string Version = "v0.3.0";
+        const string Version = "v0.3.1";
         TextBlock _btnDoneText;
         TextBlock _btnResetText;
         Border _panel;

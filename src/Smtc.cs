@@ -39,9 +39,12 @@ namespace Amc
         public bool CanPlayPause;
         public byte[] Art;
 
+        /// <summary>Identity of "which track is this", shared by the artwork poll and the card.
+        /// The Aumid is part of it: handing the card from one player to another (same song) is
+        /// still a switch, and the new player's thumbnail has to be read again.</summary>
         public string Key
         {
-            get { return Title + "|" + Artist; }
+            get { return Aumid + "|" + Title + "|" + Artist; }
         }
 
         public double EstimateSeconds(DateTime nowLocal)
@@ -86,7 +89,15 @@ namespace Amc
         public bool ListenAll;
 
         byte[] _artBytes;
-        string _artKey = "";
+        string _artHash = "";          // FNV-1a of the cover currently on the card
+        string _artPrevHash = "";      // hash of the previous track's cover
+        bool _artPending;              // still waiting for THIS track's real cover
+        DateTime _artDeadline;         // accept an unchanged picture after this (same album)
+        DateTime _artWatchUntil;       // keep listening this long after a same-album accept
+        DateTime _artNextTry;
+        int _artTries;
+        bool _artLoggedStale;
+        string _artTrackKey = "";      // Aumid|Title of the track the artwork belongs to
         string _lastKey = "";
         // Timeline anchor: Apple Music refreshes Position only every ~3s while we poll at 5Hz,
         // so the anchor must NOT be re-stamped on every poll (the estimate would then crawl
@@ -537,41 +548,150 @@ namespace Amc
             }
             catch { }
 
-            string key = np.Key;
-            bool newKey = newTrack;
-            if (newKey)
+            // Identity for the artwork is "which song on which player". The artist is left out on
+            // purpose: players often publish title and artist in different polls, and treating the
+            // second poll as another new track would drop a perfectly good cover and re-read it.
+            string trackId = (np.Aumid ?? "") + "|" + (np.Title ?? "");
+            bool newArtTrack = trackId != _artTrackKey;
+            _artTrackKey = trackId;
+            string key = trackId;
+            if (newArtTrack)
             {
-                // The old bytes belong to the old song: without this the card shows the previous
-                // cover (and derives its backdrop colour from it) for the whole of the new track.
-                _artKey = "";
+                // Players announce the title a beat before they swap their thumbnail, so the first
+                // read after a switch still hands back the PREVIOUS cover. Latching that read under
+                // the new key is what pinned the old album to the card for a whole song (v0.2.x and
+                // v0.3.0), and no repaint in CardWindow could cure it: the bytes never changed.
+                // So: keep the old hash, wait for a picture that differs, and only then accept.
+                if (_artHash.Length > 0) _artPrevHash = _artHash;
                 _artBytes = null;
+                _artHash = "";
+                _artPending = true;
+                _artDeadline = DateTime.Now.AddMilliseconds(2000);
+                _artWatchUntil = DateTime.MinValue;
+                _artNextTry = DateTime.MinValue;
+                _artTries = 0;
+                _artLoggedStale = false;
+                LyricsService.Log("art wait key=" + key
+                    + " prev=" + (_artPrevHash.Length > 0 ? _artPrevHash : "none"));
             }
 
-            if (_artKey != key && props.Thumbnail != null)
+            bool haveThumb = props.Thumbnail != null;
+
+            if (_artPending && haveThumb && DateTime.Now >= _artNextTry)
+            {
+                byte[] bytes = null;
+                bool failed = false;
+                try
+                {
+                    using (var stream = Wait(props.Thumbnail.OpenReadAsync())) bytes = ReadAll(stream);
+                }
+                catch (Exception ex)
+                {
+                    // A thumbnail we cannot open is not a reason to give up on the track.
+                    failed = true;
+                    _artTries++;
+                    _artNextTry = DateTime.Now.AddMilliseconds(Math.Min(1000, 200 * _artTries));
+                    if (_artTries == 1) LyricsService.Log("art read failed (" + ex.GetType().Name + "), retrying");
+                }
+
+                if (!failed && bytes != null && bytes.Length > 0)
+                {
+                    string h = ArtHash(bytes);
+                    bool changed = !string.Equals(h, _artPrevHash, StringComparison.Ordinal);
+                    if (changed || DateTime.Now >= _artDeadline)
+                    {
+                        _artBytes = bytes;
+                        _artHash = h;
+                        _artPending = false;
+                        // "changed" means this really is the new track's cover. An unchanged picture
+                        // is either a same-album run (legitimate) or a slow player, so keep a slow
+                        // watch for a while and let a late one win.
+                        _artWatchUntil = changed ? DateTime.MinValue : DateTime.Now.AddSeconds(30);
+                        _artNextTry = DateTime.Now.AddSeconds(2);
+                        LyricsService.Log("art ok " + bytes.Length + " bytes changed=" + (changed ? "True" : "False"));
+                    }
+                    else
+                    {
+                        if (!_artLoggedStale)
+                        {
+                            _artLoggedStale = true;
+                            LyricsService.Log("art stale " + bytes.Length
+                                + " bytes (player is still publishing the previous cover)");
+                        }
+                        _artNextTry = DateTime.Now.AddMilliseconds(150);
+                    }
+                }
+                else if (!failed)
+                {
+                    _artNextTry = DateTime.Now.AddMilliseconds(300);
+                }
+            }
+
+            if (_artPending && DateTime.Now >= _artDeadline)
+            {
+                // Nothing usable inside the settle window: show no cover rather than the previous
+                // song's, and keep listening in case the artwork lands late.
+                _artPending = false;
+                _artBytes = null;
+                _artHash = "";
+                _artWatchUntil = DateTime.Now.AddSeconds(30);
+                _artNextTry = DateTime.Now.AddSeconds(2);
+                LyricsService.Log("art none" + (haveThumb ? "" : " (no thumbnail published)"));
+            }
+
+            if (!_artPending && _artWatchUntil != DateTime.MinValue && DateTime.Now < _artWatchUntil
+                && haveThumb && DateTime.Now >= _artNextTry)
             {
                 try
                 {
-                    using (var stream = Wait(props.Thumbnail.OpenReadAsync()))
+                    byte[] bytes;
+                    using (var stream = Wait(props.Thumbnail.OpenReadAsync())) bytes = ReadAll(stream);
+                    if (bytes != null && bytes.Length > 0)
                     {
-                        _artBytes = ReadAll(stream);
-                        _artKey = key;
+                        string h = ArtHash(bytes);
+                        if (!string.Equals(h, _artHash, StringComparison.Ordinal))
+                        {
+                            _artBytes = bytes;
+                            _artHash = h;
+                            _artWatchUntil = DateTime.MinValue;
+                            LyricsService.Log("art late " + bytes.Length + " bytes");
+                        }
+                        else
+                        {
+                            _artNextTry = DateTime.Now.AddSeconds(2);
+                        }
+                    }
+                    else
+                    {
+                        _artNextTry = DateTime.Now.AddSeconds(2);
                     }
                 }
                 catch
                 {
-                    // Mark it as tried -- otherwise the 200 ms poll re-opens (and re-leaks) the
-                    // stream forever for a track whose thumbnail cannot be read.
-                    _artBytes = null;
-                    _artKey = key;
+                    _artNextTry = DateTime.Now.AddSeconds(2);
                 }
             }
+
             np.Art = _artBytes;
-            if (newKey)
-                LyricsService.Log("art thumb=" + (props.Thumbnail != null) + " bytes=" + (_artBytes == null ? 0 : _artBytes.Length));
             _sess = s;
             // Debug hook: pretend no player publishes a session (support / UI testing).
             if (Environment.GetEnvironmentVariable("AMC_NO_SESSION") == "1") Current = new Snapshot();
             else Current = np;
+        }
+
+        /// <summary>FNV-1a over the thumbnail bytes: enough to tell "the same picture" from "a new
+        /// picture" without a crypto provider, and cheap on a 200 ms poll. Empty means "nothing
+        /// worth hashing".</summary>
+        static string ArtHash(byte[] data)
+        {
+            if (data == null || data.Length == 0) return "";
+            ulong h = 14695981039346656037UL;
+            for (int i = 0; i < data.Length; i++)
+            {
+                h ^= data[i];
+                h *= 1099511628211UL;
+            }
+            return h.ToString("x16");
         }
 
         static byte[] ReadAll(IRandomAccessStreamWithContentType stream)
