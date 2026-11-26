@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // Config.cs
 //
 /// Every persisted setting, in one flat INI-style file next to the exe (data\config.ini).
@@ -136,6 +136,29 @@ namespace Amc
         public System.Collections.Generic.List<LookPreset> Presets =
             new System.Collections.Generic.List<LookPreset>();
 
+        // Two presets the author ships with the app. They are seeded only on a first run
+        // (no config.ini yet), so deleting them later stays deleted.
+        static readonly string[] BuiltInPresets =
+        {
+            "\u9ED8\u8BA42|Scale=0.73;Opacity=0.94;ClearBg=True;ArtSat=0.2;ArtBlackAlpha=1;ArtHiCut=0.08;ArtSpin=True;ArtShape=circle;ArtShadow=True;TextShadow=False;ControlsColor=;TitleScale=1;ArtistScale=1;LyricScale=1;TitleColor=;ArtistColor=;LyricColor=;BarThickness=3;BarScale=1;BarColor=;BarFillColor=;ArtSize=100;ArtBrightness=1;ArtContrast=1;ArtWarmth=0;ArtHue=0;ArtVignette=0;ArtTint=False;ArtTintDark=#3A0A0A;ArtTintLight=#FFB4B4;ArtTintMix=1;BarsCount=0;BarsAttack=0.6;BarsRelease=0.4;BarsThickness=5;BarsLength=300;BarsMaxHeight=18;BarsColor=;ArtistMaxChars=15;Template=IyBMeXJpY2FyZCBjYXJkIGxheW91dA0KU2NoZW1hVmVyc2lvbj0yDQpDYXJkVz0wDQpUaXRsZUFydGlzdElubGluZT1UcnVlDQpDYXJkSD0wDQoNCltDb3Zlcl0NCkVuYWJsZWQ9VHJ1ZQ0KWD0zNTYNClk9MjgNClc9OTYNCkg9OTYNCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249QXV0bw0KWkluZGV4PTANCk1heENoYXJzPTANCg0KW1RpdGxlXQ0KRW5hYmxlZD1UcnVlDQpYPTM2DQpZPTI4DQpXPTMyMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTENCk1heENoYXJzPTM0DQoNCltBcnRpc3RdDQpFbmFibGVkPVRydWUNClg9MzINClk9MTAwDQpXPTIwMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTINCk1heENoYXJzPTE2DQoNCltMeXJpY3NdDQpFbmFibGVkPVRydWUNClg9MjQNClk9NjANClc9MzIwDQpIPS0xDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPVJpZ2h0DQpaSW5kZXg9Mw0KTWF4Q2hhcnM9NDINCg0KW1Byb2dyZXNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTkyDQpXPTMyMA0KSD0zDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD00DQpNYXhDaGFycz0wDQoNCltDb250cm9sc10NCkVuYWJsZWQ9VHJ1ZQ0KWD0yMzINClk9OTYNClc9MTAyDQpIPTMwDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD01DQpNYXhDaGFycz0wDQoNCltNdXNpY0JhcnNdDQpFbmFibGVkPUZhbHNlDQpYPTEzMA0KWT0xMDANClc9MzAwDQpIPTE4DQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD02DQpNYXhDaGFycz0wDQo=",
+            "\u9ED8\u8BA41|Scale=0.85;Opacity=0.94;ClearBg=True;ArtSat=0.2;ArtBlackAlpha=1;ArtHiCut=0.08;ArtSpin=True;ArtShape=square;ArtShadow=True;TextShadow=False;ControlsColor=;TitleScale=1;ArtistScale=1;LyricScale=1;TitleColor=;ArtistColor=;LyricColor=;BarThickness=3;BarScale=1;BarColor=;BarFillColor=;ArtSize=84;ArtBrightness=1;ArtContrast=1;ArtWarmth=0;ArtHue=0;ArtVignette=0;ArtTint=False;ArtTintDark=#3A0A0A;ArtTintLight=#FFB4B4;ArtTintMix=1;BarsCount=0;BarsAttack=0.6;BarsRelease=0.4;BarsThickness=5;BarsLength=290;BarsMaxHeight=16;BarsColor=;ArtistMaxChars=15;Template=IyBMeXJpY2FyZCBjYXJkIGxheW91dA0KU2NoZW1hVmVyc2lvbj0yDQpDYXJkVz0wDQpUaXRsZUFydGlzdElubGluZT1GYWxzZQ0KQ2FyZEg9MA0KDQpbQ292ZXJdDQpFbmFibGVkPVRydWUNClg9MzQwDQpZPTIwDQpXPTg0DQpIPTg0DQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD0wDQpNYXhDaGFycz0wDQoNCltUaXRsZV0NCkVuYWJsZWQ9VHJ1ZQ0KWD0xNg0KWT0yMA0KVz0zMjANCkg9LTENCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249TGVmdA0KWkluZGV4PTENCk1heENoYXJzPTM0DQoNCltBcnRpc3RdDQpFbmFibGVkPVRydWUNClg9MTYNClk9NDgNClc9MjAwDQpIPS0xDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUxlZnQNClpJbmRleD0yDQpNYXhDaGFycz00Mg0KDQpbTHlyaWNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTY4DQpXPTMyMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1MZWZ0DQpaSW5kZXg9Mw0KTWF4Q2hhcnM9NDINCg0KW1Byb2dyZXNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTkyDQpXPTMyMA0KSD0zDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD00DQpNYXhDaGFycz0wDQoNCltDb250cm9sc10NCkVuYWJsZWQ9VHJ1ZQ0KWD0xNg0KWT0xMDANClc9MTAyDQpIPTMwDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD01DQpNYXhDaGFycz0wDQoNCltNdXNpY0JhcnNdDQpFbmFibGVkPVRydWUNClg9MTIwDQpZPTEwMA0KVz0zMDANCkg9MTgNCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249QXV0bw0KWkluZGV4PTYNCk1heENoYXJzPTANCg=="
+        };
+
+        // Give a brand-new install the two presets above. Only called when there is no
+        // config.ini at all, so someone who clears the list keeps it cleared.
+        void SeedBuiltInPresets()
+        {
+            foreach (string line in BuiltInPresets)
+            {
+                int bar = line.IndexOf('|');
+                if (bar <= 0) continue;
+                var p = new LookPreset();
+                p.Name = line.Substring(0, bar);
+                p.Data = line.Substring(bar + 1);
+                Presets.Add(p);
+            }
+        }
+
         // restore every appearance / behaviour value to the tuned defaults (position is kept)
         public void ResetLookDefaults()
         {
@@ -234,7 +257,12 @@ namespace Amc
             var c = new Config();
             try
             {
-                if (!File.Exists(ConfigPath)) return c;
+                if (!File.Exists(ConfigPath))
+                {
+                    c.SeedBuiltInPresets();
+                    c.Save();          // write the seeds out, so the presets exist before the first edit
+                    return c;
+                }
                 foreach (string raw in File.ReadAllLines(ConfigPath, Encoding.UTF8))
                 {
                     string line = raw.Trim();

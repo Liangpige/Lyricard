@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // MainWindow.cs
 //
 /// The control panel (640x480, four pages: home / look / lyrics / about) plus the
@@ -1515,16 +1515,19 @@ namespace Amc
             }
             _cfg.ApplyLookPreset(p);
             _cfg.Save();
-            _card.ApplyLook();
-            _card.ApplyCurrentScale();
-            _card.ApplyCurrentOpacity();
+            // The template has to land before the look is re-applied: alignment, cover shape and
+            // module caps all read the model, so applying the look against the previous template
+            // made the first click look half-applied and the second click finish the job.
             if (template != null)
             {
                 try { System.IO.File.WriteAllText(CardConfig.DefaultPath, template, System.Text.Encoding.UTF8); }
                 catch { }
                 _card.ReloadModel();
-                _preview.RefreshFromCard();
             }
+            _card.ApplyLook();
+            _card.ApplyCurrentScale();
+            _card.ApplyCurrentOpacity();
+            if (template != null) _preview.RefreshFromCard();
             LyricsService.Log("preset apply name=" + p.Name + " template=" + (template != null));
             SetPage("look");
         }
