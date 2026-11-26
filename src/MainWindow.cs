@@ -1013,6 +1013,35 @@ namespace Amc
             return mc == null ? 0 : mc.MaxChars;
         }
 
+
+        /// <summary>
+        /// Push the bars' geometry into the template. Either dimension can be left alone (-1), and a
+        /// missing module is created enabled at the configured size so "length" works from cold.
+        /// </summary>
+        void BarsModule(double w, double h)
+        {
+            CardConfig m = _card.Model;
+            if (m == null) return;
+            ModuleConfig mc = m.Find(ModuleKind.MusicBars);
+            if (mc == null)
+            {
+                mc = new ModuleConfig(ModuleKind.MusicBars);
+                mc.Enabled = true;
+                mc.W = _cfg.BarsLength;
+                mc.H = _cfg.BarsMaxHeight;
+                mc.X = 16;
+                mc.Y = 100;
+                mc.ZIndex = 6;
+                m.Modules.Add(mc);
+            }
+            if (w > 0) mc.W = w;
+            if (h > 0) mc.H = h;
+            mc.Enabled = true;
+            _card.InvalidateModel();
+            _card.SaveModel();
+            _card.ApplyLook();
+        }
+
         void SetCap(ModuleKind kind, int chars)
         {
             if (chars < 0) chars = 0;
@@ -1289,6 +1318,51 @@ namespace Amc
                 _card.ApplyLook();
                 _cfg.Save();
             })));
+
+            // ---- spectrum bars -------------------------------------------------
+            // Length and height write straight into the MusicBars module, so the board's box and the
+            // card's row always agree; the rest are pure look knobs that only need a repaint.
+            box.Children.Add(Section("频谱"));
+            box.Children.Add(Row("频谱长度", Stepper(_cfg.BarsLength, 40, 420, 10, "0", delegate(double v)
+            {
+                _cfg.BarsLength = v;
+                BarsModule(v, -1);
+                _cfg.Save();
+            })));
+            box.Children.Add(Row("频谱最大高度", Stepper(_cfg.BarsMaxHeight, 8, 90, 2, "0", delegate(double v)
+            {
+                _cfg.BarsMaxHeight = v;
+                BarsModule(-1, v);
+                _cfg.Save();
+            })));
+            box.Children.Add(Row("条数（0=自动）", Stepper(_cfg.BarsCount, 0, 96, 1, "0", delegate(double v)
+            {
+                _cfg.BarsCount = (int)Math.Round(v);
+                _card.ApplyLook();
+                _cfg.Save();
+            })));
+            box.Children.Add(Row("线条粗细", Stepper(_cfg.BarsThickness, 2, 14, 1, "0", delegate(double v)
+            {
+                _cfg.BarsThickness = v;
+                _card.ApplyLook();
+                _cfg.Save();
+            })));
+            box.Children.Add(Row("上升速度", Stepper(_cfg.BarsAttack, 0.05, 1.0, 0.05, "0.00", delegate(double v)
+            {
+                _cfg.BarsAttack = v;
+                _cfg.Save();
+            })));
+            box.Children.Add(Row("回落速度", Stepper(_cfg.BarsRelease, 0.02, 1.0, 0.02, "0.00", delegate(double v)
+            {
+                _cfg.BarsRelease = v;
+                _cfg.Save();
+            })));
+            box.Children.Add(ColorRow("频谱颜色", _cfg.BarsColor, delegate(string v)
+            {
+                _cfg.BarsColor = v;
+                _card.ApplyLook();
+                _cfg.Save();
+            }));
             if (_cfg.ArtTint)
                 box.Children.Add(Label(Strings.T("artSat.off"), 11.5, TextDim, FontWeights.Normal));
             else

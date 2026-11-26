@@ -91,6 +91,18 @@ namespace Amc
         public string ArtistColor = "";
         public string LyricColor = "";
         public double BarThickness = 3.0;
+
+        // ---- music bars (音乐律动条) ---------------------------------------
+        // Bar count is derived from the module's width unless the user pins it; attack/release are
+        // the per-frame easing factors, thickness is the bar width in DIP, and BarsColor is "" when
+        // the row should follow the progress-bar colours instead.
+        public int BarsCount = 0;              // 0 = as many as the width allows
+        public double BarsAttack = 0.55;       // 0..1, higher = snappier rise
+        public double BarsRelease = 0.14;      // 0..1, higher = faster fall
+        public double BarsThickness = 4.0;     // bar width in DIP
+        public double BarsLength = 170.0;      // module width in DIP
+        public double BarsMaxHeight = 26.0;    // module height in DIP
+        public string BarsColor = "";          // "" = follow BarFillColor / BarColor
         public double BarScale = 1.0;
         public string BarColor = "";
         public string BarFillColor = "";
@@ -310,7 +322,14 @@ namespace Amc
                         case "TitleColor": TitleColor = v; break;
                         case "ArtistColor": ArtistColor = v; break;
                         case "LyricColor": LyricColor = v; break;
-                        case "BarThickness": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarThickness = d; break;
+                        case "BarsCount": { int bn; if (int.TryParse(v, out bn)) BarsCount = bn; } break;
+                        case "BarsAttack": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarsAttack = d; break;
+                        case "BarsRelease": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarsRelease = d; break;
+                        case "BarsThickness": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarsThickness = d; break;
+                        case "BarsLength": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarsLength = d; break;
+                        case "BarsMaxHeight": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarsMaxHeight = d; break;
+                        case "BarsColor": BarsColor = v; break;
+                case "BarThickness": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarThickness = d; break;
                         case "BarScale": if (double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) BarScale = d; break;
                         case "BarColor": BarColor = v; break;
                         case "BarFillColor": BarFillColor = v; break;
@@ -444,6 +463,13 @@ namespace Amc
                 sb.AppendLine("ArtistColor=" + ArtistColor);
                 sb.AppendLine("LyricColor=" + LyricColor);
                 sb.AppendLine("BarThickness=" + BarThickness.ToString("0.###", CultureInfo.InvariantCulture));
+            sb.AppendLine("BarsCount=" + BarsCount.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("BarsAttack=" + BarsAttack.ToString("0.###", CultureInfo.InvariantCulture));
+            sb.AppendLine("BarsRelease=" + BarsRelease.ToString("0.###", CultureInfo.InvariantCulture));
+            sb.AppendLine("BarsThickness=" + BarsThickness.ToString("0.##", CultureInfo.InvariantCulture));
+            sb.AppendLine("BarsLength=" + BarsLength.ToString("0.#", CultureInfo.InvariantCulture));
+            sb.AppendLine("BarsMaxHeight=" + BarsMaxHeight.ToString("0.#", CultureInfo.InvariantCulture));
+            sb.AppendLine("BarsColor=" + (BarsColor ?? ""));
                 sb.AppendLine("BarScale=" + BarScale.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("BarColor=" + BarColor);
                 sb.AppendLine("BarFillColor=" + BarFillColor);

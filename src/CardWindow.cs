@@ -104,6 +104,7 @@ namespace Amc
         Canvas _barsHost;
         Rectangle[] _bars;
         double[] _barsEnv;
+        double _barsLastT;
         double _barsLastW = -1.0;
         double _barsLastH = -1.0;
         double _spinAngle;
@@ -552,22 +553,33 @@ namespace Amc
             Canvas.SetLeft(_barsHost, r.X);
             Canvas.SetTop(_barsHost, r.Y);
 
-            int n = (int)(r.W / 7.0);
-            if (n < 4) n = 4; else if (n > 64) n = 64;
-            if (_bars != null && _bars.Length == n && Math.Abs(_barsLastW - r.W) < 0.5 && Math.Abs(_barsLastH - r.H) < 0.5) return;
+            // Count: the user's number wins; otherwise as many bars as the width can hold at the
+            // configured thickness. Either way the bars must still fit, so the width is the ceiling.
+            double barW = _cfg.BarsThickness;
+            if (barW < 2.0) barW = 2.0;
+            int fit = (int)(r.W / (barW * 1.9));
+            if (fit < 2) fit = 2;
+            int n = _cfg.BarsCount > 0 ? _cfg.BarsCount : fit;
+            if (n > fit) n = fit;
+            if (n < 2) n = 2;
+            if (n > 96) n = 96;
+            if (_bars != null && _bars.Length == n && Math.Abs(_barsLastW - r.W) < 0.5 && Math.Abs(_barsLastH - r.H) < 0.5
+                && Math.Abs(_barsLastT - barW) < 0.01) return;
 
             _barsLastW = r.W;
             _barsLastH = r.H;
+            _barsLastT = barW;
             _bars = new Rectangle[n];
             _barsEnv = new double[n];
             _barsHost.Children.Clear();
             Color c = Colors.White;
             Color tmp;
-            if (ParseHex(_cfg.BarFillColor, out tmp)) c = tmp;
+            if (ParseHex(_cfg.BarsColor, out tmp)) c = tmp;                       // the row's own colour wins
+            else if (ParseHex(_cfg.BarFillColor, out tmp)) c = tmp;
             else if (ParseHex(_cfg.BarColor, out tmp)) c = Color.FromRgb((byte)(tmp.R * 0.8), (byte)(tmp.G * 0.8), (byte)(tmp.B * 0.8));
-            double gap = r.W / n * 0.38;
-            double bw = r.W / n - gap;
-            if (bw < 1.0) bw = 1.0;
+            double bw = barW;
+            double gap = (r.W - n * bw) / Math.Max(1, n);                          // spread the rest as gaps
+            if (gap < 0.5) gap = 0.5;
             for (int i = 0; i < n; i++)
             {
                 Rectangle q = new Rectangle { Width = bw, Height = 1.0, Fill = new SolidColorBrush(c), RadiusX = bw * 0.35, RadiusY = bw * 0.35 };
@@ -617,7 +629,7 @@ namespace Amc
                 if (target > 1.0) target = 1.0;
                 if (target < 0.0) target = 0.0;
                 double cur = _barsEnv[i];
-                double k = target > cur ? 0.55 : 0.14;
+                double k = target > cur ? _cfg.BarsAttack : _cfg.BarsRelease;
                 cur += (target - cur) * k;
                 _barsEnv[i] = cur;
                 double bh = cur * h;
