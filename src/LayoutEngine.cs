@@ -171,7 +171,10 @@ namespace Amc
             {
                 ModuleConfig mc = order[i];
                 if (!mc.Enabled || mc.Kind == ModuleKind.Cover) continue;
-                if (mc.Kind == ModuleKind.Artist && haveTitle) continue;      // inline, no line of its own
+                // The artist only rides the title line when the template says so (TitleArtistInline).
+                // Otherwise it is an ordinary module with its own line, which is what the switch "off"
+                // is supposed to show.
+                if (mc.Kind == ModuleKind.Artist && haveTitle && cfg.TitleArtistInline) continue;
                 if (mc.Kind == ModuleKind.Title) haveTitle = true;
                 if (colH > 0 || HasGap(mc.Kind)) colH += GapBefore(mc.Kind, m);
                 colH += HeightOf(mc, m);
@@ -207,7 +210,7 @@ namespace Amc
                     continue;
                 }
 
-                bool inline = mc.Kind == ModuleKind.Artist && haveTitle;
+                bool inline = mc.Kind == ModuleKind.Artist && haveTitle && cfg.TitleArtistInline;
                 if (inline)
                 {
                     x = double.IsNaN(mc.X) ? colW - w : mc.X;
