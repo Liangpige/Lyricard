@@ -117,13 +117,13 @@ namespace Amc
 
             CardMetrics baseMetrics = _card.Metrics();
             double s = _card.ScaleValue;
-            LayoutResult lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s));
+            LayoutResult lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), false);
 
             // two measure passes: text width is not perfectly linear in the factor
             for (int pass = 0; pass < 2 && lay.CardW > FitWidth && lay.CardW > 0; pass++)
             {
                 s *= FitWidth / lay.CardW;
-                lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s));
+                lay = LayoutEngine.Compute(_draft, LayoutEngine.Scaled(baseMetrics, s), false);
             }
 
             _s = Math.Max(0.05, s);
@@ -163,8 +163,8 @@ namespace Amc
                 else box = Placeholder("按钮", r, false);
 
                 box.Tag = mc.Kind;
-                Canvas.SetLeft(box, r.X * _s + CardWindow.CardPadX * _s);
-                Canvas.SetTop(box, r.Y * _s + _card.CardPadTop * _s);
+                Canvas.SetLeft(box, r.X * _s);
+                Canvas.SetTop(box, r.Y * _s);
                 _canvas.Children.Add(box);
                 _boxes[mc.Kind] = box;
             }

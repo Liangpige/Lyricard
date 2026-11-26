@@ -321,7 +321,27 @@ namespace Amc
             _layout = lay;
             ModuleRenderer.Apply(_canvas, model, lay, _elem);
             ApplyControlsPos();
+            ApplyModuleCaps(lay);
             NotifyLayoutChanged();
+        }
+
+        /// <summary>
+        /// A module's W is a hard cap: real text is clipped to it with an ellipsis, it never widens
+        /// the card. Without this the title/lyric runs could push the window wider than the model.
+        /// </summary>
+        void ApplyModuleCaps(LayoutResult lay)
+        {
+            ModuleRect t, l;
+            if (lay.TryFind(ModuleKind.Title, out t) && _title != null)
+            {
+                _title.MaxWidth = Math.Max(1.0, t.W);
+                _title.TextTrimming = TextTrimming.CharacterEllipsis;
+            }
+            if (lay.TryFind(ModuleKind.Lyrics, out l) && _lyric != null)
+            {
+                _lyric.MaxWidth = Math.Max(1.0, l.W);
+                _lyric.TextTrimming = TextTrimming.CharacterEllipsis;
+            }
         }
 
         /// <summary>Tell every view that the card's look changed. Safe to call by hand.</summary>

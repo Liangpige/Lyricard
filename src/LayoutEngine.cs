@@ -147,6 +147,16 @@ namespace Amc
 
         public static LayoutResult Compute(CardConfig cfg, CardMetrics m)
         {
+            return Compute(cfg, m, true);
+        }
+
+        /// <summary>
+        /// Layout the card. When <paramref name="normalize"/> is false the modules keep the absolute
+        /// coordinates stored in the config instead of being shifted so the bounding box starts at 0,0.
+        /// The editor needs that: dragging one box must never move the others.
+        /// </summary>
+        public static LayoutResult Compute(CardConfig cfg, CardMetrics m, bool normalize)
+        {
             LayoutResult result = new LayoutResult();
             if (cfg == null) return result;
             if (m == null) m = new CardMetrics();
@@ -234,16 +244,19 @@ namespace Amc
             }
             if (result.Rects.Count == 0) { minX = minY = maxX = maxY = 0; }
 
-            for (int i = 0; i < result.Rects.Count; i++)
+            if (normalize)
             {
-                ModuleRect mr = result.Rects[i];
-                mr.X -= minX;
-                mr.Y -= minY;
-                result.Rects[i] = mr;
+                for (int i = 0; i < result.Rects.Count; i++)
+                {
+                    ModuleRect mr = result.Rects[i];
+                    mr.X -= minX;
+                    mr.Y -= minY;
+                    result.Rects[i] = mr;
+                }
             }
 
-            result.BoundsX = 0;
-            result.BoundsY = 0;
+            result.BoundsX = normalize ? 0 : minX;
+            result.BoundsY = normalize ? 0 : minY;
             result.BoundsW = maxX - minX;
             result.BoundsH = maxY - minY;
             result.CardW = result.BoundsW + (m.PadX + m.Border) * 2;
