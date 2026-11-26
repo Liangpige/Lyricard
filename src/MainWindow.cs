@@ -1092,7 +1092,26 @@ namespace Amc
             // ---- progress bar -----------------------------------------------
             box.Children.Add(Section(Strings.T("sec.bar")));
             box.Children.Add(Row(Strings.T("lbl.barScale"), Stepper(_cfg.BarScale, 0.5, 1.6, 0.05, "0%", delegate(double v)
-            { _cfg.BarScale = v; _card.ApplyLook(); _cfg.Save(); })));
+            {
+                double oldScale = _cfg.BarScale <= 0 ? 1.0 : _cfg.BarScale;
+                _cfg.BarScale = v;
+                // The bar's length is the Progress module's width. Scale the width that is already
+                // there instead of recomputing from a constant, so a width dragged in the board is
+                // kept: newW = oldW * (new / old).
+                CardConfig m2 = _card.Model;
+                if (m2 != null)
+                {
+                    ModuleConfig pr = m2.Find(ModuleKind.Progress);
+                    if (pr != null)
+                    {
+                        double baseW = pr.W > 0 ? pr.W / oldScale : 320.0;
+                        pr.W = Math.Max(40.0, Math.Round(baseW * v));
+                    }
+                    _card.InvalidateModel();
+                }
+                _card.ApplyLook();
+                _cfg.Save();
+            })));
             box.Children.Add(Row(Strings.T("lbl.barThickness"), Stepper(_cfg.BarThickness, 2, 8, 0.5, "0.0", delegate(double v)
             { _cfg.BarThickness = v; _card.ApplyLook(); _cfg.Save(); })));
             box.Children.Add(ColorRow(Strings.T("lbl.barColor"), _cfg.BarColor, delegate(string v)
