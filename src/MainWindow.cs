@@ -1103,7 +1103,20 @@ namespace Amc
             // ---- artwork ----------------------------------------------------
             box.Children.Add(Section(Strings.T("sec.art")));
             box.Children.Add(Row(Strings.T("lbl.artSize"), Stepper(_cfg.ArtSize, 56, 160, 4, "0", delegate(double v)
-            { _cfg.ArtSize = v; _card.ApplyLook(); _cfg.Save(); })));
+            {
+                _cfg.ArtSize = v;
+                // one size for both views: write it into the Cover module, so the board's circle
+                // grows with the disc instead of staying at the old radius
+                CardConfig m2 = _card.Model;
+                if (m2 != null)
+                {
+                    ModuleConfig cov = m2.Find(ModuleKind.Cover);
+                    if (cov != null) { cov.W = v; cov.H = v; }
+                    _card.InvalidateModel();
+                }
+                _card.ApplyLook();
+                _cfg.Save();
+            })));
             box.Children.Add(Row(Strings.T("lbl.artSat"), Stepper(_cfg.ArtSat, 0, 1, 0.05, "0.00", delegate(double v)
             { _cfg.ArtSat = v; _card.RefreshArt(); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.artHiCut"), Stepper(_cfg.ArtHiCut, 0, 0.6, 0.02, "0.00", delegate(double v)

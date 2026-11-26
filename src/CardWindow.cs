@@ -742,8 +742,15 @@ namespace Amc
                 }
             }
 
-            _artHost.Width = _cfg.ArtSize;
-            _artHost.Height = _cfg.ArtSize;
+            // The template owns the cover size. ArtSize is only the fallback used when the Cover
+            // module is auto-sized, so a size set in the template and a size dragged in the board
+            // stay the same number (they used to disagree: layout said W, the disc drew ArtSize).
+            double artSide = _cfg.ArtSize;
+            ModuleRect coverRc;
+            if (_layout != null && _layout.TryFind(ModuleKind.Cover, out coverRc) && coverRc.W > 1)
+                artSide = Math.Min(coverRc.W, coverRc.H > 1 ? coverRc.H : coverRc.W);
+            _artHost.Width = artSide;
+            _artHost.Height = artSide;
             _artHost.InvalidateVisual();
 
             // content column width: natural width (left of the cover) times the bar-length factor.
