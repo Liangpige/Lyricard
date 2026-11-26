@@ -393,6 +393,14 @@ namespace Amc
         /// Each player tick calls this, so it must not resurrect the inline artist after the board
         /// moved the artist module onto its own line.
         /// </summary>
+        /// <summary>Force the artist line to re-read the template. Changing "same line" flips which
+        /// element owns the text, and the text itself has not changed, so the tick-time "only write
+        /// when different" guard would leave both copies empty.</summary>
+        public void RefreshArtistLine()
+        {
+            SetArtistText(_artistText);
+        }
+
         void SetArtistText(string art)
         {
             _artistText = art ?? "";
@@ -414,15 +422,24 @@ namespace Amc
             if (_artist == null || _hostArtist == null || _runArtist == null) return;
             ModuleConfig ac = model.Find(ModuleKind.Artist);
             ModuleRect ar;
-            bool explicitPos = !model.TitleArtistInline
-                && ac != null && (!double.IsNaN(ac.X) || !double.IsNaN(ac.Y));
+            // Two states, not three: same line (inline run) or its own box (wherever the layout puts
+            // it). Hiding the box because the module still had an automatic position is what made the
+            // artist vanish when the switch was turned off.
+            bool sameLine = model.TitleArtistInline;
+            bool explicitPos = !sameLine;
             if (!explicitPos || !lay.TryFind(ModuleKind.Artist, out ar))
             {
                 if (!explicitPos)
                 {
+                    // Same line: the artist belongs to the title run. Write it here as well, because a
+                    // toggle changes *which* element owns the text while the text itself is unchanged,
+                    // so the "only write when different" guard in the tick can leave both sides blank.
                     _artist.Visibility = Visibility.Collapsed;
                     _hostArtist.Visibility = Visibility.Collapsed;
                     _hostArtist.Width = 0; _hostArtist.Height = 0;
+                    if (_runArtist != null && _artistText != null
+                        && _runArtist.Text != ("   " + _artistText))
+                        _runArtist.Text = "   " + _artistText;
                     return;
                 }
             }
@@ -2231,7 +2248,22 @@ namespace Amc
 
             string ttl = string.IsNullOrEmpty(np.Title) ? "Apple Music" : np.Title;
             string art = FitToBox(CapChars(artistOut, ModuleKind.Artist), _boxArtistW, _artist.FontSize, FontWeights.Normal);
-            string titleShown = FitToBox(CapChars(ttl, ModuleKind.Title), _boxTitleW, _title.FontSize, FontWeights.SemiBold);
+            double titleBoxW = _boxTitleW;
+            if (Model != null && Model.TitleArtistInline && art.Length > 0)
+            {
+                // Same line: the artist rides inside the title box, so the title has to leave room for
+                // it. Without this the title filled the box and the inline run was clipped away.
+                double pw2 = 1.0;
+                try
+                {
+                    var src2 = PresentationSource.FromVisual(this);
+                    if (src2 != null && src2.CompositionTarget != null) pw2 = src2.CompositionTarget.TransformToDevice.M11;
+                }
+                catch { }
+                double artW = MeasureW("   " + art, _artist.FontSize, FontWeights.Normal, pw2);
+                titleBoxW = Math.Max(24.0, _boxTitleW - artW);
+            }
+            string titleShown = FitToBox(CapChars(ttl, ModuleKind.Title), titleBoxW, _title.FontSize, FontWeights.SemiBold);
             // Assigning .Text invalidates measure/arrange even when the string is identical, and
             // this runs 30 times a second, so only write when something really changed.
             if (_runTitle.Text != titleShown) _runTitle.Text = titleShown;

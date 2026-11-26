@@ -1212,6 +1212,7 @@ namespace Amc
                 if (m == null) return;
                 m.TitleArtistInline = on;
                 m.Save(CardConfig.DefaultPath);
+                _card.RefreshArtistLine();
                 _card.InvalidateModel();
                 RebuildAll();
             })));
