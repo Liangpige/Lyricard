@@ -551,7 +551,7 @@ namespace Amc
 
             Section(Strings.T("sec.bar"));
 
-            StepRow(Strings.T("lbl.barScale"), _cfg.BarScale, 0.5, 1.6, 0.05, "0%", delegate(double v)
+            StepRow(Strings.T("lbl.barScale"), _cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
             {
                 _cfg.BarScale = v;
                 _card.ApplyLook();

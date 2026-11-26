@@ -349,7 +349,7 @@ namespace Amc
             ArtistScale = Clamp(ArtistScale, 0.60, 1.60);
             LyricScale = Clamp(LyricScale, 0.60, 1.60);
             BarThickness = Clamp(BarThickness, 2.0, 8.0);
-            BarScale = Clamp(BarScale, 0.5, 1.6);
+            BarScale = Clamp(BarScale, 0.5, 3.0);
             ArtSize = Clamp(ArtSize, 56.0, 160.0);
             ArtistMaxChars = (int)Clamp(ArtistMaxChars, 4, 40);
         }
