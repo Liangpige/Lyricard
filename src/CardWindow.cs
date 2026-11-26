@@ -921,6 +921,9 @@ namespace Amc
         /// </summary>
         public void ApplyLook()
         {
+            // Colour edits change no geometry, so nothing used to push them through ApplyBars().
+            // Repaint first, before the "not built yet" guard, or an idle card swallows the change.
+            if (_layout != null) ApplyBars(_layout);
             if (_title == null) return;
             double ts = _baseTitleSize * _cfg.TitleScale;
             double asz = _baseArtistSize * _cfg.ArtistScale;
