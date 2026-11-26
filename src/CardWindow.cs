@@ -274,6 +274,15 @@ namespace Amc
         }
 
         /// <summary>Direct edit hook for the board: change Model, then ask for a re-render.</summary>
+        /// <summary>Drop the cached template and load it again. Toggling a template flag mutates the
+        /// file; anything still holding the old instance would otherwise keep rendering the old flag.</summary>
+        public void ReloadModel()
+        {
+            _model = null;
+            LyricsService.Log("model reload inline=" + (Model != null && Model.TitleArtistInline ? "1" : "0"));
+            Render();
+        }
+
         public void InvalidateModel()
         {
             LyricsService.Log("model invalidate -> re-render");
@@ -460,6 +469,10 @@ namespace Amc
             _artist.Text = _artistText;
             _boxArtistW = Math.Max(1.0, ar.W);
             _artist.Width = Math.Max(1.0, ar.W);
+            LyricsService.Log("artist host vis=" + _hostArtist.Visibility
+                + " w=" + _hostArtist.Width.ToString("0.0") + " at=" + Canvas.GetLeft(_hostArtist).ToString("0.0")
+                + "," + Canvas.GetTop(_hostArtist).ToString("0.0")
+                + " txt=" + (_artist.Text ?? "") + " op=" + _artist.Opacity.ToString("0.00"));
             UpdateLayout();
         }
 
@@ -892,8 +905,11 @@ namespace Amc
                 VerticalAlignment = VerticalAlignment.Center,
                 Text = ""
             };
-            artistHost.Children.Add(_artist);
-            root.Children.Add(artistHost);
+            // Parent the TextBlock itself. Wrapping it in a Grid looked harmless, but the wrapper was
+            // measured by the canvas while the block was measured by the Grid, and the artist ended up
+            // laid out with real coordinates yet never painted.
+            root.Children.Add(_artist);
+            _hostArtist = _artist;
 
             // --- lyrics ---
             var lyricHost = new Grid { ClipToBounds = true };

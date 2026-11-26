@@ -1211,9 +1211,10 @@ namespace Amc
                 CardConfig m = _card.Model;
                 if (m == null) return;
                 m.TitleArtistInline = on;
-                m.Save(CardConfig.DefaultPath);
+                bool saved = m.Save(CardConfig.DefaultPath);
+                LyricsService.Log("toggle inline=" + (on ? "1" : "0") + " saved=" + (saved ? "1" : "0"));
+                _card.ReloadModel();
                 _card.RefreshArtistLine();
-                _card.InvalidateModel();
                 RebuildAll();
             })));
             box.Children.Add(ColorRow(Strings.T("lbl.titleColor"), _cfg.TitleColor, delegate(string v)

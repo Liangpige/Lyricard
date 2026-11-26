@@ -97,6 +97,9 @@ namespace Amc
         /// <summary>Union of the enabled boxes, before normalisation (normally already at 0,0).</summary>
         public double BoundsX, BoundsY, BoundsW, BoundsH;
 
+        /// <summary>How much the rects were shifted to hug the top-left corner (for the board).</summary>
+        public double ShiftX, ShiftY;
+
         public bool TryFind(ModuleKind kind, out ModuleRect rect)
         {
             for (int i = 0; i < Rects.Count; i++)
@@ -247,7 +250,32 @@ namespace Amc
             }
             if (result.Rects.Count == 0) { minX = minY = maxX = maxY = 0; }
 
-            // No translation: X/Y in the config is the X/Y on screen.
+            // Trim the empty band above/left of the modules. Coordinates stay absolute inside the
+            // template, but the *card* starts where the first module starts: if everything sits at
+            // y=120, the card is not 120 px taller than its content. The board renders the same
+            // shifted rects, so both views agree.
+            if (minY > 0)
+            {
+                for (int i = 0; i < result.Rects.Count; i++)
+                {
+                    ModuleRect mr = result.Rects[i];
+                    mr.Y -= minY;
+                    result.Rects[i] = mr;
+                }
+                maxY -= minY;
+                result.ShiftY = minY;
+            }
+            if (minX > 0)
+            {
+                for (int i = 0; i < result.Rects.Count; i++)
+                {
+                    ModuleRect mr = result.Rects[i];
+                    mr.X -= minX;
+                    result.Rects[i] = mr;
+                }
+                maxX -= minX;
+                result.ShiftX = minX;
+            }
 
             // Coordinates are absolute: a module at (50,20) is drawn at (50,20) whatever else is
             // on the card, and nothing is translated to the origin. The card size is either what
