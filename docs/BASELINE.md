@@ -9,7 +9,7 @@
 
 | 证据 | 位置 | 说明 |
 | --- | --- | --- |
-| 默认卡片截图（三档缩放） | `docs/shots/1x-card.png`、`055x-card.png`、`22x-card.png`（各自 `-full.png` 是全屏上下文） | 1× / 0.55× / 2.2×，卡窗外扩 12 px 裁剪 |
+| 默认卡片截图（三档缩放） | `docs/shots/1x-card.png`、`055x-card.png`、`22x-card.png` | 1× / 0.55× / 2.2×；用 `PrintWindow(PW_RENDERFULLCONTENT)` 直接渲染卡窗，任何窗口都盖不住它。卡片是透明底，所以底子是全黑 |
 | 旧配置样例 | `docs/baseline/config-pre-modular.ini` | 冻结时的真实 `config.ini`（含所有外观键与绑定播放器） |
 | 源码快照 | git tag `pre-modular` | 任何一步出问题都能 `git diff pre-modular -- src/` 看总账 |
 
@@ -29,7 +29,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\baseline-shot.ps1 -Sca
 - 时间：2026-11-26 12:26，版本 v0.2.7，DPI 125%（`wa=0,0,2048,1104 dpi=1.25`）
 - 曲目：**Rising Tide — Jack Wall & Big Giant Circles**（Call of Duty: Black Ops Cold War OST），`dur=201`，**暂停**在 `pos=16.35`
 - 歌词：尚未取到，卡片显示固定串 `♪ Waiting for music`——**这反而是好事**：文案固定，三档之间除缩放外没有任何变量
-- 窗口位置：X 由 `Config.Clamp` 按宽度贴边（1× `left=1528.8`、0.55× `left=1637.6`、2.2× `left=907.2`），Y 恒为 0
+- 截图时临时把卡片停在桌面左下（`Left=40, Top=620`）再重启，拍完已还原成 `Left=1637.6 / Top=0 / Scale=0.79`
+- 窗口 X 平时由 `Config.Clamp` 按宽度贴边（1× `left=1528.8`、0.55× `left=1637.6`、2.2× `left=907.2`），Y 恒为 0
 
 ### 1.2 布局数值基线（比截图更硬的判据）
 
