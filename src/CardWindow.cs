@@ -753,19 +753,10 @@ namespace Amc
             _artHost.Height = artSide;
             _artHost.InvalidateVisual();
 
-            // content column width: natural width (left of the cover) times the bar-length factor.
-            // The column must NOT get an explicit Width: the Grid cell clips a wider child on the
-            // right, which chops the last characters of a right-aligned line.
-            double oldCardW = CardWidthNow();
-            double colW = Math.Max(120, NaturalCol() * _cfg.BarScale);
-            _card.Width = colW + CardBase();
-            // keep the right edge glued to where it was, so growing/shrinking the bar does not
-            // drag the whole card sideways
-            double grow = _card.Width - oldCardW;
-            if (Math.Abs(grow) > 0.5 && !double.IsNaN(Left))
-                Left -= grow * _cfg.Scale;
-
-            _barFill.Width = _barFill.Width;   // no-op, keeps the fill from being re-measured away
+            // Card size belongs to the template now (LayoutEngine), applied by Render/ApplyCardSize.
+            // This used to recompute the width here from the old column formula and then nudge Left
+            // by the difference, "to keep the right edge glued" -- with the template driving the size
+            // that difference was pure noise, so every look change slid the card left by a pixel or two.
 
             Render();
             try { UpdateLayout(); } catch { }
