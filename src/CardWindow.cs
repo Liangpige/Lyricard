@@ -2153,7 +2153,7 @@ namespace Amc
             if (!IsVisible && !_suppressed) ShowAnimated();
             // A track with no artwork at all would otherwise leave the disc dimmed forever.
             if (_artPending && (DateTime.Now - _artPendingAt).TotalSeconds > 1.5) _artPending = false;
-            if (!_artPending && _artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
+            if (_artHost.Opacity < 1.0) _artHost.Opacity = 1.0;
             // The overlay has finished fading in: promote it to the base and hide it again, so the
             // next track starts from a single, already-correct ellipse.
             if (_artTop != null && _artTop.Fill != null && _artTop.Opacity >= 0.99
@@ -2319,7 +2319,6 @@ namespace Amc
                 _artPending = true;
                 _artPendingAt = DateTime.Now;
                 LyricsService.Log("art pending " + trackKey);
-                if (_artEllipse != null && _artEllipse.Fill != null) _artHost.Opacity = 0.5;
             }
             else if (_lastPos - _pos > 3.0
                 && !(np.Dur.TotalSeconds > 1 && _lastPos > np.Dur.TotalSeconds - 1.5))
@@ -2649,21 +2648,22 @@ namespace Amc
                 // overlay, fading in. Whatever delay the image brush needs before it paints, the
                 // frame still shows the old disc instead of an empty one. The commit (copy the
                 // overlay brush down, drop the overlay) happens in Tick once it is fully opaque.
-                if (_artTop != null && _artEllipse.Fill != null)
+                // Atomic swap. A cross-fade sounded safer, but blending two album covers reads as a
+                // ghost/again-flash on screen; the old cover simply stays until this assignment and
+                // disappears in the same UI turn, which is what "no flash" means for a 96 px disc.
+                bool firstCover = _artEllipse.Fill == null;
+                if (_artTop != null)
                 {
-                    _artTop.Fill = brush;
+                    _artTop.BeginAnimation(UIElement.OpacityProperty, null);
                     _artTop.Opacity = 0.0;
-                    _artTop.BeginAnimation(UIElement.OpacityProperty,
-                        new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(140)));
+                    _artTop.Fill = null;
                 }
-                else
-                {
-                    _artEllipse.Fill = brush;
-                    FadeIn(_artEllipse, 280);
-                }
+                _artEllipse.Fill = brush;
+                if (firstCover) FadeIn(_artEllipse, 280);
                 _artEllipse.Opacity = 1.0;
                 _artPending = false;
                 _artHost.Opacity = 1.0;
+                LyricsService.Log("art shown");
 
                 var c = AverageColor(bi);
                 _artBg = Color.FromArgb(238,
