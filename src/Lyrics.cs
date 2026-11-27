@@ -456,6 +456,21 @@ namespace Amc
 
             var found = Pick(title, artist, duration, skipSrc);
 
+            // Belt and braces for sources that don't report a length: if we asked for a track of
+            // album length and the lyric stops inside the first minute, it is a fragment (a TV
+            // size edit, a preview, an interlude tag). Only applied when our own duration is
+            // trustworthy, so genuinely short tracks are left alone.
+            if (found != null && !found.Instrumental && found.Lines.Count > 0 && duration >= 120)
+            {
+                double ends = found.Lines[found.Lines.Count - 1].Time;
+                if (ends < 55.0)
+                {
+                    Log("  drop short lyric " + found.Matched + " ends=" + ((int)ends) + "s for " +
+                        ((int)duration) + "s track");
+                    found = null;
+                }
+            }
+
             Log("get[" + key + "] t=" + title + " | a=" + artist + " | d=" + ((int)duration) +
                 " => " + (found == null ? "NULL" : found.Source + " lines=" + found.Lines.Count + " instr=" + found.Instrumental + " matched=" + found.Matched));
 
@@ -1219,7 +1234,7 @@ namespace Amc
 
         /// <summary>Version tags that make "the same song" a different recording.</summary>
         static readonly Regex VersionTagRx = new Regex(
-            @"\b(live|remix|dj|acoustic|instrumental|karaoke|off vocal|cover|slowed|reverb|nightcore|sped up)\b|(?:伴奏|纯音乐|纯音|铃声|抖音版|女声版|男声版|粤语版|钢琴版|指弹版)",
+            @"\b(live|remix|dj|acoustic|instrumental|karaoke|off vocal|cover|slowed|reverb|nightcore|sped up|concert|remaster(?:ed)?|demo|session)\b|(?:伴奏|纯音乐|纯音|铃声|抖音版|女声版|男声版|粤语版|钢琴版|指弹版|演唱会|现场版|音乐节|原声带)",
             RegexOptions.IgnoreCase);
 
         static string VersionTags(string s)
@@ -1275,6 +1290,15 @@ namespace Amc
             c.ArtistSim = asim;
             c.DurSim = dsim;
             c.VersionDiff = verDiff;
+
+            // A 30-second preview or a ringtone is never the lyric we want: its title matches
+            // perfectly and its length tells the truth, which is exactly the trap.
+            if (c.Dur > 0 && c.Dur < 60)
+            {
+                Log("  skip preview " + c.Src + " " + c.Name + " - " + c.Artist + " dur=" + ((int)c.Dur));
+                c.Score = 0;
+                return 0;
+            }
 
             double wsum = 2.0 + (bothKnown ? 1.0 : 0.0);
             double raw = ts + asim + (bothKnown ? dsim : 0.0);
