@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // Lyrics.cs
 //
 /// Lyric fetching, parsing and matching: local .lrc first, then QQ / NetEase / lrclib
@@ -206,7 +206,8 @@ namespace Amc
         public double Score;
         public double TitleSim;
         public double ArtistSim;
-        public double DurSim;
+        public double DurSim;    // -1 when either side has no running time
+        public bool VersionDiff; // same base title but different version tag (live/remix/伴奏…)
         public bool InstrName;   // provider says "纯音乐 / 伴奏 / instrumental" in the title
     }
 
@@ -356,7 +357,7 @@ namespace Amc
             // and doing them one after another kept the picker on "searching" for ~8 seconds.
             var results = new List<Cand>[2];
             var threads = new System.Threading.Thread[2];
-            string[] sources = new string[] { "qq", "netease" };
+            string[] sources = new string[] { "qq", "netease", "kugou" };
             for (int i = 0; i < sources.Length; i++)
             {
                 int slot = i;
@@ -745,8 +746,8 @@ namespace Amc
         // CJK titles are best served by the Chinese services, latin titles by lrclib.
         static string[] PreferredSources(string title)
         {
-            if (HasCjk(title)) return new string[] { "qq", "netease", "lrclib" };
-            return new string[] { "lrclib", "qq", "netease" };
+            if (HasCjk(title)) return new string[] { "qq", "netease", "kugou", "lrclib" };
+            return new string[] { "lrclib", "qq", "netease", "kugou" };
         }
 
         // A user-supplied folder of .lrc files: offline, instant, and always wins.
@@ -916,11 +917,14 @@ namespace Amc
                 // One weighted verdict instead of three separate booleans: the old code let a
                 // strong title paper over a wrong artist as long as *either* artist or length
                 // looked plausible, which is how a same-name song ended up on screen.
-                bool accept = c.Score >= 0.70 && c.TitleSim >= 0.62;
+                // Tight on purpose: 0.80 of the available signal, and the title itself must be close.
+                bool accept = c.Score >= 0.80 && c.TitleSim >= 0.72;
                 if (!accept)
                 {
                     Log("  skip " + c.Src + " " + c.Name + " - " + c.Artist
-                        + " ts=" + F2(c.TitleSim) + " as=" + F2(c.ArtistSim) + " dd=" + F2(c.DurSim));
+                        + " ts=" + F2(c.TitleSim) + " as=" + F2(c.ArtistSim)
+                        + " dd=" + (c.DurSim < 0 ? "na" : F2(c.DurSim))
+                        + (c.VersionDiff ? " ver" : "") + " norm=" + F2(c.Score));
                     // Covers and obscure uploads often have no candidate with a matching
                     // artist at all. Remember the best exact-title one so that a total miss
                     // can still fall back to the original song's lyrics instead of nothing.
@@ -967,6 +971,24 @@ namespace Amc
         static List<Cand> SearchRaw(string src, string q, string title, string artist, double duration)
         {
             var outp = new List<Cand>();
+            if (src == "kugou")
+            {
+                string url = "http://mobiles.kugou.com/api/v3/search/song?format=json&showtype=1&page=1&pagesize=12&keyword="
+                             + Uri.EscapeDataString(q);
+                byte[] bytes = GetBytes(url, "http://www.kugou.com/", 6);
+                if (bytes == null || bytes.Length == 0) return outp;
+                // The same endpoint answers UTF-8 for some songs and GB18030 for others, and a
+                // wrong guess turns every title into mojibake that scores 0. Decode both ways and
+                // keep whichever reading actually matches what we asked for.
+                string asUtf8 = Encoding.UTF8.GetString(bytes);
+                string asGbk = null;
+                try { asGbk = Encoding.GetEncoding(936).GetString(bytes); }
+                catch { }
+                AddKugou(outp, asUtf8, title, artist, duration);
+                if (outp.Count == 0 && asGbk != null) AddKugou(outp, asGbk, title, artist, duration);
+                return outp;
+            }
+
             if (src == "netease")
             {
                 string url = "https://music.163.com/api/search/get/web?type=1&limit=12&s=" + Uri.EscapeDataString(q);
@@ -1032,6 +1054,35 @@ namespace Amc
             return outp;
         }
 
+        static void AddKugou(List<Cand> outp, string body, string title, string artist, double duration)
+        {
+            if (string.IsNullOrEmpty(body)) return;
+            int b = body.IndexOf('{');
+            if (b < 0) return;
+            J parsed;
+            try { parsed = J.Parse(body.Substring(b)); }
+            catch { return; }
+            if (parsed == null) return;
+            var root = parsed;
+            var info = (root["data"] != null) ? root["data"].Arr("info") : null;
+            if (info == null || info.Count == 0) return;
+            foreach (var s in info)
+            {
+                string nm = s.Str("songname");
+                var c = new Cand();
+                c.Src = "kugou";
+                c.Id = s.Str("hash");
+                c.Name = nm;
+                c.Artist = s.Str("singername");
+                c.InstrName = LooksInstrumental(nm);
+                c.Dur = s.Num("duration", 0);
+                Score(title, artist, duration, c);
+                if (c.Score >= 0.5 && !string.IsNullOrEmpty(c.Id)) outp.Add(c);
+            }
+            Log("  kugou parse -> " + outp.Count.ToString(CultureInfo.InvariantCulture) +
+                (outp.Count > 0 ? " first=" + outp[0].Name + " - " + outp[0].Artist + " d=" + F2(outp[0].Dur) : ""));
+        }
+
         static void SortCands(List<Cand> list)
         {
             list.Sort(delegate (Cand x, Cand y) { return y.Score.CompareTo(x.Score); });
@@ -1086,6 +1137,33 @@ namespace Amc
                     if (string.IsNullOrEmpty(lrc)) return null;
                     return Parse(lrc, "netease");
                 }
+                if (c.Src == "kugou")
+                {
+                    // Two hops: the search endpoint hands out id+accesskey, the download endpoint
+                    // returns the LRC as base64 inside JSON.
+                    string kw = Uri.EscapeDataString(c.Name + " - " + c.Artist);   // UTF-8, the GBK answer is on the way back
+                    string ms = ((int)Math.Round(c.Dur * 1000)).ToString(CultureInfo.InvariantCulture);
+                    string s1 = "http://krcs.kugou.com/search?ver=1&man=yes&client=pc&keyword=" + kw +
+                                "&duration=" + ms + "&hash=" + Uri.EscapeDataString(c.Id);
+                    string b1 = GetFlexible(s1, "http://www.kugou.com/", 6);
+                    if (string.IsNullOrEmpty(b1)) return null;
+                    var r1 = J.Parse(b1);
+                    var cands = r1.Arr("candidates");
+                    if (cands == null || cands.Count == 0) return null;
+                    string kid = cands[0].Str("id");
+                    string key = cands[0].Str("accesskey");
+                    if (string.IsNullOrEmpty(kid) || string.IsNullOrEmpty(key)) return null;
+                    string s2 = "http://lyrics.kugou.com/download?ver=1&client=pc&fmt=lrc&charset=utf8&id=" +
+                                Uri.EscapeDataString(kid) + "&accesskey=" + Uri.EscapeDataString(key);
+                    string b2 = GetFlexible(s2, "http://www.kugou.com/", 6);
+                    if (string.IsNullOrEmpty(b2)) return null;
+                    var r2 = J.Parse(b2);
+                    string b64 = r2.Str("content");
+                    if (string.IsNullOrEmpty(b64)) return null;
+                    string lrc = Encoding.UTF8.GetString(Convert.FromBase64String(b64));
+                    if (string.IsNullOrEmpty(lrc)) return null;
+                    return Parse(lrc, "kugou");
+                }
                 if (c.Src == "qq")
                 {
                     string url = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=" + Uri.EscapeDataString(c.Id) + "&format=json&nobase64=1";
@@ -1131,10 +1209,32 @@ namespace Amc
                 || s.Contains("instrumental") || s.Contains("karaoke") || s.Contains("off vocal");
         }
 
+        /// <summary>Version tags that make "the same song" a different recording.</summary>
+        static readonly Regex VersionTagRx = new Regex(
+            @"\b(live|remix|dj|acoustic|instrumental|karaoke|off vocal|cover|slowed|reverb|nightcore|sped up)\b|(?:伴奏|纯音乐|纯音|铃声|抖音版|女声版|男声版|粤语版|钢琴版|指弹版)",
+            RegexOptions.IgnoreCase);
+
+        static string VersionTags(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var found = new List<string>();
+            foreach (Match m in VersionTagRx.Matches(s))
+            {
+                string t = m.Value.ToLowerInvariant();
+                if (!found.Contains(t)) found.Add(t);
+            }
+            found.Sort(StringComparer.Ordinal);
+            return string.Join(",", found.ToArray());
+        }
+
+        /// <summary>
+        /// Weighted verdict, Lyricify style: title 1, artist 1, duration 1, but only over the
+        /// parts both sides actually provide. Duration is a gate, not a tie-breaker: more than
+        /// 3.5 s apart is a different recording, unless the title and artist are both exact.
+        /// </summary>
         static double Score(string title, string artist, double duration, Cand c)
         {
-            // Compare every reasonable form of the two titles and keep the best one, the way
-            // Lyricify's CompareHelper does: raw, brackets stripped, decoration stripped.
+            // Compare every reasonable form of the two titles and keep the best one.
             double ts = TextUtil.Similar(TextUtil.StripBrackets(title), c.Name);
             double t;
             t = TextUtil.Similar(title, c.Name); if (t > ts) ts = t;
@@ -1142,35 +1242,132 @@ namespace Amc
             t = TextUtil.Similar(TextUtil.StripDecorations(TextUtil.StripBrackets(title)),
                                  TextUtil.StripDecorations(TextUtil.StripBrackets(c.Name))); if (t > ts) ts = t;
 
+            // (Live) / (DJ版) / (伴奏) are the usual way a wrong lyric slips in: the base title is
+            // identical, so the letters agree, but the recording is a minute longer or shorter.
+            string vt = VersionTags(title), vc = VersionTags(c.Name);
+            bool verDiff = vt != vc;
+            if (verDiff && ts > 0.90) ts *= 0.92;
+
             double asim = TextUtil.ArtistSimilar(artist, c.Artist);
 
             bool bothKnown = duration > 20 && c.Dur > 20;
-            double gap = bothKnown ? Math.Abs(duration - c.Dur) : 0;
-            double dsim = 1.0;
+            double dsim = -1;
+            double gap = 0;
             if (bothKnown)
             {
-                // Bands mirroring Lyricify's VeryHigh/High/Medium/Low steps, scaled to seconds.
-                dsim = gap <= 3 ? 1.0 : gap <= 6 ? 0.8 : gap <= 10 ? 0.55 : gap <= 20 ? 0.2 : 0.0;
+                gap = Math.Abs(duration - c.Dur);
+                if (gap <= 0.3) dsim = 1.0;
+                else if (gap < 0.7) dsim = 0.9;
+                else if (gap < 1.5) dsim = 0.75;
+                else if (gap < 3.5) dsim = 0.45;
+                else dsim = 0.0;
             }
 
             c.TitleSim = ts;
             c.ArtistSim = asim;
             c.DurSim = dsim;
-            // Title and artist carry most of the signal; the running time is the tie-breaker.
-            // When neither side knows the length the duration term is split evenly.
-            c.Score = ts * 0.50 + asim * 0.30 + (bothKnown ? dsim * 0.20 : 0.10);
+            c.VersionDiff = verDiff;
 
-            // Two different recordings of the same title (cover, live cut, 抖音版) are often a
-            // minute apart. Unless the title is essentially identical AND the artist matches,
-            // a big gap means this is a different recording: refuse it outright rather than
-            // show lyrics that will drift.
-            if (bothKnown && gap > 12 && !(ts >= 0.98 && asim >= 0.85)) c.Score = 0;
+            double wsum = 2.0 + (bothKnown ? 1.0 : 0.0);
+            double raw = ts + asim + (bothKnown ? dsim : 0.0);
+            c.Score = raw / wsum;
+
+            // A cover or a live cut is often a minute away from the studio take. Refuse it
+            // outright rather than show lyrics that drift, unless both title and artist are
+            // essentially identical (a re-upload of the same recording).
+            if (bothKnown && dsim == 0.0 && !(ts >= 0.98 && asim >= 0.85)) c.Score = 0;
+            // "晴天" vs "晴天 (Live)": letters agree, the recording does not. Length decides;
+            // when no length is known, at least stay under the accept line.
+            if (verDiff)
+            {
+                if (bothKnown && gap > 1.5) c.Score = 0;
+                else if (!bothKnown && c.Score > 0.78) c.Score = 0.78;
+            }
             return c.Score;
         }
 
         static string Get(string url, string referer)
         {
             return Get(url, referer, 4);
+        }
+
+        /// <summary>
+        /// Kugou's JSON is GB18030, not UTF-8: read as UTF-8 and every Chinese name turns into
+        /// U+FFFD, which is why its candidates looked unusable at first. Decode both ways and keep
+        /// whichever produced fewer replacement characters.
+        /// </summary>
+        static string GetFlexible(string url, string referer, int timeoutSeconds)
+        {
+            try
+            {
+                Net.EnsureTls();
+                var req = (HttpWebRequest)WebRequest.Create(url);
+                req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
+                req.Headers.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+                if (!string.IsNullOrEmpty(referer)) req.Referer = referer;
+                req.Timeout = timeoutSeconds * 1000;
+                req.ReadWriteTimeout = timeoutSeconds * 1000;
+                using (var resp = (HttpWebResponse)req.GetResponse())
+                using (var ms = new System.IO.MemoryStream())
+                {
+                    using (var st = resp.GetResponseStream()) st.CopyTo(ms);
+                    byte[] bytes = ms.ToArray();
+                    string gb;
+                    try { gb = Encoding.GetEncoding(936).GetString(bytes); }
+                    catch { gb = null; }
+                    string utf = Encoding.UTF8.GetString(bytes);
+                    if (gb == null) return utf;
+                    return CountBroken(gb) <= CountBroken(utf) ? gb : utf;
+                }
+            }
+            catch (Exception ex) { Log("  http fail " + ex.GetType().Name + " " + url); return null; }
+        }
+
+        /// <summary>Same request, but hand back the bytes: Kugou's answer is not uniformly encoded.</summary>
+        static byte[] GetBytes(string url, string referer, int timeoutSeconds)
+        {
+            try
+            {
+                Net.EnsureTls();
+                var req = (HttpWebRequest)WebRequest.Create(url);
+                req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
+                req.Headers.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+                if (!string.IsNullOrEmpty(referer)) req.Referer = referer;
+                req.Timeout = timeoutSeconds * 1000;
+                req.ReadWriteTimeout = timeoutSeconds * 1000;
+                using (var resp = (HttpWebResponse)req.GetResponse())
+                using (var ms = new System.IO.MemoryStream())
+                {
+                    using (var st = resp.GetResponseStream()) st.CopyTo(ms);
+                    return ms.ToArray();
+                }
+            }
+            catch (Exception ex) { Log("  http fail " + ex.GetType().Name + " " + url); return null; }
+        }
+
+        /// <summary>Percent-encode as GB18030: Kugou decodes its query as GBK, not UTF-8.</summary>
+        static string EscapeGbk(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            byte[] bytes = Encoding.GetEncoding(936).GetBytes(text);
+            var sb = new StringBuilder();
+            foreach (byte b in bytes)
+            {
+                if ((b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
+                    || b == '-' || b == '_' || b == '.' || b == '~')
+                    sb.Append((char)b);
+                else
+                    sb.Append('%').Append(b.ToString("X2", CultureInfo.InvariantCulture));
+            }
+            return sb.ToString();
+        }
+
+        static int CountBroken(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return 0;
+            int n = 0;
+            foreach (char c in s) if (c == '\uFFFD') n++;
+            return n;
         }
 
         static string Get(string url, string referer, int timeoutSeconds)
