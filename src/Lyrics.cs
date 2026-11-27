@@ -456,17 +456,29 @@ namespace Amc
 
             var found = Pick(title, artist, duration, skipSrc);
 
-            // Belt and braces for sources that don't report a length: if we asked for a track of
-            // album length and the lyric stops inside the first minute, it is a fragment (a TV
-            // size edit, a preview, an interlude tag). Only applied when our own duration is
-            // trustworthy, so genuinely short tracks are left alone.
-            if (found != null && !found.Instrumental && found.Lines.Count > 0 && duration >= 120)
+            // Judge the lyric by how far it reaches. A real song keeps going for minutes; a
+            // preview / TV-size edit / ringtone stops early. Two scales, because we don't always
+            // know the song's length:
+            //   * duration known and long  -> the lyric must reach at least half of it
+            //   * duration unknown         -> a lyric that ends inside 90 s is a clip
+            if (found != null && !found.Instrumental && found.Lines.Count > 0)
             {
                 double ends = found.Lines[found.Lines.Count - 1].Time;
-                if (ends < 55.0)
+                double floor = 0;
+                string why = "";
+                if (duration >= 120.0)
                 {
-                    Log("  drop short lyric " + found.Matched + " ends=" + ((int)ends) + "s for " +
-                        ((int)duration) + "s track");
+                    floor = Math.Max(55.0, duration * 0.5);
+                    why = "ends=" + ((int)ends) + "s of " + ((int)duration) + "s";
+                }
+                else if (duration <= 0.0)
+                {
+                    floor = 90.0;
+                    why = "ends=" + ((int)ends) + "s and the player reports no length";
+                }
+                if (floor > 0 && ends < floor)
+                {
+                    Log("  drop fragment lyric " + found.Matched + " " + why);
                     found = null;
                 }
             }
@@ -1233,8 +1245,13 @@ namespace Amc
         }
 
         /// <summary>Version tags that make "the same song" a different recording.</summary>
+        /// <summary>Names that admit to being an excerpt of the real song.</summary>
+        static readonly Regex FragmentRx = new Regex(
+            @"(片段|试听|铃声|tv\s*size|short\s*ver|snippet|preview|edit\s*version)",
+            RegexOptions.IgnoreCase);
+
         static readonly Regex VersionTagRx = new Regex(
-            @"\b(live|remix|dj|acoustic|instrumental|karaoke|off vocal|cover|slowed|reverb|nightcore|sped up|concert|remaster(?:ed)?|demo|session)\b|(?:伴奏|纯音乐|纯音|铃声|抖音版|女声版|男声版|粤语版|钢琴版|指弹版|演唱会|现场版|音乐节|原声带)",
+            @"(?<![a-z])(live|remix|dj|acoustic|instrumental|karaoke|off vocal|cover|slowed|reverb|nightcore|sped up|concert|remaster(?:ed)?|demo|session)(?![a-z])|\d\.\d+x|(?:伴奏|纯音乐|纯音|铃声|抖音版|女声版|男声版|粤语版|钢琴版|指弹版|演唱会|现场版|现场|音乐节|原声带|变速|倍速|加速版|降速版|慢速|快速|混音|翻唱|cover版|合唱版)",
             RegexOptions.IgnoreCase);
 
         static string VersionTags(string s)
@@ -1271,6 +1288,19 @@ namespace Amc
             bool verDiff = vt != vc;
             if (verDiff && ts > 0.90) ts *= 0.92;
 
+            // Same bait, milder form: the candidate carries a bracket or a " - tail" that our
+            // title does not ("(2025北京卫视跨年之夜现场)", "(0.8x版|Single Version|变速版)").
+            // The catalogue sometimes has no plain copy at all, so this is a nudge, not a veto:
+            // when the studio lyric is there it wins, when it is not we still get something.
+            if (!verDiff && ts > 0.90)
+            {
+                string plainCand = TextUtil.StripDecorations(TextUtil.StripBrackets(c.Name)).Trim();
+                string plainOurs = TextUtil.StripDecorations(TextUtil.StripBrackets(title)).Trim();
+                bool extra = !string.Equals(plainCand, plainOurs, StringComparison.OrdinalIgnoreCase)
+                             && TextUtil.Similar(plainCand, plainOurs) > 0.95;
+                if (extra) ts *= 0.93;
+            }
+
             double asim = TextUtil.ArtistSimilar(artist, c.Artist);
 
             bool bothKnown = duration > 20 && c.Dur > 20;
@@ -1290,6 +1320,15 @@ namespace Amc
             c.ArtistSim = asim;
             c.DurSim = dsim;
             c.VersionDiff = verDiff;
+
+            // Some catalogues call it what it is: 片段 / 试听 / "TV size" / "short ver". The
+            // length is often missing there, so the name is the only tell.
+            if (FragmentRx.IsMatch(c.Name) || FragmentRx.IsMatch(c.Artist))
+            {
+                Log("  skip fragment name " + c.Src + " " + c.Name + " - " + c.Artist);
+                c.Score = 0;
+                return 0;
+            }
 
             // A 30-second preview or a ringtone is never the lyric we want: its title matches
             // perfectly and its length tells the truth, which is exactly the trap.
