@@ -50,7 +50,7 @@ namespace Amc
                 var px = new byte[stride * th];
                 small.CopyPixels(px, stride, 0);
 
-                int n = tw * th, grey = 0, sum = 0; long sum2 = 0;
+                int n = tw * th, grey = 0, tinted = 0, sum = 0; long sum2 = 0;
                 for (int i = 0; i < n; i++)
                 {
                     int b = px[i * 4], g = px[i * 4 + 1], r = px[i * 4 + 2];
@@ -58,14 +58,23 @@ namespace Amc
                     int lum = (r * 299 + g * 587 + b * 114) / 1000;
                     sum += lum; sum2 += (long)lum * lum;
                     if (mx - mn <= 26 && lum >= 160) grey++;
+                    // Same test with a looser chroma limit: catches tiles that are flat *and* tinted.
+                    if (mx - mn <= 60 && lum >= 150) tinted++;
                 }
                 double share = (double)grey / n;
+                double lowChroma = (double)tinted / n;
                 double mean = (double)sum / n;
                 double std = Math.Sqrt(Math.Max(0.0, (double)sum2 / n - mean * mean));
                 note = "grey=" + share.ToString("0.00", CultureInfo.InvariantCulture)
+                     + " tinted=" + lowChroma.ToString("0.00", CultureInfo.InvariantCulture)
                      + " std=" + std.ToString("0.0", CultureInfo.InvariantCulture)
                      + " mean=" + mean.ToString("0.0", CultureInfo.InvariantCulture);
-                return share >= 0.70 && std <= 34.0 && mean >= 150.0;
+                // Two tiles to catch: the neutral grey one (Kugou's "K" logo), and the pink/blue
+                // blurred CD that is flat and bright but decidedly not neutral -- the grey test alone
+                // scored it 0.00 and let it through as a real cover.
+                bool neutralTile = share >= 0.70 && std <= 34.0 && mean >= 150.0;
+                bool flatTintTile = lowChroma >= 0.60 && std <= 22.0 && mean >= 150.0;
+                return neutralTile || flatTintTile;
             }
             catch (Exception ex)
             {
