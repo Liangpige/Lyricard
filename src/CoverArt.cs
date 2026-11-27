@@ -184,11 +184,89 @@ namespace Amc
                 LyricsService.Log("cover fallback fail " + ex.GetType().Name);
             }
 
+            if (bytes != null) bytes = StripBrokenExif(bytes);
+            // Only cache something that at least looks like an image. A captive portal or an error
+            // page used to be cached under this key, which permanently poisoned the track.
+            if (bytes != null && !LooksLikeImage(bytes))
+            {
+                LyricsService.Log("cover fallback dropped (not an image) " + bytes.Length + " bytes");
+                bytes = null;
+            }
             if (bytes != null)
             {
                 lock (Cache) Cache[key] = bytes;
             }
             return bytes;
+        }
+
+        /// <summary>
+        /// y.gtimg.cn serves some sleeves with a malformed APP1 (EXIF) segment that makes WIC refuse
+        /// the whole file -- "IOException: cannot read from the stream" -- while PIL and every other
+        /// decoder read it fine. Measured on 《Dissolve》(300x300, 8296 bytes): the same bytes decode
+        /// once APP1 is removed, and APP0/APP14 alone are harmless. Strip APP1 from JPEGs before
+        /// anyone caches or decodes them.
+        /// </summary>
+        public static byte[] StripBrokenExif(byte[] b)
+        {
+            if (b == null || b.Length < 4 || b[0] != 0xFF || b[1] != 0xD8) return b;
+            int i = 2; bool stripped = false;
+            var outBuf = new List<byte>(b.Length);
+            outBuf.Add(0xFF); outBuf.Add(0xD8);
+            while (i + 3 < b.Length)
+            {
+                if (b[i] != 0xFF) { i++; continue; }
+                int m = b[i + 1];
+                if (m == 0xD8 || m == 0xD9 || (m >= 0xD0 && m <= 0xD7)) { i += 2; continue; }
+                int len = (b[i + 2] << 8) | b[i + 3];
+                if (len < 2 || i + 2 + len > b.Length) break;
+                if (m == 0xE1) stripped = true;
+                else for (int k = 0; k < 2 + len; k++) outBuf.Add(b[i + k]);
+                i += 2 + len;
+                if (m == 0xDA) { for (int k = i; k < b.Length; k++) outBuf.Add(b[k]); break; }
+            }
+            return stripped ? outBuf.ToArray() : b;
+        }
+
+        /// <summary>Can this payload actually be decoded here? Used to reject a sleeve that every
+        /// other decoder reads but WIC will not, and to keep it out of the cache.</summary>
+        public static bool Decodes(byte[] bytes)
+        {
+            try
+            {
+                var fr = System.Windows.Media.Imaging.BitmapFrame.Create(new MemoryStream(bytes),
+                    System.Windows.Media.Imaging.BitmapCreateOptions.IgnoreColorProfile,
+                    System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+                return fr != null && fr.PixelWidth > 0;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Drop a cached payload that turned out to be undecodable, so the next attempt
+        /// fetches again instead of replaying the same broken bytes.</summary>
+        public static void Evict(byte[] bytes)
+        {
+            if (bytes == null) return;
+            lock (Cache)
+            {
+                var dead = new List<string>();
+                foreach (var kv in Cache) if (ReferenceEquals(kv.Value, bytes)) dead.Add(kv.Key);
+                foreach (var k in dead) Cache.Remove(k);
+                if (dead.Count > 0) LyricsService.Log("cover cache evicted " + dead.Count);
+            }
+        }
+
+        /// <summary>Magic-number check: JPEG / PNG / GIF / BMP / WEBP. Cheap insurance against
+        /// caching an HTML error page.</summary>
+        static bool LooksLikeImage(byte[] b)
+        {
+            if (b == null || b.Length < 12) return false;
+            if (b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return true;
+            if (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return true;
+            if (b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) return true;
+            if (b[0] == 0x42 && b[1] == 0x4D) return true;
+            if (b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46
+                && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) return true;
+            return false;
         }
 
         /// <summary>

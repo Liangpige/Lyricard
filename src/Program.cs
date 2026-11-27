@@ -265,7 +265,7 @@ namespace Amc
                         string ca = parts.Length > 1 ? parts[1] : "";
                         string cal = parts.Length > 2 ? parts[2] : "";
                         byte[] cb = CoverArt.Fetch(ct, ca, cal);
-                        LyricsService.Log("cover test t=" + ct + " a=" + ca + " al=" + cal + " -> " + (cb == null ? "none" : cb.Length + " bytes"));
+                        LyricsService.Log("cover test t=" + ct + " a=" + ca + " al=" + cal + " -> " + (cb == null ? "none" : cb.Length + " bytes decode=" + (CoverArt.Decodes(cb) ? "ok" : "FAIL")));
                     });
                     coverWorker.IsBackground = true;
                     coverWorker.Start();

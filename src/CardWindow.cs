@@ -1883,9 +1883,12 @@ namespace Amc
         byte[] _holderRef;
         bool _holderVerdict;
 
-        /// <summary>Cached (decoding 30x a second would be silly) test for a player's placeholder tile.</summary>
-        bool IsHolderArt(byte[] bytes)
+        /// <summary>Cached (decoding 30x a second would be silly) test for a player's placeholder tile.
+        /// Only players that draw one get tested: on everyone else a bright, flat sleeve is just a
+        /// sleeve, and the pixel tests used to eat those (see Players.DrawsPlaceholderArt).</summary>
+        bool IsHolderArt(byte[] bytes, string aumid)
         {
+            if (!Players.DrawsPlaceholderArt(aumid)) return false;
             if (ReferenceEquals(bytes, _holderRef)) return _holderVerdict;
             string note;
             bool v = CoverArt.LooksLikePlaceholder(bytes, out note);
@@ -2762,7 +2765,7 @@ namespace Amc
             // art. A player can answer with its own grey placeholder tile (Kugou does): that is
             // "no cover" wearing a thumbnail's clothes, so it goes down the fallback path too.
             byte[] rawArt = np.Art;
-            bool holderArt = rawArt != null && IsHolderArt(rawArt);
+            bool holderArt = rawArt != null && IsHolderArt(rawArt, np.Aumid);
             if (rawArt != null && !holderArt && !ReferenceEquals(rawArt, _lastArt))
             {
                 _artFallbackKey = null;
@@ -3407,7 +3410,13 @@ namespace Amc
                     _artFallbackKey = key;
                     _lastArt = null;
                     LyricsService.Log("art fallback " + bytes.Length + " bytes");
-                    ApplyArt(bytes);
+                    // A payload that will not decode must not survive in CoverArt's cache: it would
+                    // be handed back for this track forever, and the card would never recover.
+                    if (!ApplyArt(bytes))
+                    {
+                        CoverArt.Evict(bytes);
+                        LyricsService.Log("art fallback dropped (undecodable)");
+                    }
                 }));
             });
             th.IsBackground = true;
@@ -3419,6 +3428,9 @@ namespace Amc
         {
             try
             {
+                // Some players/servers ship JPEGs whose APP1 segment makes WIC refuse the file; the
+                // same bytes decode once it is gone (see CoverArt.StripBrokenExif).
+                bytes = CoverArt.StripBrokenExif(bytes);
                 var bi = new BitmapImage();
                 bi.BeginInit();
                 // NOTE: BitmapCreateOptions.IgnoreImageCache + OnLoad + StreamSource throws

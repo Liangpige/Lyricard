@@ -105,6 +105,19 @@ namespace Amc
         }
 
         /// <summary>Known player whose AUMID pattern matches, or null.</summary>
+        /// <summary>
+        /// Does this player answer "no cover" with a *drawn* tile instead of nothing? Kugou ships a
+        /// grey "K" disc and a blurred CD; most others just report nothing at all.
+        /// The pixel tests can not tell a bright, flat, low-detail sleeve from such a tile (v0.3.4
+        /// misjudged four real covers that way on NetEase), so only run them where we know the
+        /// player draws one.
+        /// </summary>
+        public static bool DrawsPlaceholderArt(string aumid)
+        {
+            PlayerInfo p = MatchAumid(aumid);
+            return p != null && p.Key == "kugou";
+        }
+
         public static PlayerInfo MatchAumid(string aumid)
         {
             if (string.IsNullOrEmpty(aumid)) return null;
