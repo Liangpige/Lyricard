@@ -807,7 +807,9 @@ namespace Amc
             sc.LyricSize = ModuleFont(ModuleKind.Lyrics, _baseLyricSize * _cfg.LyricScale);
             sc.BarThickness = _cfg.BarThickness;
             sc.TitleBrush = _runTitle == null ? Brushes.White : _runTitle.Foreground;
-            sc.ArtistBrush = _runArtist == null ? Brushes.White : _runArtist.Foreground;
+            sc.ArtistBrush = _artist != null && _artist.Visibility == Visibility.Visible
+                ? _artist.Foreground
+                : (_runArtist == null ? Brushes.White : _runArtist.Foreground);
             sc.LyricBrush = _lyric == null ? Brushes.White : _lyric.Foreground;
             sc.BarTrackBrush = _barTrack == null ? Brushes.White : _barTrack.Background;
             sc.BarFillBrush = _barFill == null ? Brushes.White : _barFill.Background;
@@ -961,7 +963,12 @@ namespace Amc
             Color? ct = TryHex(_cfg.TitleColor);
             _runTitle.Foreground = ct.HasValue ? (Brush)new SolidColorBrush(ct.Value) : White(0.97);
             Color? ca = TryHex(_cfg.ArtistColor);
-            _runArtist.Foreground = ca.HasValue ? (Brush)new SolidColorBrush(ca.Value) : White(0.62);
+            // The artist lives in one of two places: a run on the title line while the two share a
+            // row, or its own TextBlock once it carries coordinates. Painting only the run is why the
+            // colour picker did nothing with "same line" switched off.
+            Brush artistBrush = ca.HasValue ? (Brush)new SolidColorBrush(ca.Value) : White(0.62);
+            _runArtist.Foreground = artistBrush;
+            if (_artist != null) _artist.Foreground = artistBrush;
             Color? cl = TryHex(_cfg.LyricColor);
             _lyric.Foreground = cl.HasValue ? (Brush)new SolidColorBrush(cl.Value) : White(0.95);
 
@@ -2821,6 +2828,9 @@ namespace Amc
                     {
                         if (_pendingKey != key) return;
                         _doc = doc;
+                        LyricsService.Log("doc apply via=tick matched=" + (doc == null ? "<null>" : doc.Matched)
+                            + " lines=" + (doc == null ? 0 : doc.Lines.Count)
+                            + " score=" + (doc == null ? 0 : doc.Score).ToString("0.###", CultureInfo.InvariantCulture));
                         _docKey = key;
                         _lineIdx = -1;
                         if (doc == null || doc.Lines.Count == 0)
@@ -3474,6 +3484,14 @@ namespace Amc
                 catch { doc = null; }
                 Dispatcher.BeginInvoke(new Action(delegate
                 {
+                    string oldMatched = _doc == null ? "<null>" : _doc.Matched;
+                    int oldLines = _doc == null ? 0 : _doc.Lines.Count;
+                    bool changed = _doc == null || doc == null || !string.Equals(_doc.Matched, doc.Matched, StringComparison.Ordinal)
+                        || _doc.Lines.Count != doc.Lines.Count;
+                    LyricsService.Log("doc apply via=manual matched=" + (doc == null ? "<null>" : doc.Matched)
+                        + " lines=" + (doc == null ? 0 : doc.Lines.Count)
+                        + " score=" + (doc == null ? 0 : doc.Score).ToString("0.###", CultureInfo.InvariantCulture)
+                        + " changed=" + (changed ? "1" : "0") + " old=" + oldMatched + "/" + oldLines);
                     _doc = doc;
                     _docKey = t + "|" + a;
                     _pendingKey = "";
