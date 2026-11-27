@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // CandidateWindow.cs
 //
 /// The lyric picker: shows what each source returned for the current track, scored and
@@ -91,9 +91,17 @@ namespace Amc
                     VerticalAlignment = VerticalAlignment.Center
                 }
             };
-            close.MouseLeftButtonUp += delegate { Close(); };
+            // DragMove captures the mouse until the button comes up, which swallows exactly the Up
+            // event this button waits for -- so the X did nothing on the small windows. Take the
+            // press in the tunnel phase, close right there, and hand nothing down to the title bar.
+            close.PreviewMouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e)
+            {
+                e.Handled = true;
+                Close();
+            };
             line.Children.Add(close);
             head.MouseLeftButtonDown += delegate { try { DragMove(); } catch { } };
+            KeyDown += delegate(object s, KeyEventArgs e) { if (e.Key == Key.Escape) Close(); };
             head.Children.Add(line);
             head.Children.Add(new TextBlock
             {

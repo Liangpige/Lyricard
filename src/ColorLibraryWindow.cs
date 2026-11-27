@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // ColorLibraryWindow.cs
 //
 /// The optional palette window: 48 swatches plus a hex field, opened from the ... chip at
@@ -122,10 +122,18 @@ namespace Amc
                     Foreground = new SolidColorBrush(Color.FromRgb(200, 204, 210))
                 }
             };
-            close.MouseLeftButtonUp += delegate { Close(); };
+            // DragMove captures the mouse until the button comes up, which swallows exactly the Up
+            // event this button waits for -- so the X did nothing on the small windows. Take the
+            // press in the tunnel phase, close right there, and hand nothing down to the title bar.
+            close.PreviewMouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e)
+            {
+                e.Handled = true;
+                Close();
+            };
             Grid.SetColumn(close, 1);
             head.Children.Add(close);
             head.MouseLeftButtonDown += delegate { try { DragMove(); } catch { } };
+            KeyDown += delegate(object s, KeyEventArgs e) { if (e.Key == Key.Escape) Close(); };
             box.Children.Add(head);
 
             var sub = new TextBlock
