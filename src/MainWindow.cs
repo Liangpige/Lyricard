@@ -263,8 +263,14 @@ namespace Amc
         /// <summary>Label above its control, matching the settings panel's stacked layout.</summary>
         FrameworkElement Row(string label, UIElement control)
         {
+            return Row(label, control, false);
+        }
+
+        /// <summary>A row whose label is dimmer -- used for players that are merely placeholders.</summary>
+        FrameworkElement Row(string label, UIElement control, bool muted)
+        {
             var box = new StackPanel { Margin = new Thickness(0, 0, 0, 10), Tag = "row" };
-            var l = Label(label, 11.5, TextDim, FontWeights.Normal);
+            var l = Label(label, 11.5, muted ? TextFaint : TextDim, FontWeights.Normal);
             l.Margin = new Thickness(0, 0, 0, 3);
             box.Children.Add(l);
             if (control is FrameworkElement) ((FrameworkElement)control).HorizontalAlignment = HorizontalAlignment.Left;
@@ -486,6 +492,11 @@ namespace Amc
         /// <summary>A 42x22 switch, same shape as the settings panel uses.</summary>
         UIElement Toggle(bool on, Action<bool> apply)
         {
+            return Toggle(on, apply, true);
+        }
+
+        UIElement Toggle(bool on, Action<bool> apply, bool enabled)
+        {
             Color onBg = Color.FromArgb(255, 236, 238, 242);
             Color offBg = Color.FromArgb(34, 255, 255, 255);
             var track = new Border
@@ -515,6 +526,14 @@ namespace Amc
             knob.RenderTransformOrigin = new Point(0.5, 0.5);
             knob.RenderTransform = knobTf;
             track.Child = knob;
+            // A switch for something that is not installed: keep it visible so the list is stable,
+            // but make it obviously inert -- dimmed, arrow cursor, and no handlers at all.
+            if (!enabled)
+            {
+                track.Cursor = Cursors.Arrow;
+                track.Opacity = 0.28;
+                return track;
+            }
             // The knob dips while the switch is held, exactly like iOS.
             track.PreviewMouseLeftButtonDown += delegate { AnimateScale(knobScale, 0.94, 90); };
             Action release = delegate { AnimateScale(knobScale, 1.0, 160); };
@@ -965,17 +984,27 @@ namespace Amc
 
             System.Collections.Generic.List<string> unknown;
             var detected = Players.Detect(SmtcService.SessionAumids, out unknown);
-            int shown = 0;
+            // The list shows every built-in player, installed or not, so it no longer changes
+            // shape behind the user's back (a not-installed entry is dimmed and inert). Only
+            // detection decides whether the switch works.
+            var seen = new System.Collections.Generic.Dictionary<string, DetectedPlayer>();
             for (int i = 0; i < detected.Count; i++)
+                seen[detected[i].Info.Key] = detected[i];
+            int shown = 0;
+            for (int i = 0; i < Players.Known.Length; i++)
             {
-                var d = detected[i];
-                if (!d.Installed && !d.Running) continue;
+                var info = Players.Known[i];
+                DetectedPlayer d;
+                seen.TryGetValue(info.Key, out d);
+                bool usable = d != null && (d.Installed || d.Running);
                 shown++;
-                string status = d.Running ? Strings.T("page.home.players.running")
+                string status = !usable ? Strings.T("page.home.players.missing")
+                               : d.Running ? Strings.T("page.home.players.running")
                                            : Strings.T("page.home.players.installed");
-                string key = d.Info.Key;
-                box.Children.Add(Row(d.Info.Name + "  ·  " + status,
-                    Toggle(IsBoundKey(key), delegate(bool v) { SetBound(key, v); })));
+                string key = info.Key;
+                box.Children.Add(Row(info.Name + "  ·  " + status,
+                    Toggle(IsBoundKey(key), delegate(bool v) { SetBound(key, v); }, usable),
+                    !usable));
             }
             // custom bindings the user added earlier (aumid: / exe:)
             for (int i = 0; i < _cfg.BoundPlayers.Count; i++)

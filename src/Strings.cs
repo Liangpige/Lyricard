@@ -125,6 +125,7 @@ namespace Amc
             Both("page.home.players.hide", "收起其它播放器", "Hide others");
             Both("page.home.players.running", "运行中", "running");
             Both("page.home.players.installed", "已安装", "installed");
+            Both("page.home.players.missing", "未检测到", "not detected");
             Both("page.home.players.none", "没找到已安装或正在运行的播放器", "No installed or running player found");
             Both("page.home.players.exe", "或输入程序名（如 spotify.exe）", "or type an executable name (e.g. spotify.exe)");
             Both("page.home.players.custom", "自定义", "custom");
@@ -161,8 +162,8 @@ namespace Amc
             Both("page.lyr.cleared", "已清除", "Cleared");
             Both("page.lyr.confirm", "确定要清掉全部歌词缓存吗？下次播放会重新联网取词。", "Clear the whole lyric cache? They will be fetched again on next play.");
             Both("page.about.blurb",
-                 "Lyricard —— 一张浮在桌面上的歌词卡片。版式是模板，画板里拖出你自己的一张；默认跟 Apple Music，也可以同时盯 9 家播放器。",
-                 "Lyricard — a floating lyric card whose layout is a template you drag together. It follows Apple Music by default and can watch any of nine players.");
+                 "Lyricard —— 一张浮在桌面上的歌词卡片。版式是模板，画板里拖出你自己的一张；默认跟 Apple Music，也可以同时盯 11 家播放器。",
+                 "Lyricard — a floating lyric card whose layout is a template you drag together. It follows Apple Music by default and can watch any of eleven players.");
             Both("page.about.credits", "第三方：歌词来自 QQ 音乐 / 网易云音乐 / lrclib / 酷狗的公开接口，非官方，仅供个人同步显示；图标自绘；字体使用系统字体。", "Third party: lyrics come from the public QQ Music / NetEase / lrclib / Kugou endpoints — unofficial, for personal display only. Icon drawn in code, system fonts.");
             Both("page.about.shortcuts", "快捷键与入口：托盘双击打开主页面 · 右键卡片出菜单 · Esc 关闭当前面板", "Gestures: double-click the tray icon for this page · right-click the card for its menu · Esc closes the current panel");
             Both("page.about.license", "许可", "License");
