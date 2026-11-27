@@ -61,6 +61,41 @@ namespace Amc
                     // Same test with a looser chroma limit: catches tiles that are flat *and* tinted.
                     if (mx - mn <= 60 && lum >= 150) tinted++;
                 }
+                // Rotation test: the "no cover" tile is a synthetic disc, so turning it by 90 degrees
+                // changes almost nothing, while any photograph or sleeve design changes a lot.
+                double rot = 0;
+                for (int y = 0; y < th; y++)
+                    for (int x = 0; x < tw; x++)
+                    {
+                        int i = (y * tw + x) * 4, j = (x * tw + (th - 1 - y)) * 4;
+                        int la = (px[i + 2] * 299 + px[i + 1] * 587 + px[i] * 114) / 1000;
+                        int lb = (px[j + 2] * 299 + px[j + 1] * 587 + px[j] * 114) / 1000;
+                        rot += Math.Abs(la - lb);
+                    }
+                rot /= n;
+
+                // Local detail: a drawn gradient tile has almost no high-frequency energy, while any
+                // photograph or sleeve design has plenty. Colour-agnostic, unlike the chroma tests.
+                double edge = 0;
+                int ec = 0;
+                for (int y = 1; y < th - 1; y++)
+                    for (int x = 1; x < tw - 1; x++)
+                    {
+                        int c = ((y * tw) + x) * 4;
+                        int lc = (px[c + 2] * 299 + px[c + 1] * 587 + px[c] * 114) / 1000;
+                        int acc = 0;
+                        for (int dy = -1; dy <= 1; dy++)
+                            for (int dx = -1; dx <= 1; dx++)
+                            {
+                                if (dx == 0 && dy == 0) continue;
+                                int o = (((y + dy) * tw) + (x + dx)) * 4;
+                                acc += (px[o + 2] * 299 + px[o + 1] * 587 + px[o] * 114) / 1000;
+                            }
+                        edge += Math.Abs(lc - acc / 8.0);
+                        ec++;
+                    }
+                edge = ec > 0 ? edge / ec : 0;
+
                 double share = (double)grey / n;
                 double lowChroma = (double)tinted / n;
                 double mean = (double)sum / n;
@@ -68,13 +103,20 @@ namespace Amc
                 note = "grey=" + share.ToString("0.00", CultureInfo.InvariantCulture)
                      + " tinted=" + lowChroma.ToString("0.00", CultureInfo.InvariantCulture)
                      + " std=" + std.ToString("0.0", CultureInfo.InvariantCulture)
-                     + " mean=" + mean.ToString("0.0", CultureInfo.InvariantCulture);
+                     + " mean=" + mean.ToString("0.0", CultureInfo.InvariantCulture)
+                     + " rot=" + rot.ToString("0.0", CultureInfo.InvariantCulture)
+                     + " edge=" + edge.ToString("0.0", CultureInfo.InvariantCulture);
                 // Two tiles to catch: the neutral grey one (Kugou's "K" logo), and the pink/blue
                 // blurred CD that is flat and bright but decidedly not neutral -- the grey test alone
                 // scored it 0.00 and let it through as a real cover.
                 bool neutralTile = share >= 0.70 && std <= 34.0 && mean >= 150.0;
                 bool flatTintTile = lowChroma >= 0.60 && std <= 22.0 && mean >= 150.0;
-                return neutralTile || flatTintTile;
+                // Third variant: the same disc wearing a colour wash (purple here), which keeps the
+                // chroma stats out of reach of both rules above. Flat + rotation-invariant is the
+                // signature of a drawn graphic rather than a photograph.
+                bool discTile = rot <= 8.0 && std <= 26.0 && mean >= 120.0;
+                bool smoothTile = edge <= 4.5 && std <= 30.0 && mean >= 110.0;
+                return neutralTile || flatTintTile || discTile || smoothTile;
             }
             catch (Exception ex)
             {

@@ -3323,6 +3323,7 @@ namespace Amc
         string _artProbeKey;
         DateTime _artProbeAt;
         bool _artFetching;
+        DateTime _artFallbackAt = DateTime.MinValue;
 
         void TryCoverFallback(Snapshot np, string artist, DateTime now)
         {
@@ -3334,7 +3335,10 @@ namespace Amc
                 _artProbeAt = now;
                 return;
             }
-            if (_artFetching || _artFallbackKey == key) return;
+            if (_artFetching) return;
+            // Kugou hands out its "no cover" disc for a while and then publishes the real sleeve
+            // minutes later, so a finished attempt must not block the key for good -- retry slowly.
+            if (_artFallbackKey == key && (now - _artFallbackAt).TotalSeconds < 20.0) return;
             if ((now - _artProbeAt).TotalSeconds < 1.2) return;
 
             _artFetching = true;
@@ -3345,6 +3349,7 @@ namespace Amc
                 Dispatcher.BeginInvoke(new Action(delegate()
                 {
                     _artFetching = false;
+                    _artFallbackAt = DateTime.Now;
                     if (bytes == null)
                     {
                         _artFallbackKey = key;
