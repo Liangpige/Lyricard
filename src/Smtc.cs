@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // Smtc.cs
 //
 /// Thin wrapper over the WinRT SystemMediaTransportControls session manager. Marshals
@@ -629,14 +629,26 @@ namespace Amc
 
             if (_artPending && DateTime.Now >= _artDeadline)
             {
-                // Nothing usable inside the settle window: show no cover rather than the previous
-                // song's, and keep listening in case the artwork lands late.
                 _artPending = false;
-                _artBytes = null;
-                _artHash = "";
-                _artWatchUntil = DateTime.Now.AddSeconds(30);
-                _artNextTry = DateTime.Now.AddSeconds(2);
-                LyricsService.Log("art none" + (haveThumb ? "" : " (no thumbnail published)"));
+                if (!haveThumb)
+                {
+                    // The player has not published ANY thumbnail for this track yet (Kugou does this
+                    // for a few seconds, and for some local/radio items never). Blanking the circle
+                    // here is what reads as "封面丢了"; keep what is on screen and keep listening.
+                    _artWatchUntil = DateTime.Now.AddSeconds(120);
+                    _artNextTry = DateTime.Now.AddSeconds(2);
+                    LyricsService.Log("art none (no thumbnail published yet) keep=" + (_artHash.Length > 0 ? "1" : "0"));
+                }
+                else
+                {
+                    // It published something we could not use: show nothing rather than the previous
+                    // song's cover, and keep listening in case the artwork lands late.
+                    _artBytes = null;
+                    _artHash = "";
+                    _artWatchUntil = DateTime.Now.AddSeconds(120);
+                    _artNextTry = DateTime.Now.AddSeconds(2);
+                    LyricsService.Log("art none (thumbnail unreadable)");
+                }
             }
 
             if (!_artPending && _artWatchUntil != DateTime.MinValue && DateTime.Now < _artWatchUntil
