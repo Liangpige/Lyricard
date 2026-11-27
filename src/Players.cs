@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using Microsoft.Win32;
 
 namespace Amc
@@ -311,9 +312,8 @@ namespace Amc
         }
 
         /// <summary>
-        /// Last-resort install probe. The Start-menu scan used to be the only fallback, but the
-        /// late-bound <c>WScript.Shell</c> COM object returns nothing in this process, so every
-        /// Chinese player (QQ音乐 / 酷狗 / 酷我 / AIMP) stayed invisible even when installed.
+        /// Last-resort install probe. The Start-menu scan is the cheapest fallback but it misses
+        /// plenty: a per-user install with no shortcut, a player registered only for "open with".
         /// The uninstall registry always lists them; <c>DisplayIcon</c> points at the real exe,
         /// except for AIMP which points at its uninstaller -- then we scan that folder instead.
         /// </summary>
@@ -398,36 +398,193 @@ namespace Amc
 
         static void ScanShortcuts(Dictionary<string, bool> set, string root)
         {
-            if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) return;
-            string[] files;
-            try { files = Directory.GetFiles(root, "*.lnk", SearchOption.AllDirectories); }
-            catch { return; }
-            object shell = null;
-            try { shell = Type.GetTypeFromProgID("WScript.Shell"); } catch { shell = null; }
-            if (shell == null)
+            if (string.IsNullOrEmpty(root))
             {
-                // Loud, not silent: this used to fail invisibly and make half the player list vanish.
-                LyricsService.Log("players scan: WScript.Shell unavailable, shortcuts skipped (" + files.Length + " lnk)");
+                LyricsService.Log("players scan: no start-menu path for this user");
+                return;
             }
-            object sc = null;
-            try { if (shell != null) sc = shell.GetType().InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { "" }); }
-            catch { sc = null; }
-            for (int i = 0; i < files.Length; i++)
+            if (!Directory.Exists(root))
             {
+                LyricsService.Log("players scan: missing " + root);
+                return;
+            }
+            // Enumerating recursively in one call throws UnauthorizedAccessException as soon as a
+            // single subfolder is locked down (the Start Menu contains a few), which is what kept
+            // this scan at zero for months. Walk it by hand and skip what we cannot read.
+            var files = new List<string>();
+            WalkLnks(root, files, 0);
+            if (files.Count == 0)
+            {
+                LyricsService.Log("players scan: no lnk under " + root);
+                return;
+            }
+            int hit = 0;
+            for (int i = 0; i < files.Count; i++)
+            {
+                string exe = ShortcutTarget(files[i]);
+                if (string.IsNullOrEmpty(exe)) continue;
+                hit++;
+                set[exe] = true;
+            }
+            // Loud on purpose: for months this reported shortcuts=+0 and quietly dropped
+            // installed players out of the list.
+            LyricsService.Log("players scan: lnk " + files.Count + " -> " + hit + " with an exe in " + root);
+        }
+
+        /// <summary>Collects every .lnk below <paramref name="dir"/>, tolerating locked folders.</summary>
+        static void WalkLnks(string dir, List<string> into, int depth)
+        {
+            if (depth > 8) return;
+            try
+            {
+                string[] here = Directory.GetFiles(dir, "*.lnk");
+                for (int i = 0; i < here.Length; i++) into.Add(here[i]);
+            }
+            catch { }
+            string[] subs;
+            try { subs = Directory.GetDirectories(dir); }
+            catch { return; }
+            for (int i = 0; i < subs.Length; i++)
+            {
+                // Junctions and symlinks can point back up the tree (and are rarely interesting).
                 try
                 {
-                    if (shell == null) return;
-                    object lnk = shell.GetType().InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod,
-                        null, shell, new object[] { files[i] });
-                    string target = (string)lnk.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.GetProperty, null, lnk, null);
-                    if (!string.IsNullOrEmpty(target))
-                    {
-                        string exe = Path.GetFileName(target).ToLowerInvariant();
-                        if (exe.Length > 4) set[exe] = true;
-                    }
+                    var fi = new DirectoryInfo(subs[i]);
+                    if ((fi.Attributes & FileAttributes.ReparsePoint) != 0) continue;
                 }
-                catch { }
+                catch { continue; }
+                WalkLnks(subs[i], into, depth + 1);
             }
+        }
+
+        // ---- shell link parsing ------------------------------------------------------------
+        // WScript.Shell was late-bound through reflection and returned nothing in this process,
+        // so every start-menu scan came back empty. The .lnk format is a small, stable binary
+        // structure (MS-SHLLINK), and all we need out of it is the target executable's name, so
+        // read the file directly: LinkInfo first (the normal case), then the string table, then
+        // a byte-level sweep for any "*.exe" the link happens to carry in some other field.
+        static string ShortcutTarget(string path)
+        {
+            byte[] b;
+            try { b = File.ReadAllBytes(path); }
+            catch { return null; }
+            if (b.Length < 0x4C) return null;
+            if (BitConverter.ToInt32(b, 0) != 0x4C) return null;   // HeaderSize
+            int flags = BitConverter.ToInt32(b, 0x14);
+            bool wide = (flags & 0x80) != 0;                       // IsUnicode
+            int p = 0x4C;
+            if ((flags & 0x01) != 0)                               // HasLinkTargetIDList
+            {
+                if (p + 2 > b.Length) return null;
+                int idl = BitConverter.ToUInt16(b, p);
+                p += 2 + idl;
+            }
+            string best = null;
+            if ((flags & 0x02) != 0 && p + 0x1C <= b.Length)       // HasLinkInfo
+            {
+                int size = BitConverter.ToInt32(b, p);
+                if (size >= 0x1C && p + size <= b.Length)
+                {
+                    int baseA = SafeU32(b, p + 0x10), suffixA = SafeU32(b, p + 0x18);
+                    int baseW = size >= 0x24 ? SafeU32(b, p + 0x1C) : 0;
+                    int suffixW = size >= 0x24 ? SafeU32(b, p + 0x20) : 0;
+                    string bs = baseW > 0 ? WideZ(b, p + baseW) : (baseA > 0 ? AnsiZ(b, p + baseA) : null);
+                    string sf = suffixW > 0 ? WideZ(b, p + suffixW) : (suffixA > 0 ? AnsiZ(b, p + suffixA) : null);
+                    if (!string.IsNullOrEmpty(bs) && EndsExe(bs)) best = bs;
+                    else if (!string.IsNullOrEmpty(bs) && !string.IsNullOrEmpty(sf)) best = bs + sf;
+                }
+                p += Math.Max(size, 0);
+            }
+            // StringData: NAME, RELATIVE_PATH, WORKING_DIR, COMMAND_LINE_ARGUMENTS, ICON_LOCATION.
+            for (int k = 0; k < 5 && p + 2 <= b.Length; k++)
+            {
+                if ((flags & (1 << (2 + k))) == 0) continue;
+                int chars = BitConverter.ToUInt16(b, p);
+                p += 2;
+                int bytes = wide ? chars * 2 : chars;
+                if (p + bytes > b.Length) break;
+                string v = wide ? Encoding.Unicode.GetString(b, p, bytes)
+                                : Encoding.Default.GetString(b, p, bytes);
+                p += bytes;
+                if (EndsExe(v)) { best = v; break; }
+            }
+            string exe = ExeName(best);
+            if (exe != null) return exe;
+            // Last resort: the link may only carry a relative target. Sweep the raw bytes for an
+            // "*.exe" in ANSI or UTF-16 and keep the first plausible name.
+            return SweepExe(b);
+        }
+
+        static bool EndsExe(string s)
+        {
+            return !string.IsNullOrEmpty(s) && s.Length > 4 &&
+                   s.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+        }
+
+        static string ExeName(string path)
+        {
+            if (!EndsExe(path)) return null;
+            int cut = path.LastIndexOfAny(new char[] { '\\', '/' });
+            string name = cut >= 0 ? path.Substring(cut + 1) : path;
+            if (name.Length < 5) return null;
+            return name.ToLowerInvariant();
+        }
+
+        static int SafeU32(byte[] b, int off)
+        {
+            if (off < 0 || off + 4 > b.Length) return 0;
+            return (int)BitConverter.ToUInt32(b, off);
+        }
+
+        static string AnsiZ(byte[] b, int off)
+        {
+            if (off <= 0 || off >= b.Length) return null;
+            int i = off;
+            while (i < b.Length && b[i] != 0) i++;
+            if (i <= off) return null;
+            return Encoding.Default.GetString(b, off, i - off);
+        }
+
+        static string WideZ(byte[] b, int off)
+        {
+            if (off <= 0 || off + 1 >= b.Length) return null;
+            int i = off;
+            while (i + 1 < b.Length && (b[i] != 0 || b[i + 1] != 0)) i += 2;
+            if (i <= off) return null;
+            return Encoding.Unicode.GetString(b, off, i - off);
+        }
+
+        /// <summary>Finds the first "something.exe" in the file, ANSI or UTF-16 encoded.</summary>
+        static string SweepExe(byte[] b)
+        {
+            for (int i = 0; i + 4 <= b.Length; i++)
+            {
+                bool ansi = (b[i] == (byte)'.' && i + 4 <= b.Length &&
+                             (b[i + 1] | 0x20) == (byte)'e' && (b[i + 2] | 0x20) == (byte)'x' && (b[i + 3] | 0x20) == (byte)'e');
+                bool utf16 = i + 8 <= b.Length && b[i] == (byte)'.' && b[i + 1] == 0 &&
+                             (b[i + 2] | 0x20) == (byte)'e' && b[i + 3] == 0 &&
+                             (b[i + 4] | 0x20) == (byte)'x' && b[i + 5] == 0;
+                if (!ansi && !utf16) continue;
+                int back = i;
+                if (utf16)
+                {
+                    while (back - 2 >= 0 && b[back - 1] == 0 &&
+                           b[back - 2] >= 0x20 && b[back - 2] < 0x7F) back -= 2;
+                    if (i - back < 2) continue;
+                    string w = Encoding.Unicode.GetString(b, back, i + 8 - back);
+                    string n = ExeName(w);
+                    if (n != null) return n;
+                }
+                else
+                {
+                    while (back - 1 >= 0 && b[back - 1] >= 0x20 && b[back - 1] < 0x7F) back--;
+                    if (i - back < 2) continue;
+                    string a = Encoding.Default.GetString(b, back, i + 4 - back);
+                    string n = ExeName(a);
+                    if (n != null) return n;
+                }
+            }
+            return null;
         }
 
         /// <summary>
