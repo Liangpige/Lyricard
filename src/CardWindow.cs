@@ -152,8 +152,6 @@ namespace Amc
         DateTime _lineShownAt = DateTime.Now;
         string _lineText = "";
         bool _lineFaded;
-        string _offsetToast;
-        DateTime _offsetToastUntil = DateTime.MinValue;
         DateTime _lineChangeAt = DateTime.MinValue;
         int _lineChangeStreak;
         byte[] _lastArt;
@@ -1953,13 +1951,18 @@ namespace Amc
             // changes when the position crosses the next timestamp, and a long line can sit six
             // seconds away -- which made these buttons feel dead. Drop the anti-bounce guard (a
             // nudge may legitimately rewind a line), repaint, and flash the new value.
-            _lineIdx = -1;
-            _offsetToast = Strings.F(delta > 0 ? "nudge.early" : "nudge.late",
-                Math.Abs(delta).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture),
-                (_cfg.LyricOffset > 0 ? "+" : "") + _cfg.LyricOffset.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
-            _offsetToastUntil = DateTime.Now.AddMilliseconds(1500);
             LyricsService.Log("nudge " + (delta > 0 ? "+" : "") + delta.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " offset=" + _cfg.LyricOffset.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+            _lineIdx = -1;
             try { UpdateLyric(); } catch { }
+            // No text feedback: the card answers with the same little hop it makes when the lyric
+            // advances, so the click is felt without printing numbers over the song.
+            try
+            {
+                _lineShownAt = DateTime.Now;
+                _lineFaded = false;
+                HopLyric();
+            }
+            catch { }
         }
 
         /// <summary>Click-through on/off. While it is on the card stops receiving mouse input
@@ -3112,10 +3115,6 @@ namespace Amc
             // while lyrics are loading.
             if (idx < 0) text = TxtWait;
             else text = lines[idx].Text;
-            // While a nudge is fresh, the offset value itself is the useful thing to show: the line
-            // text would not change for up to six seconds after pressing the button.
-            if (_offsetToast != null && DateTime.Now < _offsetToastUntil) text = _offsetToast;
-            else _offsetToast = null;
 
             if (text != _lineText)
             {
@@ -3132,17 +3131,25 @@ namespace Amc
                 _lineShownAt = DateTime.Now;
                 _lineFaded = false;
                 _lyric.Text = CapChars(text, ModuleKind.Lyrics);
-                Animate(_lyric, 1.0, 260);
-                var tt = (TranslateTransform)_lyric.RenderTransform;
-                var slide = new DoubleAnimation(6, 0, TimeSpan.FromMilliseconds(300));
-                slide.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
-                tt.BeginAnimation(TranslateTransform.YProperty, slide);
+                HopLyric();
             }
             else if (!_lineFaded && (DateTime.Now - _lineShownAt).TotalSeconds > 6.0)
             {
                 _lineFaded = true;
                 Animate(_lyric, 0.55, 900);
             }
+        }
+
+        /// <summary>The little "new line" gesture: fade up and slide 6px from below. Used both by a
+        /// real line change and by a manual offset nudge, so the two feel like the same event.</summary>
+        void HopLyric()
+        {
+            Animate(_lyric, 1.0, 260);
+            var tt = _lyric.RenderTransform as TranslateTransform;
+            if (tt == null) return;
+            var slide = new DoubleAnimation(6, 0, TimeSpan.FromMilliseconds(300));
+            slide.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+            tt.BeginAnimation(TranslateTransform.YProperty, slide);
         }
 
         void Animate(UIElement el, double to, int ms)
