@@ -51,6 +51,12 @@ if (hr != 0) return false;
 
 另加一条**默认关闭**的追踪开关：设环境变量 `AMC_FS_TRACE=1` 才把每次检测的 `fg / rect / moninfo / shqns` 写进日志。这次正是靠它在「所有调用都返回成功」的表象下定位到那一行；正常使用不会有这些日志。
 
+## 顺带修的第二个问题：桌面也被当成全屏
+
+修好崩溃之后立刻发现一个一直藏着的误判：**桌面（`Progman`）本身也是「铺满显示器的窗口」**。点一下壁纸、关掉最后一个窗口、或用 Alt+Tab 回到桌面时，前台窗口就是它，于是卡片会被当成「有应用全屏了」收起来——崩溃修好之后这个误判才显形。
+
+`FullscreenWatch` 现在先做一步排除：前台窗口的类名如果是 `Progman` / `WorkerW` / `Shell_TrayWnd` / `Shell_SecondaryTrayWnd` / `MultitaskingViewFrame` 等 shell 表面，直接判定「不是全屏应用」。
+
 ## 验证
 
 | 场景 | 修复前 | 修复后 |
@@ -58,6 +64,7 @@ if (hr != 0) return false;
 | 开关打开，停在桌面 | 启动约 1 秒进程消失 | 持续存活，`fs shqns hr=0 state=5` |
 | 打开一个无边框全屏窗口 | 崩溃 | `fullscreen hide=on`，卡片收起，进程存活 |
 | 关闭该窗口 | — | `fullscreen hide=off`，卡片回来，进程存活 |
+| 桌面获得焦点（点壁纸 / 关掉最后一个窗口） | 卡片被收起 | 不收，日志 `fs fg is shell/desktop` |
 | `AMC_FS_TRACE` 未设置 | — | 日志里没有任何 `fs ` 行 |
 
 ## 如果你已经被这个问题卡住
