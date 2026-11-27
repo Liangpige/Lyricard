@@ -1251,7 +1251,7 @@ namespace Amc
             RegexOptions.IgnoreCase);
 
         static readonly Regex VersionTagRx = new Regex(
-            @"(?<![a-z])(live|remix|dj|acoustic|instrumental|karaoke|off vocal|cover|slowed|reverb|nightcore|sped up|concert|remaster(?:ed)?|demo|session)(?![a-z])|\d\.\d+x|(?:伴奏|纯音乐|纯音|铃声|抖音版|女声版|男声版|粤语版|钢琴版|指弹版|演唱会|现场版|现场|音乐节|原声带|变速|倍速|加速版|降速版|慢速|快速|混音|翻唱|cover版|合唱版)",
+            @"(?<![a-z])(live|remix|dj|acoustic|instrumental|karaoke|off vocal|cover|slowed|reverb|nightcore|sped up|concert|remaster(?:ed)?|demo|session)(?![a-z])|\d\.\d+x|(?:伴奏|纯音乐|纯音|铃声|抖音版|女声版|男声版|粤语版|钢琴版|指弹版|演唱会|现场版|现场|音乐节|原声带|变速|倍速|加速版|降速版|慢速|快速|混音|翻唱|cover版|合唱版|3d|环绕|母带|重制)",
             RegexOptions.IgnoreCase);
 
         static string VersionTags(string s)
@@ -1296,9 +1296,12 @@ namespace Amc
             {
                 string plainCand = TextUtil.StripDecorations(TextUtil.StripBrackets(c.Name)).Trim();
                 string plainOurs = TextUtil.StripDecorations(TextUtil.StripBrackets(title)).Trim();
-                bool extra = !string.Equals(plainCand, plainOurs, StringComparison.OrdinalIgnoreCase)
-                             && TextUtil.Similar(plainCand, plainOurs) > 0.95;
-                if (extra) ts *= 0.93;
+                // "稻香 (3D环绕版)" strips down to exactly our title -- that IS the extra case.
+                // (The first version of this test had it backwards and let every variant through.)
+                bool nameDiffers = !string.Equals(c.Name.Trim(), title.Trim(), StringComparison.OrdinalIgnoreCase);
+                bool sameCore = string.Equals(plainCand, plainOurs, StringComparison.OrdinalIgnoreCase)
+                                || TextUtil.Similar(plainCand, plainOurs) > 0.95;
+                if (nameDiffers && sameCore) ts *= 0.90;
             }
 
             double asim = TextUtil.ArtistSimilar(artist, c.Artist);
