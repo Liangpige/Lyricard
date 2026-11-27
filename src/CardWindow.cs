@@ -3339,13 +3339,17 @@ namespace Amc
             // Kugou hands out its "no cover" disc for a while and then publishes the real sleeve
             // minutes later, so a finished attempt must not block the key for good -- retry slowly.
             if (_artFallbackKey == key && (now - _artFallbackAt).TotalSeconds < 20.0) return;
-            if ((now - _artProbeAt).TotalSeconds < 1.2) return;
+            // Wait longer than Smtc's 2 s artwork settle window. While the poll is still deciding,
+            // Art is null on purpose, and firing the online lookup then put a look-alike sleeve on
+            // the card a beat before the player's own (correct) one arrived.
+            if ((now - _artProbeAt).TotalSeconds < 2.6) return;
 
             _artFetching = true;
             string title = np.Title;
             var th = new System.Threading.Thread(delegate()
             {
-                byte[] bytes = CoverArt.Fetch(title, artist);
+                string album = np.Album ?? "";
+                byte[] bytes = CoverArt.Fetch(title, artist, album);
                 Dispatcher.BeginInvoke(new Action(delegate()
                 {
                     _artFetching = false;

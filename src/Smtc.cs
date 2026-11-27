@@ -95,6 +95,10 @@ namespace Amc
         DateTime _artDeadline;         // accept an unchanged picture after this (same album)
         DateTime _artWatchUntil;       // keep listening this long after a same-album accept
         DateTime _artNextTry;
+        // Slow-watch cadence. Players hand out small sleeves (NetEase: 1.5-5 KB) and big ones
+        // (Apple Music: ~290 KB); reading a 290 KB thumbnail every 1.5 s for a whole song is a lot
+        // of churn for a check that almost never fires, so the big ones are watched more slowly.
+        double _artWatchSec = 1.5;
         int _artTries;
         bool _artLoggedStale;
         string _artTrackKey = "";      // Aumid|Title of the track the artwork belongs to
@@ -548,10 +552,12 @@ namespace Amc
             }
             catch { }
 
-            // Identity for the artwork is "which song on which player". The artist is left out on
-            // purpose: players often publish title and artist in different polls, and treating the
-            // second poll as another new track would drop a perfectly good cover and re-read it.
-            string trackId = (np.Aumid ?? "") + "|" + (np.Title ?? "");
+            // Identity for the artwork is "which song on which player, from which release". The
+            // artist is still left out on purpose: players publish title and artist in different
+            // polls, and a second pending cycle would drop a perfectly good cover and re-read it.
+            // The album is IN, because the same song appears on a single, on the album and on a
+            // compilation: without it, a switch between those releases kept the previous sleeve.
+            string trackId = (np.Aumid ?? "") + "|" + (np.Title ?? "") + "|" + (np.Album ?? "");
             bool newArtTrack = trackId != _artTrackKey;
             _artTrackKey = trackId;
             string key = trackId;
@@ -603,11 +609,13 @@ namespace Amc
                         _artBytes = bytes;
                         _artHash = h;
                         _artPending = false;
-                        // "changed" means this really is the new track's cover. An unchanged picture
-                        // is either a same-album run (legitimate) or a slow player, so keep a slow
-                        // watch for a while and let a late one win.
-                        _artWatchUntil = changed ? DateTime.MinValue : DateTime.Now.AddSeconds(30);
-                        _artNextTry = DateTime.Now.AddSeconds(2);
+                        // Keep a slow watch running even after a confirmed change. A player can swap
+                        // the thumbnail without touching title, artist or album -- the same song on
+                        // another release does exactly that, and NetEase publishes no AlbumTitle at
+                        // all, so no metadata test can see the switch. Watching the bytes can.
+                        _artWatchUntil = DateTime.Now.AddHours(6);
+                        _artWatchSec = bytes.Length > 65536 ? 4.0 : 1.5;
+                        _artNextTry = DateTime.Now.AddSeconds(_artWatchSec);
                         LyricsService.Log("art ok " + bytes.Length + " bytes changed=" + (changed ? "True" : "False"));
                     }
                     else
@@ -665,22 +673,25 @@ namespace Amc
                         {
                             _artBytes = bytes;
                             _artHash = h;
-                            _artWatchUntil = DateTime.MinValue;
+                            // Stay armed: the next release of the same song arrives the same way.
+                            _artWatchUntil = DateTime.Now.AddHours(6);
+                            _artWatchSec = bytes.Length > 65536 ? 4.0 : 1.5;
+                            _artNextTry = DateTime.Now.AddSeconds(_artWatchSec);
                             LyricsService.Log("art late " + bytes.Length + " bytes");
                         }
                         else
                         {
-                            _artNextTry = DateTime.Now.AddSeconds(2);
+                            _artNextTry = DateTime.Now.AddSeconds(_artWatchSec);
                         }
                     }
                     else
                     {
-                        _artNextTry = DateTime.Now.AddSeconds(2);
+                        _artNextTry = DateTime.Now.AddSeconds(_artWatchSec);
                     }
                 }
                 catch
                 {
-                    _artNextTry = DateTime.Now.AddSeconds(2);
+                    _artNextTry = DateTime.Now.AddSeconds(_artWatchSec);
                 }
             }
 

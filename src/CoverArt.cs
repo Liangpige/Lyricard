@@ -32,10 +32,21 @@ namespace Amc
         public static bool LooksLikePlaceholder(byte[] bytes, out string note)
         {
             note = "";
-            // Kugou's tile is a four-and-a-bit kilobyte PNG; a real cover at this size never is.
-            if (bytes != null && bytes.Length > 0 && bytes.Length <= 6000)
+            // Only truly broken junk is rejected on size alone. Do NOT raise this to catch small
+            // tiles: NetEase serves perfectly good covers at 1.5-5.3 KB (measured live), and a 6 KB
+            // gate there swapped real sleeves for an online look-alike of another release. A drawn
+            // placeholder is recognised by the pixel tests below, not by its byte count.
+            if (bytes != null && bytes.Length > 0 && bytes.Length <= 512)
             {
-                note = "small=" + bytes.Length;
+                note = "junk=" + bytes.Length;
+                return true;
+            }
+            // Kugou's drawn tile really is a four-kilobyte PNG, and the byte count is the cheapest
+            // way to recognise it -- but only for PNG. NetEase serves real JPEG sleeves at 1.5-5.3 KB
+            // and those must go through the pixel tests below, not be thrown away for being small.
+            if (bytes != null && bytes.Length <= 6000 && IsPng(bytes))
+            {
+                note = "png-tile=" + bytes.Length;
                 return true;
             }
             try
@@ -128,18 +139,27 @@ namespace Amc
         /// <summary>Track key -> cover bytes. Small (a few dozen KB), so it lives for the session.</summary>
         static readonly Dictionary<string, byte[]> Cache = new Dictionary<string, byte[]>();
 
-        static readonly Regex EntryRx = new Regex(
-            "\"songname\"\\s*:\\s*\"(?<name>(?:[^\"\\\\]|\\\\.)*)\"[\\s\\S]{0,4000}?\"albummid\"\\s*:\\s*\"(?<mid>[0-9A-Za-z]+)\"",
-            RegexOptions.Compiled);
+        // QQ's song object puts albummid FIRST and songname LAST, so a "songname ... albummid"
+        // pattern always reaches into the NEXT hit and pairs this song with that hit's album --
+        // which is how a same-titled track came back with another release's sleeve. Split on
+        // albummid instead: the span between two albummids is exactly one song object, so every
+        // field stays with its own song.
+        static readonly Regex AlbumMidRx = new Regex(@"""albummid""\s*:\s*""(?<mid>[0-9A-Za-z]+)""", RegexOptions.Compiled);
+        static readonly Regex SongNameRx = new Regex(@"""songname""\s*:\s*""(?<v>(?:[^""\\]|\\.)*)""", RegexOptions.Compiled);
+        static readonly Regex AlbumNameRx = new Regex(@"""albumname""\s*:\s*""(?<v>(?:[^""\\]|\\.)*)""", RegexOptions.Compiled);
+        static readonly Regex SingerBlockRx = new Regex(@"""singer""\s*:\s*\[(?<v>[\s\S]*?)\]", RegexOptions.Compiled);
+        static readonly Regex SingerNameRx = new Regex(@"""name""\s*:\s*""(?<v>(?:[^""\\]|\\.)*)""", RegexOptions.Compiled);
 
         static readonly Regex DecoRx = new Regex(@"\\u([0-9a-fA-F]{4})", RegexOptions.Compiled);
 
         /// <summary>
         /// Cover for this track, or null. Blocks on the network -- call from a worker thread.
+        /// The album is part of the cache key and of the match: one song can sit on a single, on the
+        /// album and on a compilation, and the player tells us which one is playing.
         /// </summary>
-        public static byte[] Fetch(string title, string artist)
+        public static byte[] Fetch(string title, string artist, string album)
         {
-            string key = (title ?? "") + "\u0001" + (artist ?? "");
+            string key = (title ?? "") + "\u0001" + (artist ?? "") + "\u0001" + (album ?? "");
             lock (Cache)
             {
                 byte[] hit;
@@ -149,7 +169,7 @@ namespace Amc
             byte[] bytes = null;
             try
             {
-                string mid = FindAlbumMid(title, artist);
+                string mid = FindAlbumMid(title, artist, album);
                 if (!string.IsNullOrEmpty(mid))
                 {
                     string url = "https://y.gtimg.cn/music/photo_new/T002R300x300M000" + mid + ".jpg";
@@ -171,8 +191,11 @@ namespace Amc
             return bytes;
         }
 
-        /// <summary>Best album mid from the QQ search hits, matched on title+artist.</summary>
-        static string FindAlbumMid(string title, string artist)
+        /// <summary>
+        /// Best album mid among the QQ search hits: the title has to match, then the release we are
+        /// actually playing wins over another release of the same song, then the artist.
+        /// </summary>
+        static string FindAlbumMid(string title, string artist, string album)
         {
             if (string.IsNullOrEmpty(title)) return null;
             string q = string.IsNullOrEmpty(artist) ? title : title + " " + artist;
@@ -180,28 +203,75 @@ namespace Amc
                               + Uri.EscapeDataString(q), "https://y.qq.com/");
             if (string.IsNullOrEmpty(json)) return null;
 
-            string wantTitle = TextUtil.Clean(TextUtil.StripBrackets(title));
-            string wantArtist = TextUtil.Clean(artist);
-            string bestMid = null;
-            double bestScore = 0;
-            foreach (Match m in EntryRx.Matches(json))
-            {
-                string name = TextUtil.Clean(TextUtil.StripBrackets(Unescape(m.Groups["name"].Value)));
-                string mid = m.Groups["mid"].Value;
-                if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(mid)) continue;
+            string wantTitle = Norm(title);
+            string wantArtist = Norm(artist);
+            string wantAlbum = Norm(album);
+            if (wantTitle.Length == 0) return null;
 
-                double score = 0;
-                if (name == wantTitle) score = 1.0;
-                else if (name.Length > 0 && wantTitle.Length > 0
-                         && (name.Contains(wantTitle) || wantTitle.Contains(name))) score = 0.85;
-                if (score <= 0) continue;
-                // The artist rarely appears inside the hit object itself; a title match plus a
-                // sane position wins. Anything but an exact title match has to be clearly better
-                // than what we already have.
-                if (score > bestScore) { bestScore = score; bestMid = mid; }
-                if (bestScore >= 1.0) break;
+            MatchCollection mids = AlbumMidRx.Matches(json);
+            string bestMid = null;
+            double bestScore = double.MinValue;
+            for (int i = 0; i < mids.Count; i++)
+            {
+                int from = mids[i].Index;
+                int to = (i + 1 < mids.Count) ? mids[i + 1].Index : json.Length;
+                if (to - from < 40 || to - from > 8000) continue;
+
+                string hit = json.Substring(from, to - from);
+                string name = Norm(Unescape(Field(SongNameRx, hit)));
+                if (name.Length == 0) continue;
+
+                double titleScore = name == wantTitle ? 1.0
+                    : (name.Contains(wantTitle) || wantTitle.Contains(name)) ? 0.85
+                    : 0.0;
+                if (titleScore <= 0) continue;
+
+                string hitAlbum = Norm(Unescape(Field(AlbumNameRx, hit)));
+                bool albumKnown = wantAlbum.Length > 0 && hitAlbum.Length > 0;
+                bool albumHit = albumKnown
+                    && (hitAlbum == wantAlbum || hitAlbum.Contains(wantAlbum) || wantAlbum.Contains(hitAlbum));
+
+                bool artistHit = false;
+                Match sb = SingerBlockRx.Match(hit);
+                if (sb.Success && wantArtist.Length > 0)
+                {
+                    string singers = "";
+                    foreach (Match nm in SingerNameRx.Matches(sb.Groups["v"].Value))
+                        singers += Norm(Unescape(nm.Groups["v"].Value)) + " ";
+                    artistHit = singers.Length > 0 && singers.Contains(wantArtist);
+                }
+
+                double score = titleScore;
+                if (albumHit) score += 2.0;          // the release on screen, not a look-alike
+                else if (albumKnown) score -= 0.4;   // a different release of the same song
+                if (artistHit) score += 0.6;
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestMid = mids[i].Groups["mid"].Value;
+                }
             }
             return bestMid;
+        }
+
+        static string Field(Regex rx, string block)
+        {
+            Match m = rx.Match(block);
+            return m.Success ? m.Groups["v"].Value : "";
+        }
+
+        /// <summary>Lower-case, punctuation-free form used for every comparison in this file.</summary>
+        static string Norm(string s)
+        {
+            return TextUtil.Clean(TextUtil.StripBrackets(s ?? ""));
+        }
+
+        /// <summary>True when the bytes start with the PNG signature (Kugou draws its tile as PNG).</summary>
+        static bool IsPng(byte[] b)
+        {
+            return b.Length >= 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47
+                && b[4] == 0x0D && b[5] == 0x0A && b[6] == 0x1A && b[7] == 0x0A;
         }
 
         static string Unescape(string s)
@@ -226,8 +296,8 @@ namespace Amc
                 req.UserAgent = UserAgent;
                 req.Headers.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
                 if (!string.IsNullOrEmpty(referer)) req.Referer = referer;
-                req.Timeout = 4000;
-                req.ReadWriteTimeout = 4000;
+                req.Timeout = 8000;
+                req.ReadWriteTimeout = 8000;
                 using (var resp = (HttpWebResponse)req.GetResponse())
                 using (var sr = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
                     return sr.ReadToEnd();
@@ -245,8 +315,8 @@ namespace Amc
             var req = (HttpWebRequest)WebRequest.Create(url);
             req.UserAgent = UserAgent;
             if (!string.IsNullOrEmpty(referer)) req.Referer = referer;
-            req.Timeout = 5000;
-            req.ReadWriteTimeout = 5000;
+            req.Timeout = 8000;
+            req.ReadWriteTimeout = 8000;
             using (var resp = (HttpWebResponse)req.GetResponse())
             using (var ms = new MemoryStream())
             {

@@ -254,7 +254,7 @@ namespace Amc
                         catch (Exception ex) { LyricsService.Log("page startup failed: " + ex.Message); }
                     });
                 }
-                // --cover "title|artist": exercise the online cover fallback and log the result.
+                // --cover "title|artist|album": exercise the online cover fallback and log the result.
                 string coverArg = ArgValue(args, "--cover");
                 if (coverArg != null)
                 {
@@ -263,8 +263,9 @@ namespace Amc
                         string[] parts = coverArg.Split('|');
                         string ct = parts[0];
                         string ca = parts.Length > 1 ? parts[1] : "";
-                        byte[] cb = CoverArt.Fetch(ct, ca);
-                        LyricsService.Log("cover test t=" + ct + " a=" + ca + " -> " + (cb == null ? "none" : cb.Length + " bytes"));
+                        string cal = parts.Length > 2 ? parts[2] : "";
+                        byte[] cb = CoverArt.Fetch(ct, ca, cal);
+                        LyricsService.Log("cover test t=" + ct + " a=" + ca + " al=" + cal + " -> " + (cb == null ? "none" : cb.Length + " bytes"));
                     });
                     coverWorker.IsBackground = true;
                     coverWorker.Start();
