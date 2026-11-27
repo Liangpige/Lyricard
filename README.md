@@ -1,11 +1,11 @@
-# Lyricard
+﻿# Lyricard
 
 **一张浮在桌面上的歌词卡片。** 默认盯着 Apple Music，也能跟网易云、QQ 音乐、酷狗、MD3Music、Spotify 等 9 家播放器 —— 谁在播就显示谁。
 
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.3.4-blue.svg)](https://github.com/Liangpige/Lyricard/releases/tag/v0.3.4)
+[![Version](https://img.shields.io/badge/version-v0.3.5-blue.svg)](https://github.com/Liangpige/Lyricard/releases/tag/v0.3.5)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#自己编译)
 
 ![](docs/card.png)

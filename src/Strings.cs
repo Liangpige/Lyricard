@@ -79,8 +79,8 @@ namespace Amc
             Both("lbl.barsAttack", "上升速度", "Attack");
             Both("lbl.barsRelease", "回落速度", "Release");
             Both("lbl.barsColor", "频谱颜色", "Spectrum colour");
-            Both("app.version", "v0.3.4", "v0.3.4");
-            Both("app.tip", "Lyricard v0.3.4 · 桌面歌词卡片", "Lyricard v0.3.4 · desktop lyric card");
+            Both("app.version", "v0.3.5", "v0.3.5");
+            Both("app.tip", "Lyricard v0.3.5 · 桌面歌词卡片", "Lyricard v0.3.5 · desktop lyric card");
 
             Both("menu.showHide", "显示 / 隐藏", "Show / hide");
             Both("menu.settings", "个性化设置…", "Appearance…");
