@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Amc
 {
@@ -17,18 +17,28 @@ namespace Amc
     public static class FullscreenWatch
     {
         /// <summary>True when a fullscreen window owns the monitor that holds <paramref name="card"/>.</summary>
+        static readonly bool Trace = Environment.GetEnvironmentVariable("AMC_FS_TRACE") == "1";
+
+        static void T(string s) { if (Trace) Amc.LyricsService.Log("fs " + s); }
+
         public static bool IsActiveOnCardMonitor(IntPtr card)
         {
             try
             {
+                T("enter card=" + card.ToInt64().ToString("x"));
                 IntPtr fg = FullscreenNative.GetForegroundWindow();
+                T("fg=" + fg.ToInt64().ToString("x"));
                 if (fg != IntPtr.Zero && fg != card && FullscreenNative.IsWindowVisible(fg)
                     && CoversCardMonitor(fg, card))
                     return true;
 
                 // Exclusive fullscreen hides the window from ordinary hit-testing but the shell still
                 // reports it; treat it as fullscreen no matter which monitor it grabbed.
-                int state = FullscreenNative.SHQueryUserNotificationState();
+                T("shqns enter");
+                int state;
+                int hr = FullscreenNative.SHQueryUserNotificationState(out state);
+                T("shqns hr=" + hr + " state=" + state);
+                if (hr != 0) return false;
                 return state == 2 /* QUNS_BUSY */ || state == 3 /* QUNS_RUNNING_D3D_FULL_SCREEN */;
             }
             catch (Exception ex) { Amc.LyricsService.Log("fullscreen check failed (" + ex.GetType().Name + ")"); return false; }
@@ -37,18 +47,25 @@ namespace Amc
         static bool CoversCardMonitor(IntPtr fg, IntPtr card)
         {
             FullscreenNative.RECT cr;
+            T("rect card");
             if (!FullscreenNative.GetWindowRect(card, out cr)) return false;
+            T("rect card ok");
             IntPtr mon = FullscreenNative.MonitorFromWindow(card, FullscreenNative.MONITOR_DEFAULTTONEAREST);
+            T("mon card=" + mon.ToInt64().ToString("x"));
             var mi = new FullscreenNative.MONITORINFO();
             mi.cbSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(FullscreenNative.MONITORINFO));
+            T("moninfo enter");
             if (!FullscreenNative.GetMonitorInfo(mon, ref mi)) return false;
+            T("moninfo ok");
 
             // The fullscreen window must sit on that same monitor, not on a second screen.
             IntPtr fgMon = FullscreenNative.MonitorFromWindow(fg, FullscreenNative.MONITOR_DEFAULTTONEAREST);
             if (fgMon != mon) return false;
 
             FullscreenNative.RECT wr;
+            T("rect fg");
             if (!FullscreenNative.GetWindowRect(fg, out wr)) return false;
+            T("rect fg ok " + wr.Left + "," + wr.Top + "," + wr.Right + "," + wr.Bottom);
             var m = mi.rcMonitor;
             const int slack = 2;
             return wr.Left <= m.Left + slack && wr.Top <= m.Top + slack
@@ -72,11 +89,15 @@ namespace Amc
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         public static extern IntPtr MonitorFromWindow(IntPtr hWnd, int flags);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
         public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO mi);
 
+        // HRESULT SHQueryUserNotificationState(QUERY_USER_NOTIFICATION_STATE *pquns) -- it takes an
+        // OUT pointer, it does not return the state. Declaring it with no argument makes the shell
+        // write four bytes through whatever happens to be in RCX, which corrupts the CLR heap and
+        // kills the process a few ticks later (0xC0000005 in clr.dll, exit 0x80131506).
         [System.Runtime.InteropServices.DllImport("shell32.dll")]
-        public static extern int SHQueryUserNotificationState();
+        public static extern int SHQueryUserNotificationState(out int state);
 
         public struct RECT { public int Left, Top, Right, Bottom; }
 
