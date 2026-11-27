@@ -153,6 +153,11 @@ namespace Amc
         string _lineText = "";
         bool _lineFaded;
         byte[] _lastArt;
+        // The brush that is actually on the disc. Re-applying a byte[] costs a decode + tone pass;
+        // this is what a shape switch puts back, and what the safety net below restores if the
+        // fill ever ends up empty.
+        Brush _artBrush;
+        DateTime _artFillRetryAt = DateTime.MinValue;
         bool _artPending;
         DateTime _artPendingAt;
         bool _suppressed;
@@ -2074,6 +2079,8 @@ namespace Amc
             if (_artSquare != null)
             {
                 _artSquare.Visibility = square ? Visibility.Visible : Visibility.Collapsed;
+                if (_artSquare.Fill == null && _artBrush != null) _artSquare.Fill = _artBrush;
+                if (_artSquare.Fill == null && _artEllipse != null && _artEllipse.Fill != null) _artSquare.Fill = _artEllipse.Fill;
             }
             if (_artSquareRing != null) _artSquareRing.Visibility = square ? Visibility.Visible : Visibility.Collapsed;
             if (square)
@@ -2740,11 +2747,24 @@ namespace Amc
             bool holderArt = rawArt != null && IsHolderArt(rawArt);
             if (rawArt != null && !holderArt && !ReferenceEquals(rawArt, _lastArt))
             {
-                _lastArt = rawArt;
                 _artFallbackKey = null;
-                ApplyArt(rawArt);
+                // Only remember the bytes once they are on screen; a refused apply must stay retryable.
+                _lastArt = ApplyArt(rawArt) ? rawArt : null;
             }
             else if (rawArt == null || holderArt) TryCoverFallback(np, artistOut, DateTime.Now);
+
+            // Safety net: if the disc has a known cover cached but no fill, put it back. Any future
+            // code that replaces or clears the ellipse, or an apply that landed on a stale element,
+            // shows the cover instead of an empty hole until the next track.
+            DateTime artNow = DateTime.Now;
+            if (_artBrush != null && _artEllipse != null && _artEllipse.Fill == null
+                && (artNow - _artFillRetryAt).TotalSeconds > 2.0)
+            {
+                _artFillRetryAt = artNow;
+                _artEllipse.Fill = _artBrush;
+                if (_artSquare != null) _artSquare.Fill = _artBrush;
+                LyricsService.Log("art restore from cache");
+            }
 
             // progress: run our own clock at 1x and *slew* toward the SMTC estimate instead of
             // snapping to it. Apple's Position only lands every ~3s, so snapping made the lyric
@@ -3343,7 +3363,7 @@ namespace Amc
             th.Start();
         }
 
-        void ApplyArt(byte[] bytes)
+        bool ApplyArt(byte[] bytes)
         {
             try
             {
@@ -3393,6 +3413,7 @@ namespace Amc
                 }
                 _artEllipse.Fill = brush;
                 if (_artSquare != null) _artSquare.Fill = brush;
+                _artBrush = brush;
                 if (firstCover) FadeIn(_artEllipse, 280);
                 _artEllipse.Opacity = 1.0;
                 _artPending = false;
@@ -3406,8 +3427,16 @@ namespace Amc
                     (byte)Math.Min(255, 14 + c.B * 0.18));
                 _hasArtBg = true;
                 ApplyBackdrop();
+                return true;
             }
-            catch (Exception ex) { LyricsService.Log("applyart fail " + ex.GetType().Name + " " + ex.Message + "\n" + ex.StackTrace); }
+            catch (Exception ex)
+            {
+                // A half-decoded bitmap can throw anywhere in here. Returning false lets the caller
+                // forget the bytes so the next tick tries again -- otherwise _lastArt already matched
+                // and the disc stayed empty until the app was restarted.
+                LyricsService.Log("applyart fail " + ex.GetType().Name + " " + ex.Message + "\n" + ex.StackTrace);
+                return false;
+            }
         }
 
         static Color AverageColor(BitmapSource src)
