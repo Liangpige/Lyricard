@@ -189,6 +189,8 @@ namespace Amc
 
             SourceInitialized += OnSourceInitialized;
             Loaded += OnLoaded;
+            DpiChanged += delegate { ScheduleClamp(); };
+            Closed += delegate { DetachDisplayHook(); };
             Closing += delegate { RememberPosition(); _cfg.Save(); };
 
             _timer = new DispatcherTimer(DispatcherPriority.Render);
@@ -1553,6 +1555,7 @@ namespace Amc
             }
             Opacity = _cfg.Opacity;
             PlaceInitial();
+            AttachDisplayHook();
             double dpx = 1.0;
             try
             {
@@ -1569,6 +1572,25 @@ namespace Amc
                 LyricsService.Log("measured w=" + ActualWidth.ToString("0.0", CultureInfo.InvariantCulture) +
                                   " h=" + ActualHeight.ToString("0.0", CultureInfo.InvariantCulture));
                 ApplyControlsPos();
+                ClampToScreen();
+                {   // sizing probe: who is narrower, the window or its content?
+                    FrameworkElement host = _artHost;
+                    LyricsService.Log("size-probe win=" + Width.ToString("0.0", CultureInfo.InvariantCulture)
+                        + " act=" + ActualWidth.ToString("0.0", CultureInfo.InvariantCulture)
+                        + " card=" + _card.ActualWidth.ToString("0.0", CultureInfo.InvariantCulture)
+                        + " content=" + _content.ActualWidth.ToString("0.0", CultureInfo.InvariantCulture)
+                        + " art=" + (host == null ? -1 : host.ActualWidth).ToString("0.0", CultureInfo.InvariantCulture)
+                        + " artLeft=" + (host == null ? -1 : Canvas.GetLeft(host)).ToString("0.0", CultureInfo.InvariantCulture)
+                        + " scale=" + _cfg.Scale.ToString("0.00", CultureInfo.InvariantCulture)
+                        + " hostScale=" + ((ScaleTransform)_shadowHost.LayoutTransform).ScaleX.ToString("0.00", CultureInfo.InvariantCulture)
+                        + " artPt=" + host.TranslatePoint(new Point(0, 0), this).ToString()
+                        + " hostW=" + _shadowHost.ActualWidth.ToString("0.0", CultureInfo.InvariantCulture)
+                        + " shape=" + (_cfg.ArtShape ?? "?")
+                        + " ell=" + (_artEllipse == null ? "-" : _artEllipse.Visibility + ( _artEllipse.Fill == null ? "/null" : "/fill"))
+                        + " sq=" + (_artSquare == null ? "-" : _artSquare.Visibility + (_artSquare.Fill == null ? "/null" : "/fill"))
+                        + " artHostOp=" + (_artHost == null ? -1 : _artHost.Opacity).ToString("0.00", CultureInfo.InvariantCulture)
+                        + " cardW=" + _card.ActualWidth.ToString("0.0", CultureInfo.InvariantCulture));
+                }
                 LyricsService.Log("layout title=" + _title.ActualHeight.ToString("0.0", CultureInfo.InvariantCulture) +
                                   " lyric=" + _lyric.ActualHeight.ToString("0.0", CultureInfo.InvariantCulture) +
                                   " bottom=" + _controls.ActualHeight.ToString("0.0", CultureInfo.InvariantCulture) +
@@ -1592,6 +1614,32 @@ namespace Amc
                                   " h=" + (_barFill.ActualHeight * DpiScale()).ToString("0.0", CultureInfo.InvariantCulture) +
                                   " w=" + _barFill.ActualWidth.ToString("0.0", CultureInfo.InvariantCulture));
             }), DispatcherPriority.Loaded);
+        }
+
+        EventHandler _displayHook;
+
+        void ScheduleClamp()
+        {
+            Dispatcher.BeginInvoke(new Action(delegate
+            {
+                ClampToScreen();
+                RememberPosition();
+                _cfg.Save();
+            }), DispatcherPriority.Loaded);
+        }
+
+        void AttachDisplayHook()
+        {
+            if (_displayHook != null) return;
+            _displayHook = delegate { ScheduleClamp(); };
+            try { Microsoft.Win32.SystemEvents.DisplaySettingsChanged += _displayHook; } catch { }
+        }
+
+        void DetachDisplayHook()
+        {
+            if (_displayHook == null) return;
+            try { Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= _displayHook; } catch { }
+            _displayHook = null;
         }
 
         static Rect WorkArea()
@@ -2660,8 +2708,10 @@ namespace Amc
             if (np.Art != null && !ReferenceEquals(np.Art, _lastArt))
             {
                 _lastArt = np.Art;
+                _artFallbackKey = null;
                 ApplyArt(np.Art);
             }
+            else if (np.Art == null) TryCoverFallback(np, artistOut, DateTime.Now);
 
             // progress: run our own clock at 1x and *slew* toward the SMTC estimate instead of
             // snapping to it. Apple's Position only lands every ~3s, so snapping made the lyric
@@ -2873,7 +2923,11 @@ namespace Amc
             // know report nothing useful (NetEase & friends). For everyone else a missing
             // duration means the file simply has no length to report (foobar2000 local files),
             // and guessing from possibly-wrong lyrics would invent a bogus progress.
-            if (!durTrusted && Players.IsLaggyTimeline(np.Aumid)
+            // Kugou (and the odd web player) sometimes report no length at all. When nothing was
+            // reported we are not "distrusting a number", we simply have none, so the last lyric
+            // timestamp is the only guess available -- for every player, not just the known-bad ones.
+            bool durMissing = dur2 < 1.0;
+            if ((durMissing || (Players.IsLaggyTimeline(np.Aumid) && !durTrusted))
                 && _doc != null && _doc.Lines != null && _doc.Lines.Count > 0)
                 dur2 = _doc.Lines[_doc.Lines.Count - 1].Time + 5.0;
             else if (!durTrusted) dur2 = 0;
@@ -3178,6 +3232,54 @@ namespace Amc
                 try { _artRotate.ApplyAnimationClock(RotateTransform.AngleProperty, null); } catch { }
                 _artRotate.Angle = 0;
             }
+        }
+
+        // ---- artwork fallback -------------------------------------------------
+        // A player can publish a track and never hand out a thumbnail (Kugou does this for some
+        // records). After a short grace period we ask an online source once per track and paint
+        // whatever comes back; a real thumbnail from the player always takes precedence.
+        string _artFallbackKey;
+        string _artProbeKey;
+        DateTime _artProbeAt;
+        bool _artFetching;
+
+        void TryCoverFallback(Snapshot np, string artist, DateTime now)
+        {
+            if (string.IsNullOrEmpty(np.Title)) return;
+            string key = np.Key ?? "";
+            if (key != _artProbeKey)
+            {
+                _artProbeKey = key;
+                _artProbeAt = now;
+                return;
+            }
+            if (_artFetching || _artFallbackKey == key) return;
+            if ((now - _artProbeAt).TotalSeconds < 1.2) return;
+
+            _artFetching = true;
+            string title = np.Title;
+            var th = new System.Threading.Thread(delegate()
+            {
+                byte[] bytes = CoverArt.Fetch(title, artist);
+                Dispatcher.BeginInvoke(new Action(delegate()
+                {
+                    _artFetching = false;
+                    if (bytes == null)
+                    {
+                        _artFallbackKey = key;
+                        return;
+                    }
+                    Snapshot cur = _smtc.Current;
+                    if (cur == null || (cur.Key ?? "") != key) return;
+                    _artFallbackKey = key;
+                    _lastArt = null;
+                    LyricsService.Log("art fallback " + bytes.Length + " bytes");
+                    ApplyArt(bytes);
+                }));
+            });
+            th.IsBackground = true;
+            th.Name = "cover-fallback";
+            th.Start();
         }
 
         void ApplyArt(byte[] bytes)

@@ -249,6 +249,22 @@ namespace Amc
                         catch (Exception ex) { LyricsService.Log("page startup failed: " + ex.Message); }
                     });
                 }
+                // --cover "title|artist": exercise the online cover fallback and log the result.
+                string coverArg = ArgValue(args, "--cover");
+                if (coverArg != null)
+                {
+                    var coverWorker = new System.Threading.Thread(delegate()
+                    {
+                        string[] parts = coverArg.Split('|');
+                        string ct = parts[0];
+                        string ca = parts.Length > 1 ? parts[1] : "";
+                        byte[] cb = CoverArt.Fetch(ct, ca);
+                        LyricsService.Log("cover test t=" + ct + " a=" + ca + " -> " + (cb == null ? "none" : cb.Length + " bytes"));
+                    });
+                    coverWorker.IsBackground = true;
+                    coverWorker.Start();
+                }
+
                 // --wheel <n>: run the wheel dispatch n notches without synthesising input.
                 string wheelArg = ArgValue(args, "--wheel");
                 int wheelNotches;
