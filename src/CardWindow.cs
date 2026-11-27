@@ -1858,6 +1858,21 @@ namespace Amc
             LyricsService.Log("settings at " + _settings.Left + "," + _settings.Top + " size " + _settings.ActualWidth + "x" + _settings.ActualHeight + " dpi " + DpiScale());
         }
 
+        byte[] _holderRef;
+        bool _holderVerdict;
+
+        /// <summary>Cached (decoding 30x a second would be silly) test for a player's placeholder tile.</summary>
+        bool IsHolderArt(byte[] bytes)
+        {
+            if (ReferenceEquals(bytes, _holderRef)) return _holderVerdict;
+            string note;
+            bool v = CoverArt.LooksLikePlaceholder(bytes, out note);
+            LyricsService.Log("art placeholder " + (v ? "yes" : "no") + " (" + note + ")");
+            _holderRef = bytes;
+            _holderVerdict = v;
+            return v;
+        }
+
         public void NudgeScale(double delta)
         {
             _cfg.Scale = Config.Clamp(_cfg.Scale + delta, 0.55, 2.2);
@@ -2704,14 +2719,17 @@ namespace Amc
                 FadeIn(_title, 320);
             }
 
-            // art
-            if (np.Art != null && !ReferenceEquals(np.Art, _lastArt))
+            // art. A player can answer with its own grey placeholder tile (Kugou does): that is
+            // "no cover" wearing a thumbnail's clothes, so it goes down the fallback path too.
+            byte[] rawArt = np.Art;
+            bool holderArt = rawArt != null && IsHolderArt(rawArt);
+            if (rawArt != null && !holderArt && !ReferenceEquals(rawArt, _lastArt))
             {
-                _lastArt = np.Art;
+                _lastArt = rawArt;
                 _artFallbackKey = null;
-                ApplyArt(np.Art);
+                ApplyArt(rawArt);
             }
-            else if (np.Art == null) TryCoverFallback(np, artistOut, DateTime.Now);
+            else if (rawArt == null || holderArt) TryCoverFallback(np, artistOut, DateTime.Now);
 
             // progress: run our own clock at 1x and *slew* toward the SMTC estimate instead of
             // snapping to it. Apple's Position only lands every ~3s, so snapping made the lyric

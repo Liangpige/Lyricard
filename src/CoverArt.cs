@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // CoverArt.cs
 //
 // Album art fallback. Some players (Kugou is one) publish a track but never hand
@@ -15,11 +15,65 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Globalization;
 
 namespace Amc
 {
     public static class CoverArt
     {
+        /// <summary>
+        /// Some players answer "this song has no artwork" with a grey tile carrying their own logo
+        /// (Kugou's big K). That is not a cover, but it is a thumbnail, so the card dutifully shows a
+        /// grey square and the user reports "no cover". Treat a near-uniform light grey picture as
+        /// "nothing" so the network fallback can step in.
+        /// </summary>
+        public static bool LooksLikePlaceholder(byte[] bytes, out string note)
+        {
+            note = "";
+            // Kugou's tile is a four-and-a-bit kilobyte PNG; a real cover at this size never is.
+            if (bytes != null && bytes.Length > 0 && bytes.Length <= 6000)
+            {
+                note = "small=" + bytes.Length;
+                return true;
+            }
+            try
+            {
+                var frame = BitmapFrame.Create(new MemoryStream(bytes), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                int w = frame.PixelWidth, h = frame.PixelHeight;
+                if (w <= 0 || h <= 0) return false;
+                double k = 24.0 / Math.Max(w, h);
+                var small = new FormatConvertedBitmap(
+                    new TransformedBitmap(frame, new ScaleTransform(k, k)), PixelFormats.Bgra32, null, 0);
+                int tw = small.PixelWidth, th = small.PixelHeight, stride = tw * 4;
+                var px = new byte[stride * th];
+                small.CopyPixels(px, stride, 0);
+
+                int n = tw * th, grey = 0, sum = 0; long sum2 = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    int b = px[i * 4], g = px[i * 4 + 1], r = px[i * 4 + 2];
+                    int mx = Math.Max(r, Math.Max(g, b)), mn = Math.Min(r, Math.Min(g, b));
+                    int lum = (r * 299 + g * 587 + b * 114) / 1000;
+                    sum += lum; sum2 += (long)lum * lum;
+                    if (mx - mn <= 26 && lum >= 160) grey++;
+                }
+                double share = (double)grey / n;
+                double mean = (double)sum / n;
+                double std = Math.Sqrt(Math.Max(0.0, (double)sum2 / n - mean * mean));
+                note = "grey=" + share.ToString("0.00", CultureInfo.InvariantCulture)
+                     + " std=" + std.ToString("0.0", CultureInfo.InvariantCulture)
+                     + " mean=" + mean.ToString("0.0", CultureInfo.InvariantCulture);
+                return share >= 0.70 && std <= 34.0 && mean >= 150.0;
+            }
+            catch (Exception ex)
+            {
+                note = "decode failed (" + ex.GetType().Name + ")";
+                return false;
+            }
+        }
+
         /// <summary>Track key -> cover bytes. Small (a few dozen KB), so it lives for the session.</summary>
         static readonly Dictionary<string, byte[]> Cache = new Dictionary<string, byte[]>();
 
