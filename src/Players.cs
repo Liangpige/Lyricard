@@ -83,9 +83,7 @@ namespace Amc
             // build is a plain executable. It publishes a full SMTC session -- title, artist, album,
             // cover and progress -- since 1.3.x, so it binds like any other player.
             Make("saltplayer", "Salt Player", new string[] { "sakawish", "saltplayer" }, new string[] { "saltplayer.exe" }),
-            Make("foobar", "foobar2000", new string[] { "foobar" }, new string[] { "foobar2000.exe" }),
             Make("musicbee", "MusicBee", new string[] { "musicbee" }, new string[] { "musicbee.exe" }),
-            Make("aimp", "AIMP", new string[] { "aimp" }, new string[] { "aimp.exe" }),
             Make("wmp", "Windows 媒体播放器", new string[] { "zunemusic", "wmplayer", "media player" }, new string[] { "wmplayer.exe", "music.ui.exe" })
         };
 
@@ -315,7 +313,7 @@ namespace Amc
         /// Last-resort install probe. The Start-menu scan is the cheapest fallback but it misses
         /// plenty: a per-user install with no shortcut, a player registered only for "open with".
         /// The uninstall registry always lists them; <c>DisplayIcon</c> points at the real exe,
-        /// except for AIMP which points at its uninstaller -- then we scan that folder instead.
+        /// except when it points at the uninstaller -- then we scan that folder instead.
         /// </summary>
         static void ScanUninstall(Dictionary<string, bool> set, RegistryKey root, string path)
         {
@@ -334,7 +332,7 @@ namespace Amc
                                 if (e == null) continue;
                                 string icon = e.GetValue("DisplayIcon") as string;
                                 AddExeFromPath(set, icon);
-                                // DisplayIcon often points at uninstall.exe (AIMP does), which tells us
+                                // DisplayIcon often points at uninstall.exe, which tells us
                                 // the install folder but not the player exe -- so scan that folder too.
                                 string dir = null;
                                 try

@@ -158,6 +158,11 @@ namespace Amc
                 LyricsService.Log("=== app start ===");
 
                 var cfg = Config.Load();
+                if (cfg.Pruned)
+                {
+                    // Rewrite once so the retired key stops travelling with the config file.
+                    try { cfg.Save(); } catch { }
+                }
             // Player bindings: when the user bound at least one player, only those players may
             // drive the card (that is also what keeps browsers out of it).
             Players.ApplyBindings(cfg);

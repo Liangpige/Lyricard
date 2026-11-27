@@ -1,6 +1,6 @@
 # Lyricard
 
-**一张浮在桌面上的歌词卡片。** 默认盯着 Apple Music，也能跟网易云、QQ 音乐、酷狗、foobar2000、Spotify 等 11 家播放器 —— 谁在播就显示谁。
+**一张浮在桌面上的歌词卡片。** 默认盯着 Apple Music，也能跟网易云、QQ 音乐、酷狗、MD3Music、Spotify 等 9 家播放器 —— 谁在播就显示谁。
 
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
@@ -70,9 +70,9 @@ v0.3 起，卡片的版式不再是写死的，而是**一份可编辑的模板*
 
 ## 播放器
 
-内置 11 家，主页里**常显全部**（没装的那几项标「未检测到」、开关点不动），勾选谁就听谁：
+内置 9 家，主页里**常显全部**（没装的那几项标「未检测到」、开关点不动），勾选谁就听谁：
 
-Apple Music（Windows 版）、Spotify、网易云音乐、QQ 音乐、酷狗音乐、MD3Music、Salt Player、foobar2000、MusicBee、AIMP、Windows 媒体播放器。
+Apple Music（Windows 版）、Spotify、网易云音乐、QQ 音乐、酷狗音乐、MD3Music、Salt Player、MusicBee、Windows 媒体播放器。
 
 - 会话来自系统 SMTC（System Media Transport Controls），不注入进程、不读内存。
 - 主页可「重新扫描」或「添加其它播放器…」（自己指定 exe 路径），勾选状态存进配置。
@@ -133,7 +133,7 @@ bash build.sh desktop    # dist + 复制 zip 到桌面
 
 ## 已知限制
 
-- 只认 SMTC：**AIMP 完全不发**、老版 foobar2000 需要装 SMTC 插件；酷我音乐没有这个开关，已不在内置名单（可以用「添加其它播放器」手动指定，但不一定收得到会话）。
+- 只认 SMTC：AIMP、酷我音乐之类不发布会话的客户端已不在内置名单；老版 foobar2000 也要装 SMTC 插件。真碰到这种客户端，用「添加其它播放器」手动指定，但不一定收得到会话。
 - 浏览器标签也算一个「Music」会话；默认不绑定浏览器。
 - 网易云 / 酷狗不上报播放位置：进度条由自走时钟推算，暂停一会儿再继续会有几秒误差。
 - 卡片是透明分层窗口，命中测试按逐像素 alpha 判断：点在字缝、框线外这种「看着在卡片上、实际透明」的位置，点击会穿透。
@@ -148,7 +148,7 @@ bash build.sh desktop    # dist + 复制 zip 到桌面
 - **Presets** store the look *and* the template, so applying one restores the whole card, not just its colours.
 - **Cover treatment**: circle/square, spin (round only), size, saturation, highlight rolloff, brightness, contrast, warmth, hue, vignette, and a duotone ramp (dark stop → light stop, with mix). All of it runs inside the single pass that already happens when the art changes, so it costs nothing per frame.
 - **Spectrum bars** are real: WASAPI loopback → 1024-point FFT → log-spaced bands, with configurable count, thickness, attack, release and colour. If capture is unavailable the row reads silence rather than faking a waveform.
-- **Eleven players** out of the box (Apple Music, Spotify, NetEase, QQ Music, Kugou, MD3Music, Salt Player, foobar2000, MusicBee, AIMP, Windows Media Player); the home page always lists every one of them and dims the ones it cannot see on this machine; positions come from SMTC anchors plus the card's own clock, with per-player handling for clients that lie about state or never report a position.
+- **Nine players** out of the box (Apple Music, Spotify, NetEase, QQ Music, Kugou, MD3Music, Salt Player, MusicBee, Windows Media Player); the home page always lists every one of them and dims the ones it cannot see on this machine; positions come from SMTC anchors plus the card's own clock, with per-player handling for clients that lie about state or never report a position.
 - **Lyrics** come from QQ Music, NetEase and lrclib in parallel, plus local `.lrc` files; a picker lists candidates with match percentages.
 - **Privacy**: no telemetry, no account, no analytics. The only network calls are lyric lookups and the GitHub Releases API for the updater; the only registry write is the `HKCU\...\Run` autostart entry.
 

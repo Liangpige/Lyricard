@@ -82,6 +82,9 @@ namespace Amc
         /// other players only when "listen to all players" is on.
         /// </summary>
         public List<string> BoundPlayers = new List<string>();
+        /// <summary>Set when loading had to drop something (a retired player binding, ...), so the
+        /// caller can rewrite the file once and stop carrying the stale line around.</summary>
+        public bool Pruned;
         // False until a BoundPlayers line is seen; an explicitly empty list means
         // "bind nothing" (no card at all), while a missing line keeps the legacy
         // Apple-Music-first behaviour.
@@ -343,7 +346,20 @@ namespace Amc
                                 for (int i = 0; i < parts.Length; i++)
                                 {
                                     string one = parts[i].Trim();
-                                    if (one.Length > 0) BoundPlayers.Add(one);
+                                    // A plain key is only meaningful while that player is still in
+                                    // the built-in table. Dropping stale ones here is what keeps a
+                                    // removed player (AIMP, foobar2000 ...) from lingering as a
+                                    // ghost "custom" row after an upgrade. aumid:/exe: entries are
+                                    // the user's own and always survive.
+                                    if (one.Length == 0) continue;
+                                    if (one.StartsWith(Players.AumidPrefix, StringComparison.Ordinal) ||
+                                        one.StartsWith(Players.ExePrefix, StringComparison.Ordinal))
+                                    {
+                                        BoundPlayers.Add(one);
+                                        continue;
+                                    }
+                                    if (Players.ByKey(one) != null) BoundPlayers.Add(one);
+                                    else { Pruned = true; LyricsService.Log("config: dropped retired player binding " + one); }
                                 }
                             }
                             break;
