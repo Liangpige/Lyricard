@@ -29,6 +29,8 @@ namespace Amc
         public string Source = "";
         public string Matched = "";
         public bool Instrumental;
+        /// <summary>Score the matcher gave this document when it was picked (0 when unknown).</summary>
+        public double Score;
     }
 
     /// <summary>
@@ -439,7 +441,17 @@ namespace Amc
                     try
                     {
                         var doc = Parse(File.ReadAllText(file, Encoding.UTF8), Path.GetFileNameWithoutExtension(file));
-                        if (doc.Lines.Count > 0 || doc.Instrumental) return doc;
+                        if (doc.Lines.Count > 0 || doc.Instrumental)
+                        {
+                            // A cache entry is only as good as the decision that produced it. Older
+                            // entries predate the stricter matcher (and some were written from half a
+                            // snapshot), so re-use them only when the score says they would still be
+                            // accepted today. Without a score we cannot tell, so look again once and
+                            // rewrite it with one. Local files stay authoritative.
+                            bool localFile = (doc.Source ?? "").StartsWith("local", StringComparison.OrdinalIgnoreCase);
+                            if (localFile || doc.Score >= 0.80) return doc;
+                            Log("  cache stale " + key + " score=" + doc.Score.ToString("0.###", CultureInfo.InvariantCulture) + " -> searching again");
+                        }
                     }
                     catch { }
                 }
@@ -573,6 +585,7 @@ namespace Amc
             var sb = new StringBuilder();
             sb.AppendLine("#src=" + doc.Source);
             sb.AppendLine("#matched=" + doc.Matched);
+            sb.AppendLine("#score=" + doc.Score.ToString("0.###", CultureInfo.InvariantCulture));
             if (doc.Instrumental) sb.AppendLine("#instr=1");
             foreach (var l in doc.Lines)
             {
@@ -598,6 +611,11 @@ namespace Amc
                 {
                     if (line.StartsWith("#src=")) doc.Source = line.Substring(5);
                     else if (line.StartsWith("#matched=")) doc.Matched = line.Substring(9);
+                    else if (line.StartsWith("#score="))
+                    {
+                        double sc;
+                        if (double.TryParse(line.Substring(7), NumberStyles.Float, CultureInfo.InvariantCulture, out sc)) doc.Score = sc;
+                    }
                     else if (line.StartsWith("#instr=1")) doc.Instrumental = true;
                     continue;
                 }
@@ -830,6 +848,7 @@ namespace Amc
             var local = (skipSrc == "local") ? null : TryLocal(title, artist, duration);
             if (local != null && local.Lines.Count >= 3)
             {
+                local.Score = 1.0;
                 Log("  take local " + local.Matched + " lines=" + local.Lines.Count);
                 return local;
             }
@@ -886,12 +905,14 @@ namespace Amc
                     if (!alive) break;
                     Thread.Sleep(30);
                 }
+                best.Doc.Score = best.Score;
                 Log("  take " + best.Doc.Source + " " + best.Doc.Matched + " score=" + F2(best.Score) + " lines=" + best.Doc.Lines.Count);
                 return best.Doc;
             }
 
             if (localInstr != null)
             {
+                localInstr.Score = 1.0;
                 Log("  take local " + localInstr.Matched + " instr");
                 return localInstr;
             }
