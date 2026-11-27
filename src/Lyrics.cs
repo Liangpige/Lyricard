@@ -973,6 +973,14 @@ namespace Amc
             var outp = new List<Cand>();
             if (src == "kugou")
             {
+                // Kugou's search answer mixes encodings per field, and no single reading of it
+                // recovers Chinese titles cleanly. Rather than show a lyric whose title is
+                // 铏氭嫙, Kugou is only used for titles we can read: Latin/digit queries.
+                if (HasCjk(title) || HasCjk(artist))
+                {
+                    Log("  kugou skip cjk t=" + title);
+                    return outp;
+                }
                 string url = "http://mobiles.kugou.com/api/v3/search/song?format=json&showtype=1&page=1&pagesize=12&keyword="
                              + Uri.EscapeDataString(q);
                 byte[] bytes = GetBytes(url, "http://www.kugou.com/", 6);
