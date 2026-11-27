@@ -120,6 +120,11 @@ namespace Amc
 
         LyricDoc _doc;
         string _docKey = "";
+        // What the *first* lookup actually had to work with. SMTC often publishes the title a beat
+        // before the artist and the duration, and a lookup made with half a snapshot happily picks
+        // the live take or the karaoke. Remember it, and redo the lookup once the rest arrives.
+        string _docArtistUsed = "";
+        double _docDurUsed = -1;
         string _titleKey = "";
         string _pendingKey = "";
         string _trackKey = "";
@@ -2769,7 +2774,30 @@ namespace Amc
 
             // lyric document (only once the title has stopped moving)
             string key = np.Title + "|" + artistOut;
-            if (settled && key != _docKey && key != _pendingKey)
+
+            // A lookup started with half a snapshot is the usual reason the first song gets the
+            // wrong lyric: with no duration every candidate ties on time, and with no artist the
+            // title alone decides. Wait a moment for the player to finish publishing, then go.
+            double waitedMs = (nowT - _seenSince).TotalMilliseconds;
+            double durNow = np.Dur.TotalSeconds;
+            // Artist is the one field that actually changes which lyrics win; some players never
+            // publish a duration at all (Kugou reports 0 for whole albums), so don't wait on it.
+            bool snapshotReady = artistOut.Length > 0 || waitedMs > 1200;
+
+            // If the document we already have was built from half a snapshot, ask again now that
+            // the rest is here -- same key, forced refetch.
+            if (_doc != null && _docKey.Length > 0 && settled)
+            {
+                bool betterArtist = _docArtistUsed.Length == 0 && artistOut.Length > 0;
+                bool betterDur = _docDurUsed <= 0 && durNow > 0;
+                if (betterArtist || betterDur)
+                {
+                    LyricsService.Log("refetch with fuller snapshot artist=" + artistOut + " dur=" + ((int)durNow));
+                    _docKey = "";
+                }
+            }
+
+            if (settled && snapshotReady && key != _docKey && key != _pendingKey)
             {
                 LyricsService.Log("fetch start t=" + np.Title + " | a=" + artistOut + " | dur=" + ((int)np.Dur.TotalSeconds));
                 _pendingKey = key;
@@ -2782,6 +2810,8 @@ namespace Amc
                 Animate(_lyric, 1.0, 200);
                 double dur = np.Dur.TotalSeconds;
                 string t = np.Title, a = artistOut;
+                _docArtistUsed = a;
+                _docDurUsed = dur;
                 var th = new System.Threading.Thread(delegate ()
                 {
                     LyricDoc doc = null;
