@@ -1062,7 +1062,10 @@ namespace Amc
                 Margin = new Thickness(0)
             };
             _runTitle = new Run("Apple Music") { FontSize = 15.5, FontWeight = FontWeights.SemiBold, Foreground = White(0.97) };
-            _runArtist = new Run("") { FontSize = 11.5, Foreground = White(0.62) };
+            // The artist rides on the title line with a smaller face. Baseline alignment leaves its
+            // bottom edge floating above the title's; sitting both on the line's bottom reads as one
+            // block of text, which is what "same line" is supposed to look like.
+            _runArtist = new Run("") { FontSize = 11.5, Foreground = White(0.62), BaselineAlignment = BaselineAlignment.TextBottom };
             _title.Inlines.Add(_runTitle);
             _title.Inlines.Add(_runArtist);
             titleHost.Children.Add(_title);
