@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # Build Lyricard (浮声) with the in-box .NET Framework C# compiler.
 # NOTE: csc.exe receives argv as ANSI, so every argument must stay ASCII.
 # That is why we cd into src/ and pass only relative paths for the project files.
@@ -21,7 +21,7 @@ GAC="C:/Windows/Microsoft.NET/assembly/GAC_MSIL"
 REF="C:/Program Files (x86)/Reference Assemblies/Microsoft/Framework/.NETFramework/v4.7.2"
 
 APP="Lyricard"
-VERSION="0.3.2"
+VERSION="0.3.3"
 INSTALL="/e/APPLE MUSIC GeCi"
 
 mkdir -p "$PROJ/bin"
