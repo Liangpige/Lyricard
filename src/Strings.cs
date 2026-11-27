@@ -196,7 +196,9 @@ namespace Amc
             Both("lyr.early01", "提前 0.1s", "-0.1s");
             Both("lyr.late01", "延后 0.1s", "+0.1s");
             Both("lyr.late05", "延后 0.5s", "+0.5s");
-            Both("lyr.offset", "当前偏移：{0} 秒", "Current offset: {0}s");
+            Both("lyr.offset", "当前偏移：{0} 秒（正数=歌词提前）", "Current offset: {0}s (positive = lyrics earlier)");
+            Both("nudge.early", "♪ 歌词提前 {0}s（偏移 {1}s）", "♪ Lyrics {0}s earlier (offset {1}s)");
+            Both("nudge.late", "♪ 歌词延后 {0}s（偏移 {1}s）", "♪ Lyrics {0}s later (offset {1}s)");
             Both("page.lyr.autoclean", "定期清理缓存", "Scheduled cleanup");
             Both("page.lyr.autoclean.on", "按间隔自动清理", "Clean up automatically");
             Both("page.lyr.autoclean.days", "间隔（天）", "Every (days)");

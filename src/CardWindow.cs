@@ -152,6 +152,10 @@ namespace Amc
         DateTime _lineShownAt = DateTime.Now;
         string _lineText = "";
         bool _lineFaded;
+        string _offsetToast;
+        DateTime _offsetToastUntil = DateTime.MinValue;
+        DateTime _lineChangeAt = DateTime.MinValue;
+        int _lineChangeStreak;
         byte[] _lastArt;
         // The brush that is actually on the disc. Re-applying a byte[] costs a decode + tone pass;
         // this is what a shape switch puts back, and what the safety net below restores if the
@@ -1945,6 +1949,17 @@ namespace Amc
             // reporting lag, and it stops a stuck key from walking the value to absurdity.
             _cfg.LyricOffset = Config.Clamp(_cfg.LyricOffset + delta, -10.0, 10.0);
             _cfg.Save();
+            // A nudge is an explicit instruction, so it has to be visible *now*: the line only
+            // changes when the position crosses the next timestamp, and a long line can sit six
+            // seconds away -- which made these buttons feel dead. Drop the anti-bounce guard (a
+            // nudge may legitimately rewind a line), repaint, and flash the new value.
+            _lineIdx = -1;
+            _offsetToast = Strings.F(delta > 0 ? "nudge.early" : "nudge.late",
+                Math.Abs(delta).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture),
+                (_cfg.LyricOffset > 0 ? "+" : "") + _cfg.LyricOffset.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+            _offsetToastUntil = DateTime.Now.AddMilliseconds(1500);
+            LyricsService.Log("nudge " + (delta > 0 ? "+" : "") + delta.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " offset=" + _cfg.LyricOffset.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+            try { UpdateLyric(); } catch { }
         }
 
         /// <summary>Click-through on/off. While it is on the card stops receiving mouse input
@@ -2945,7 +2960,10 @@ namespace Amc
             {
                 // Latched at the end of the track: nothing to advance, nothing to correct.
             }
-            else if (_pos < 0 || (trustTarget && Math.Abs(target - _pos) > 1.2))
+            // Snap only for a real discontinuity. This used to be 1.2s, which left a one-second
+            // lag to be "slewed" away -- and the slew could run at 3.5x real time, which is what
+            // made the lyric sit still and then fly through half a verse.
+            else if (_pos < 0 || (trustTarget && Math.Abs(target - _pos) > 0.8))
             {
                 _pos = target;
             }
@@ -2970,8 +2988,14 @@ namespace Amc
                         else if (_pos - target > 0.35) _pos = target + 0.35;
                     }
                 }
-                if (corr > 0.04) corr = 0.04;
-                if (corr < -0.04) corr = -0.04;
+                // Correction as a function of elapsed time, not of frames. A per-frame +/-0.04 at
+                // 60 Hz added up to 2.4s per second on top of dt -- so a lagging clock caught up by
+                // racing the lyrics. Cap the catch-up at 30% faster than real time, and never
+                // overshoot the target.
+                double slew = dt * 0.30;
+                if (corr > slew) corr = slew;
+                if (corr < -slew) corr = -slew;
+                if (Math.Abs(corr) > Math.Abs(err)) corr = err;
                 _pos += corr;
                 if (_pos < 0) _pos = 0;
             }
@@ -3088,10 +3112,22 @@ namespace Amc
             // while lyrics are loading.
             if (idx < 0) text = TxtWait;
             else text = lines[idx].Text;
+            // While a nudge is fresh, the offset value itself is the useful thing to show: the line
+            // text would not change for up to six seconds after pressing the button.
+            if (_offsetToast != null && DateTime.Now < _offsetToastUntil) text = _offsetToast;
+            else _offsetToast = null;
 
             if (text != _lineText)
             {
                 LyricsService.Log("line idx=" + idx + " at=" + t.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " " + text);
+                // "card stuck, then a pile of lines scroll past": count the changes per second so
+                // the next report arrives with evidence instead of a symptom.
+                var nowC = DateTime.Now;
+                if ((nowC - _lineChangeAt).TotalSeconds <= 1.0) _lineChangeStreak++;
+                else _lineChangeStreak = 1;
+                _lineChangeAt = nowC;
+                if (_lineChangeStreak == 5)
+                    LyricsService.Log("line burst 5 changes within 1s at=" + t.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
                 _lineText = text;
                 _lineShownAt = DateTime.Now;
                 _lineFaded = false;

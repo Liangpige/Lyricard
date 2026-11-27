@@ -1732,10 +1732,13 @@ namespace Amc
                 offsetText.Text = Strings.F("lyr.offset", _cfg.LyricOffset.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
             };
             var timingRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
-            timingRow.Children.Add(Pill(Strings.T("lyr.early05"), delegate { nudge(-0.5); }, false));
-            timingRow.Children.Add(Pill(Strings.T("lyr.early01"), delegate { nudge(-0.1); }, false));
-            timingRow.Children.Add(Pill(Strings.T("lyr.late01"), delegate { nudge(0.1); }, false));
-            timingRow.Children.Add(Pill(Strings.T("lyr.late05"), delegate { nudge(0.5); }, false));
+            // The line is picked by `t = position + offset`, so a *larger* offset shows the text
+            // sooner. These two rows had the signs the wrong way round: pressing 提前 pushed the
+            // lyric later, which is exactly "the buttons do nothing" from the user's side.
+            timingRow.Children.Add(Pill(Strings.T("lyr.early05"), delegate { nudge(0.5); }, false));
+            timingRow.Children.Add(Pill(Strings.T("lyr.early01"), delegate { nudge(0.1); }, false));
+            timingRow.Children.Add(Pill(Strings.T("lyr.late01"), delegate { nudge(-0.1); }, false));
+            timingRow.Children.Add(Pill(Strings.T("lyr.late05"), delegate { nudge(-0.5); }, false));
             box.Children.Add(timingRow);
             box.Children.Add(offsetText);
 
