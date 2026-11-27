@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // Players.cs
 //
 /// Which players we can see, and which of them lie about the timeline. Detection is
@@ -77,6 +77,11 @@ namespace Amc
             // KuGou app it publishes a complete session -- AUMID com.md3music.md3music with
             // real seek/rate support and an end time -- so it binds like any other player.
             Make("md3music", "MD3Music", new string[] { "md3music", "com.md3music" }, new string[] { "md3music.exe" }),
+            // Salt Player for Windows (SPW). The Microsoft Store build is an MSIX, so its session
+            // AUMID carries the package family name (Sakawish.SaltPlayerforWindows_...); the Steam
+            // build is a plain executable. It publishes a full SMTC session -- title, artist, album,
+            // cover and progress -- since 1.3.x, so it binds like any other player.
+            Make("saltplayer", "Salt Player", new string[] { "sakawish", "saltplayer" }, new string[] { "saltplayer.exe" }),
             Make("foobar", "foobar2000", new string[] { "foobar" }, new string[] { "foobar2000.exe" }),
             Make("musicbee", "MusicBee", new string[] { "musicbee" }, new string[] { "musicbee.exe" }),
             Make("aimp", "AIMP", new string[] { "aimp" }, new string[] { "aimp.exe" }),
