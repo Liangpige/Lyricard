@@ -1072,6 +1072,9 @@ namespace Amc
             if (chars == 0) mc.W = -1;          // no cap: go back to the automatic width
             m.Save(CardConfig.DefaultPath);
             _card.InvalidateModel();
+            // Template-size controls live on 画板: refresh the draft first so the page rebuild does
+            // not carry the pre-change boxes over.
+            if (_preview != null) _preview.RefreshFromCard();
             RebuildAll();
         }
 
@@ -1118,6 +1121,9 @@ namespace Amc
         }
 
         CardPreview _preview;
+
+        /// <summary>Unsaved board edits, kept alive while the look page is rebuilt (stop / tab switches).</summary>
+        CardConfig _boardDraft;
 
         /// <summary>A click on a board module: logged for now, the editing tools arrive in Step 8/9.</summary>
         void OnBoardModuleClicked(ModuleKind kind, FrameworkElement el)
@@ -1196,16 +1202,25 @@ namespace Amc
             // The board is a draft, not a mirror, and every stop rebuilds this page: create it
             // here, then let BoardStop draw it only while 画板 is the current stop. 预设 still
             // touches it -- applying a preset refreshes the board through _preview.
-            if (_preview != null) { _card.LayoutChanged -= OnCardLayoutChanged; _card.LookChanged -= OnCardLookChanged; }
+            // The board is a draft, not a mirror, and every stop rebuilds this page: carry the
+            // working draft across the rebuild so switching stops does not bin what was dragged.
+            // 应用 / 取消 / 刷新 / 模板尺寸 and presets clear it explicitly.
+            if (_preview != null)
+            {
+                _boardDraft = _preview.DraftSnapshot();
+                _card.LayoutChanged -= OnCardLayoutChanged;
+                _card.LookChanged -= OnCardLookChanged;
+            }
             _preview = new CardPreview();
             _preview.FitWidth = 430;
             _preview.ApplyRequested += delegate
             {
                 bool saved = _card.SaveModel();
+                _boardDraft = null;
                 LyricsService.Log("board apply -> layout.ini saved=" + (saved ? "1" : "0"));
                 RebuildAll();
             };
-            _preview.CancelRequested += delegate { RebuildAll(); };
+            _preview.CancelRequested += delegate { _boardDraft = null; RebuildAll(); };
 
             // AMC_APPLY_PRESET=<n> applies preset n once at start-up and logs what it did. Preset
             // chips live at the bottom of a scrolled page, which makes them the one control that is
@@ -1219,7 +1234,7 @@ namespace Amc
             }
 
             _card.LookChanged += OnCardLookChanged;
-            _preview.BeginDraft(_card);
+            _preview.BeginDraft(_card, _boardDraft);
 
             // One stop at a time: only the current stop's rows are built into the page. Building
             // all ten and slicing the finished panel is what broke the card grouping before.

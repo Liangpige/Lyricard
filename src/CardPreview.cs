@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // CardPreview.cs
 //
 /// The layout board shown at the top of the Look page. It is a *sketch pad*, not a
@@ -72,9 +72,25 @@ namespace Amc
         /// <summary>Start (or restart) a draft from the card's live model.</summary>
         public void BeginDraft(CardWindow card)
         {
+            BeginDraft(card, null);
+        }
+
+        /// <summary>
+        /// Start a draft from a snapshot taken earlier (see <see cref="DraftSnapshot"/>), falling back
+        /// to the card's live model when there is nothing to carry. Switching stops rebuilds the whole
+        /// look page; without this the unsaved drag you just made would be thrown away on every click.
+        /// </summary>
+        public void BeginDraft(CardWindow card, CardConfig carry)
+        {
             _card = card;
-            _draft = card == null ? null : card.Model.Clone();
+            _draft = carry != null ? carry.Clone() : (card == null ? null : card.Model.Clone());
             Rebuild();
+        }
+
+        /// <summary>A copy of the working draft, so it survives a rebuild of its host page.</summary>
+        public CardConfig DraftSnapshot()
+        {
+            return _draft == null ? null : _draft.Clone();
         }
 
         /// <summary>Discard the draft and go back to what the card is actually using.</summary>
