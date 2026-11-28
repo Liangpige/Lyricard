@@ -88,22 +88,23 @@ namespace Amc
             Both("nav.home", "主页", "Home");
             Both("nav.appearance", "外观", "Look");
             Both("nav.lyrics", "歌词", "Lyrics");
+            Both("nav.settings", "设置", "Settings");
             Both("nav.about", "关于", "About");
             Both("nav.body.empty", "页面还是空的", "This page is still empty");
             Both("page.look.more", "更多设置…", "More settings…");
             Both("page.home.language", "界面语言", "Language");
-            Both("page.home.fullscreen", "全屏时隐藏", "Fullscreen");
+            Both("page.settings.fullscreen", "全屏时隐藏", "Fullscreen");
             Both("lbl.hideFullscreen", "有窗口全屏时隐藏卡片", "Hide the card when a window is fullscreen");
-            Both("page.home.fullscreen.hint", "前台窗口铺满卡片所在的那块屏幕时，卡片自动收起，退出全屏后自己回来。其它屏幕上的全屏不影响。", "When a fullscreen window covers the monitor the card sits on, the card steps aside and comes back when you leave fullscreen. Fullscreen on another monitor does not count.");
-            Both("page.home.wheel", "卡片滚轮", "Mouse wheel on the card");
+            Both("page.settings.fullscreen.hint", "前台窗口铺满卡片所在的那块屏幕时，卡片自动收起，退出全屏后自己回来。其它屏幕上的全屏不影响。", "When a fullscreen window covers the monitor the card sits on, the card steps aside and comes back when you leave fullscreen. Fullscreen on another monitor does not count.");
+            Both("page.settings.wheel", "卡片滚轮", "Mouse wheel on the card");
             Both("wheel.scale", "缩放卡片", "Scale the card");
             Both("wheel.volume", "系统音量", "System volume");
             Both("wheel.off", "无操作", "Do nothing");
-            Both("page.home.wheel.hint",
+            Both("page.settings.wheel.hint",
                 "只对桌面卡片生效。音量指系统总音量（等同音量键），不是单独调某个播放器。",
                 "Applies to the desktop card only. Volume is the system master level (same as the volume keys), not one player's slider.");
-            Both("page.home.clickthrough", "交互穿透（让点击落到下层）", "Click-through (let clicks fall through)");
-            Both("page.home.clickthrough.hint",
+            Both("page.settings.clickthrough", "交互穿透（让点击落到下层）", "Click-through (let clicks fall through)");
+            Both("page.settings.clickthrough.hint",
                 "打开后卡片不再接收任何鼠标操作，点在卡片上的动作会落到它下面的窗口；要关掉就从托盘菜单或这一页关。",
                 "With this on the card stops taking mouse input -- clicks go to the window below it. Turn it off from the tray menu or this page.");
             Both("page.home.startup", "启动", "Startup");

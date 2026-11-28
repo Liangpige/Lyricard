@@ -122,7 +122,7 @@ namespace Amc
         /// <summary>The tray's "settings" entry lands on the appearance page, which replaced
         /// the old standalone panel.</summary>
         /// <summary>
-        /// Opens the window straight on one page ("home" / "look" / "lyrics" / "about").
+        /// Opens the window straight on one page ("home" / "look" / "lyrics" / "settings" / "about").
         /// Used by the card's "打开主页面" and by <c>--settings</c>, which has to land on
         /// 「外观」 rather than on the home page -- otherwise the flag looks like it did nothing.
         /// </summary>
@@ -596,6 +596,7 @@ namespace Amc
             tabs.Children.Add(Tab("home", Strings.T("nav.home")));
             tabs.Children.Add(Tab("look", Strings.T("nav.appearance")));
             tabs.Children.Add(Tab("lyrics", Strings.T("nav.lyrics")));
+            tabs.Children.Add(Tab("settings", Strings.T("nav.settings")));
             tabs.Children.Add(Tab("about", Strings.T("nav.about")));
             Grid.SetColumn(tabs, 1);
             navRow.Children.Add(tabs);
@@ -765,6 +766,7 @@ namespace Amc
             UIElement body;
             if (key == "look") body = LookPage();
             else if (key == "lyrics") body = LyricsPage();
+            else if (key == "settings") body = SettingsPage();
             else if (key == "about") body = AboutPage();
             else body = HomePage();
             _sectionCount = 0;
@@ -851,47 +853,6 @@ namespace Amc
                     _card.Relang();
                     RebuildAll();
                 }));
-
-            // click-through: sits next to the language switch because it is a "how does this
-            // thing behave" switch, not a look. Turning it on makes the card transparent to
-            // the mouse; the tray menu and this page stay clickable to turn it back off.
-            // A hairline keeps it from reading as a third language option.
-            box.Children.Add(Rule());
-            box.Children.Add(Row(Strings.T("page.home.clickthrough"),
-                Segmented(new string[] { Strings.T("ct.off"), Strings.T("ct.full"), Strings.T("ct.transport") },
-                    ClickThroughIndex(), delegate(int i)
-                    {
-                        _card.SetClickThrough(ClickThroughModes[i]);
-                        RebuildAll();
-                    })));
-            box.Children.Add(Hint(Strings.T("ct.hint")));
-
-            // The wheel is the card's only silent control: without a switch nobody discovers that
-            // it scales, and people who expect it to change volume think it is broken.
-            box.Children.Add(Rule());
-            box.Children.Add(Section(Strings.T("page.home.wheel")));
-            box.Children.Add(Segmented(new string[]
-                {
-                    Strings.T("wheel.scale"), Strings.T("wheel.volume"), Strings.T("wheel.off")
-                }, WheelIndex(), delegate(int idx)
-                {
-                    _cfg.WheelAction = WheelModes[idx];
-                    _cfg.Save();
-                    LyricsService.Log("wheel -> " + _cfg.WheelAction);
-                    RebuildAll();
-                }));
-            box.Children.Add(Hint(Strings.T("page.home.wheel.hint")));
-
-            box.Children.Add(Section(Strings.T("page.home.fullscreen")));
-            box.Children.Add(Row(Strings.T("lbl.hideFullscreen"),
-                Toggle(_cfg.HideFullscreen, delegate(bool v)
-                {
-                    _cfg.HideFullscreen = v;
-                    _card.HideFullscreen = v;
-                    _cfg.Save();
-                    RebuildAll();
-                })));
-            box.Children.Add(Hint(Strings.T("page.home.fullscreen.hint")));
 
             // startup
             box.Children.Add(Section(Strings.T("page.home.startup")));
@@ -1178,6 +1139,56 @@ namespace Amc
             // Font size / cover size changed: the boxes in the board have to grow or shrink with it,
             // otherwise the frame you drag is not the box the card will draw.
             if (_preview != null) _preview.RefreshMetrics();
+        }
+
+        /// <summary>
+        /// Behaviour switches that are not about how the card looks: how the mouse reaches it, what
+        /// the wheel does, and whether a fullscreen window pushes it aside. Moved off the home page
+        /// so that page is about the app talking to players, not about tinkering.
+        /// </summary>
+        UIElement SettingsPage()
+        {
+            var box = new StackPanel();
+
+            // click-through: how the mouse reaches the card. Turning it on makes the card
+            // transparent to the mouse; the tray menu and this page stay clickable to turn it
+            // back off.
+            box.Children.Add(Section(Strings.T("page.settings.clickthrough")));
+            box.Children.Add(Segmented(new string[] { Strings.T("ct.off"), Strings.T("ct.full"), Strings.T("ct.transport") },
+                ClickThroughIndex(), delegate(int i)
+                {
+                    _card.SetClickThrough(ClickThroughModes[i]);
+                    RebuildAll();
+                }));
+            box.Children.Add(Hint(Strings.T("ct.hint")));
+
+            // The wheel is the card's only silent control: without a switch nobody discovers that
+            // it scales, and people who expect it to change volume think it is broken.
+            box.Children.Add(Section(Strings.T("page.settings.wheel")));
+            box.Children.Add(Segmented(new string[]
+                {
+                    Strings.T("wheel.scale"), Strings.T("wheel.volume"), Strings.T("wheel.off")
+                }, WheelIndex(), delegate(int idx)
+                {
+                    _cfg.WheelAction = WheelModes[idx];
+                    _cfg.Save();
+                    LyricsService.Log("wheel -> " + _cfg.WheelAction);
+                    RebuildAll();
+                }));
+            box.Children.Add(Hint(Strings.T("page.settings.wheel.hint")));
+
+            box.Children.Add(Section(Strings.T("page.settings.fullscreen")));
+            box.Children.Add(Row(Strings.T("lbl.hideFullscreen"),
+                Toggle(_cfg.HideFullscreen, delegate(bool v)
+                {
+                    _cfg.HideFullscreen = v;
+                    _card.HideFullscreen = v;
+                    _cfg.Save();
+                    RebuildAll();
+                })));
+            box.Children.Add(Hint(Strings.T("page.settings.fullscreen.hint")));
+
+            return box;
         }
 
         UIElement LookPage()
