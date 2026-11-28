@@ -731,6 +731,7 @@ namespace Amc
             sv.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
             sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
             sv.PanningMode = PanningMode.VerticalOnly;
+            sv.CanContentScroll = false;   // pixel offsets, so the ease is not quantised to items
             sv.Content = child;
 
             var thumb = new Border();
@@ -764,50 +765,62 @@ namespace Amc
         /// </remarks>
         static void SmoothWheel(ScrollViewer sv)
         {
-            const double Step = 54;      // distance of one notch
-            const double Ease = 0.28;    // share of the remaining gap covered per frame
+            const double Step = 60;        // distance of one notch
+            const double Settle = 0.075;   // seconds, time constant of the ease
             double target = 0;
+            long lastTick = 0;
             bool easing = false;
-            DispatcherTimer timer = null;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
 
-            Action stop = delegate
-            {
-                easing = false;
-                if (timer != null)
-                {
-                    timer.Stop();
-                    timer = null;
-                }
-            };
+            // The frame handler is created once and only added or removed, never nulled: a wheel
+            // notch after a finished ease has to find it again.
+            EventHandler frame = null;
+            Action stop = null;
 
-            Action tick = delegate
+            frame = delegate
             {
                 if (!easing) return;
+                long now = clock.ElapsedTicks;
+                double dt = lastTick == 0 ? 1.0 / 60.0 : (now - lastTick) / (double)System.Diagnostics.Stopwatch.Frequency;
+                lastTick = now;
+                if (dt <= 0) dt = 1.0 / 60.0;
+                if (dt > 0.05) dt = 0.05;      // never lurch after a stall
+
+                // Frame-rate independent ease: the distance covered per second is the same whether
+                // this machine renders at 60 or 144 Hz.
+                double k = 1.0 - Math.Exp(-dt / Settle);
                 double cur = sv.VerticalOffset;
                 double left = target - cur;
                 if (Math.Abs(left) < 0.6)
                 {
-                    sv.ScrollToVerticalOffset(target);
                     stop();
                     return;
                 }
-                sv.ScrollToVerticalOffset(cur + left * Ease);
+                sv.ScrollToVerticalOffset(cur + left * k);
+            };
+
+            stop = delegate
+            {
+                if (!easing) return;
+                easing = false;
+                CompositionTarget.Rendering -= frame;
+                sv.ScrollToVerticalOffset(target);
             };
 
             sv.PreviewMouseWheel += delegate(object s, MouseWheelEventArgs e)
             {
                 if (sv.ScrollableHeight <= 0) return;
+                // Take over from wherever the viewport actually is, so a notch arriving mid-ease
+                // continues the motion instead of restarting it.
                 if (!easing) target = sv.VerticalOffset;
                 target -= e.Delta / 120.0 * Step;
                 if (target < 0) target = 0;
                 if (target > sv.ScrollableHeight) target = sv.ScrollableHeight;
-                easing = true;
-                if (timer == null)
+                if (!easing)
                 {
-                    timer = new DispatcherTimer();
-                    timer.Interval = TimeSpan.FromMilliseconds(15);
-                    timer.Tick += delegate { tick(); };
-                    timer.Start();
+                    easing = true;
+                    lastTick = 0;
+                    CompositionTarget.Rendering += frame;
                 }
                 e.Handled = true;
             };
