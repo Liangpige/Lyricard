@@ -4,8 +4,8 @@
 # That is why we cd into src/ and pass only relative paths for the project files.
 #
 #   bash build.sh            build + deploy to the install folder
-#   bash build.sh dist       also produce dist/Lyricard-v<version>.zip
-#   bash build.sh desktop    dist + copy the zip onto the Desktop
+#   bash build.sh dist       produce dist/Lyricard-v<version>.zip AND copy it to the Desktop
+#   bash build.sh desktop    same as dist (kept for compatibility)
 set -u
 
 # Git-Bash on CI (and any MSYS shell) rewrites arguments that start with "/" into
@@ -106,9 +106,9 @@ if [ "${1:-}" = "dist" ] || [ "${1:-}" = "desktop" ]; then
     ZIPW="$(cygpath -w "$ZIP")"
     powershell.exe -NoProfile -Command "Compress-Archive -Path '$OUTW\\*' -DestinationPath '$ZIPW' -Force" 2>&1 | head -3
     ls -l "$ZIP"
-    if [ "${1:-}" = "desktop" ]; then
-      powershell.exe -NoProfile -Command "\$d=[Environment]::GetFolderPath('Desktop'); \$t=Join-Path \$d '$NAME.zip'; Copy-Item -LiteralPath '$ZIPW' -Destination \$t -Force; if (Test-Path \$t) { Write-Output ('desktop: ' + \$t + ' (' + (Get-Item \$t).Length + ' bytes)') } else { Write-Output 'desktop copy FAILED' }"
-    fi
+    # The owner wants a fresh package on the Desktop every single time.
+    powershell.exe -NoProfile -Command "\$d=[Environment]::GetFolderPath('Desktop'); \$t=Join-Path \$d '$NAME.zip'; Copy-Item -LiteralPath '$ZIPW' -Destination \$t -Force; if (Test-Path \$t) { Write-Output ('desktop: ' + \$t + ' (' + (Get-Item \$t).Length + ' bytes)') } else { Write-Output 'desktop copy FAILED' }"
+
   fi
 fi
 exit $rc
