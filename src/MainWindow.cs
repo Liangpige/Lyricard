@@ -47,10 +47,9 @@ namespace Amc
         readonly Config _cfg;
         readonly CardWindow _card;
 
-        /// <summary>The UI kit, mapped onto this window's monochrome palette. The look page is being
-        /// migrated onto it first; other pages keep the older inline primitives for now.</summary>
+        /// <summary>The UI kit, mapped onto this window's monochrome palette. Every page builds its
+        /// controls from it now; the older inline primitives stay behind as a fallback.</summary>
         UiTheme _kit;
-        bool _kitPage;
 
         ContentControl _host;
         readonly Dictionary<string, TextBlock> _tabText = new Dictionary<string, TextBlock>();
@@ -491,7 +490,7 @@ namespace Amc
         /// (see ColorLibraryWindow) for anything the quick row does not cover.</summary>
         UIElement ColorRow(string label, string current, Action<string> apply)
         {
-            if (_kitPage)
+            if (_kit != null)
             {
                 string sel0 = current ?? "";
                 Color here;
@@ -578,7 +577,7 @@ namespace Amc
         /// <summary>− value + stepper; every look value in this app uses the same one.</summary>
         UIElement Stepper(double value, double min, double max, double step, string fmt, Action<double> apply)
         {
-            if (_kitPage) return UiKit.Stepper(_kit, value, min, max, step, fmt, apply);
+            if (_kit != null) return UiKit.Stepper(_kit, value, min, max, step, fmt, apply);
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             var val = Label(value.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture), 12, TextDim, FontWeights.Normal);
             val.Width = 58;
@@ -618,7 +617,7 @@ namespace Amc
 
         Border Pill(string text, Action act, bool primary)
         {
-            if (_kitPage)
+            if (_kit != null)
             {
                 var kb = UiKit.Button(_kit, text, primary ? UiButtonKind.Primary : UiButtonKind.Ghost,
                                       delegate { try { act(); } catch { } });
@@ -654,7 +653,7 @@ namespace Amc
 
         UIElement Toggle(bool on, Action<bool> apply, bool enabled)
         {
-            if (_kitPage && enabled) return UiKit.Switch(_kit, on, apply);
+            if (_kit != null) return UiKit.Switch(_kit, on, enabled, apply);
             Color onBg = Color.FromArgb(255, 236, 238, 242);
             Color offBg = Color.FromArgb(34, 255, 255, 255);
             var track = new Border
@@ -999,14 +998,10 @@ namespace Amc
             }
 
             UIElement body;
-            // Only the look page is on the kit so far; the flag switches the shared primitives
-            // (pill / stepper / switch / segmented / colour row) for this build and nothing else.
-            _kitPage = (key == "look");
             if (key == "look") body = LookPage();
             else if (key == "lyrics") body = LyricsPage();
             else if (key == "about") body = AboutPage();
             else body = HomePage();
-            _kitPage = false;
             _sectionCount = 0;
             _host.Content = PageFrame(key, body);
 
@@ -1369,7 +1364,7 @@ namespace Amc
 
         UIElement Segmented(string[] labels, int selected, Action<int> pick)
         {
-            if (_kitPage) return UiKit.Segmented(_kit, labels, selected, pick);
+            if (_kit != null) return UiKit.Segmented(_kit, labels, selected, pick);
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             // Every pill needs to be reachable from every other pill: clicking one has to move the
             // highlight, and the caller only reports "index N was chosen", so the row repaints itself.
@@ -1851,7 +1846,7 @@ namespace Amc
 
         Border PresetChip(Config.LookPreset p)
         {
-            if (_kitPage)
+            if (_kit != null)
             {
                 var kc = UiKit.Chip(_kit, p.Name, delegate
                 {

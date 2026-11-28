@@ -341,16 +341,28 @@ namespace Amc
         /// <summary>HandyControl's toggle: a 42×24 track with a knob that slides, not snaps.</summary>
         public static Border Switch(UiTheme t, bool on, Action<bool> changed)
         {
+            return Switch(t, on, true, changed);
+        }
+
+        /// <summary>The same switch, but a disabled one goes grey and swallows the click: the
+        /// player list needs to show a row without letting anyone bind to it.</summary>
+        public static Border Switch(UiTheme t, bool on, bool enabled, Action<bool> changed)
+        {
             const double W = 42, H = 24, K = 17, PAD = 3.5;
-            var track = new SolidColorBrush(on ? t.Solid : Color.FromArgb(255, 62, 62, 70));
-            var knobFill = new SolidColorBrush(on ? t.OnSolid : Color.FromArgb(235, 232, 234, 240));
+            Color onTrack = enabled ? t.Solid : Color.FromArgb(255, 52, 52, 58);
+            Color offTrack = enabled ? Color.FromArgb(255, 62, 62, 70) : Color.FromArgb(255, 44, 44, 50);
+            Color knobOn = enabled ? t.OnSolid : Color.FromArgb(255, 120, 122, 130);
+            Color knobOff = enabled ? Color.FromArgb(235, 232, 234, 240) : Color.FromArgb(150, 200, 202, 210);
+
+            var track = new SolidColorBrush(on ? onTrack : offTrack);
+            var knobFill = new SolidColorBrush(on ? knobOn : knobOff);
 
             var host = new Border();
             host.Width = W; host.Height = H;
             host.CornerRadius = new CornerRadius(H / 2);
             host.Background = track;
-            host.Cursor = Cursors.Hand;
-            host.Focusable = true;
+            host.Cursor = enabled ? Cursors.Hand : Cursors.Arrow;
+            host.Focusable = enabled;
             host.FocusVisualStyle = null;
 
             var knob = new Ellipse();
@@ -360,15 +372,22 @@ namespace Amc
             knob.VerticalAlignment = VerticalAlignment.Center;
             knob.Margin = new Thickness(PAD, 0, 0, 0);
             var kt = new TranslateTransform(on ? (W - K - PAD * 2) : 0, 0);
-            knob.RenderTransform = kt;
+
+            var ks = new ScaleTransform(1, 1);
+            knob.RenderTransformOrigin = new Point(0.5, 0.5);
+            var kgroup = new TransformGroup();
+            kgroup.Children.Add(kt);
+            kgroup.Children.Add(ks);
+            knob.RenderTransform = kgroup;
 
             var grid = new Grid();
             grid.Children.Add(knob);
             host.Child = grid;
 
+            if (!enabled) return host;
+
             bool state = on;
             bool hover = false;
-            Action toggle = null;
             Action applyColours = delegate
             {
                 Color c = state ? t.Solid : Color.FromArgb(255, 62, 62, 70);
@@ -378,19 +397,13 @@ namespace Amc
 
             host.MouseEnter += delegate { hover = true; applyColours(); };
             host.MouseLeave += delegate { hover = false; applyColours(); };
-            var ks = new ScaleTransform(1, 1);
-            knob.RenderTransformOrigin = new Point(0.5, 0.5);
-            var kgroup = new TransformGroup();
-            kgroup.Children.Add(kt);
-            kgroup.Children.Add(ks);
-            knob.RenderTransform = kgroup;
             host.MouseLeftButtonDown += delegate
             {
                 host.Focus();
                 UiMotion.Scale(ks, 0.88, 90);
             };
             host.MouseLeftButtonUp += delegate { UiMotion.Scale(ks, 1.0, 200); };
-            toggle = delegate
+            Action toggle = delegate
             {
                 state = !state;
                 // Quintic rather than Cubic: the knob arrives instead of drifting in.
