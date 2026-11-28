@@ -23,6 +23,10 @@ namespace Amc
         public static void Color(SolidColorBrush brush, Color to, int ms)
         {
             if (brush == null) return;
+            // Theme brushes are handed out frozen (one instance per colour). Animating a frozen
+            // Freezable throws, so interactive elements must own a mutable copy -- and this guard
+            // keeps a stray frozen brush from taking the window down.
+            if (brush.IsFrozen) return;
             var a = new ColorAnimation(to, TimeSpan.FromMilliseconds(ms));
             a.EasingFunction = Out;
             brush.BeginAnimation(SolidColorBrush.ColorProperty, a);
@@ -458,6 +462,9 @@ namespace Amc
                 cell.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
                 var tb = Label(t, items[i], t.FontBody,
                                i == index ? t.Text : t.TextTertiary, i == index);
+                // Own the brush: selecting a segment animates it, and animating the shared frozen
+                // token throws.
+                tb.Foreground = new SolidColorBrush(i == index ? t.Text : t.TextTertiary);
                 tb.TextAlignment = TextAlignment.Center;
                 tb.HorizontalAlignment = HorizontalAlignment.Center;
                 cell.Child = tb;
@@ -500,6 +507,7 @@ namespace Amc
             if (remove != null)
             {
                 var x = Label(t, "\u00d7", 12, t.TextTertiary, false);
+                x.Foreground = new SolidColorBrush(t.TextTertiary);
                 x.Margin = new Thickness(6, 0, 0, 1);
                 x.Cursor = Cursors.Hand;
                 x.MouseEnter += delegate { UiMotion.Color((SolidColorBrush)x.Foreground, t.Danger, t.MotionFast); };

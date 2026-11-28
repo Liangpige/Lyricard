@@ -17,6 +17,7 @@ namespace Amc
         StackPanel _page;
         Border _shell;
         TextBlock _themeName;
+        TextBlock _status;
         int _demoState;
 
         public UiKitDemo()
@@ -42,6 +43,7 @@ namespace Amc
             var grid = new Grid();
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             _shell.Child = grid;
 
             // ---- header: drag to move, X to close (Preview, so DragMove cannot eat the click) ----
@@ -100,6 +102,16 @@ namespace Amc
             var scroller = UiKit.Scroll(_t, _page);
             Grid.SetRow(scroller, 1);
             grid.Children.Add(scroller);
+
+            var statusBar = new Border();
+            statusBar.Padding = new Thickness(_t.Space4, 6, _t.Space4, 7);
+            statusBar.BorderBrush = _t.Brush(_t.Border);
+            statusBar.BorderThickness = new Thickness(0, 1, 0, 0);
+            _status = UiKit.Label(_t, "就绪：点一点看看，出错会在这里显示", _t.FontCaption, _t.TextTertiary, false);
+            _status.TextTrimming = TextTrimming.CharacterEllipsis;
+            statusBar.Child = _status;
+            Grid.SetRow(statusBar, 2);
+            grid.Children.Add(statusBar);
 
             _page.Children.Add(ButtonsCard());
             _page.Children.Add(SwitchesCard());
@@ -221,7 +233,7 @@ namespace Amc
         /// Anything that touches the visual tree from a click goes through here. A preview window
         /// that dies silently is worse than one that prints its stack trace.
         /// </summary>
-        static void Guard(Action a)
+        void Guard(Action a)
         {
             try { a(); }
             catch (Exception ex)
@@ -232,11 +244,13 @@ namespace Amc
                         DateTime.Now.ToString("HH:mm:ss") + " " + ex + "\r\n\r\n");
                 }
                 catch (Exception) { }
+                if (_status != null) _status.Text = "出错：" + ex.GetType().Name + " " + ex.Message;
             }
         }
 
         void Bump()
         {
+            if (_status != null) _status.Text = "已响应一次点击";
             // Touch the readout so a click is visibly acknowledged even though this window has
             // no real state to change.
             Title = "Lyricard · UI kit";

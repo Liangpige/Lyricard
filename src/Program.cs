@@ -100,6 +100,8 @@ namespace Amc
                             DateTime.Now.ToString("HH:mm:ss") + " dispatcher " + e.Exception + "\r\n\r\n");
                     }
                     catch (Exception) { }
+                    // The preview must outlive a bad handler: swallow, show it, keep going.
+                    e.Handled = true;
                 };
                 uiApp.Run(new UiKitDemo());
                 return;
