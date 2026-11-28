@@ -293,6 +293,7 @@ namespace Amc
 
             Both("lbl.artSize", "大小", "Size");
             Both("lbl.coverSize", "封面大小", "Cover size");
+            Both("lbl.btnSize", "按钮大小", "Button size");
             Both("lbl.artSat", "饱和度", "Saturation");
             Both("lbl.artHiCut", "高光压制", "Highlight cut");
             Both("lbl.artShadow", "封面阴影", "Artwork shadow");

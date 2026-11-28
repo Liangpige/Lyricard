@@ -90,6 +90,7 @@ namespace Amc
         Border _barTrack;
         Border _barFill;
         StackPanel _controls;
+        double _controlsScale = 1.0;
         FrameworkElement _content;
         Ellipse _artEllipse;
         Ellipse _artTop;
@@ -421,6 +422,7 @@ namespace Amc
             _elem.Cover = _artHost;
             _layout = lay;
             ModuleRenderer.Apply(_canvas, model, lay, _elem);
+            ApplyControlsScale();
             ApplyControlsPos();
             PlaceArtist(model, lay);
             ApplyModuleCaps(lay);
@@ -866,6 +868,35 @@ namespace Amc
         // 100% = flush right (the default). Percent is taken over the FREE width
         // (column width minus the button row's own width), so it stays meaningful when the
         // card widens or narrows.
+        /// <summary>
+        /// Buttons follow the Controls module's box height: 30 units is the design size, so a
+        /// template with a taller module gets bigger hit boxes and bigger glyphs, and the board's
+        /// 暂停/播放 box is the same number. Scales each button (not the row) so the row's own
+        /// width -- and therefore the centring in ApplyControlsPos -- stays correct.
+        /// </summary>
+        void ApplyControlsScale()
+        {
+            if (_controls == null) return;
+            double k = 1.0;
+            ModuleRect rc;
+            if (_layout != null && _layout.TryFind(ModuleKind.Controls, out rc) && rc.H > 1)
+                k = rc.H / 30.0;
+            if (k < 0.4) k = 0.4;
+            if (k > 3.0) k = 3.0;
+            if (Math.Abs(k - _controlsScale) < 0.001) return;
+            _controlsScale = k;
+            LyricsService.Log("controls scale " + k.ToString("0.00"));
+            foreach (UIElement u in _controls.Children)
+            {
+                FrameworkElement fe = u as FrameworkElement;
+                if (fe == null) continue;
+                if (Math.Abs(k - 1.0) < 0.001) fe.LayoutTransform = null;
+                else fe.LayoutTransform = new ScaleTransform(k, k);
+            }
+            UpdateLayout();
+            ApplyControlsPos();
+        }
+
         /// <summary>
         /// Place the transport row horizontally inside the text column: 0% = flush left with the
         /// progress bar, 100% = flush right. The row keeps its natural width; only the left margin

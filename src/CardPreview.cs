@@ -93,6 +93,23 @@ namespace Amc
             return _draft == null ? null : _draft.Clone();
         }
 
+        /// <summary>
+        /// Resize one module inside the draft and repaint. The size steppers write the live template
+        /// (so the card changes at once), and this keeps the board showing exactly that -- without
+        /// starting from the live model, which would throw away a drag that has not been applied yet.
+        /// </summary>
+        public void ResizeModule(ModuleKind kind, double x, double y, double w, double h)
+        {
+            if (_draft == null) return;
+            ModuleConfig mc = _draft.Find(kind);
+            if (mc == null) return;
+            mc.X = x;
+            mc.Y = y;
+            mc.W = w;
+            mc.H = h;
+            Rebuild();
+        }
+
         /// <summary>Discard the draft and go back to what the card is actually using.</summary>
         /// <summary>
         /// Cancel means "undo": if an Apply already happened, the card goes back to the template it

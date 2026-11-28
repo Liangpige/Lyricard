@@ -121,6 +121,11 @@ namespace Amc
                 _cfg.Save();
                 _preview.RefreshFromCard();
             })));
+            // The transport row is a template size as well: its height is the button hit box, so
+            // the 暂停/播放 box in the board above grows with it (width follows so the three
+            // buttons still fit inside).
+            capStack.Children.Add(Row(Strings.T("lbl.btnSize"), Stepper(ControlsSizeOf(), 18, 60, 2, "0",
+                delegate(double v) { ControlsModule(v); })));
             box.Children.Add(TwoColumn(capStack));
 
             // The spectrum's length and height are template sizes too (they write straight into

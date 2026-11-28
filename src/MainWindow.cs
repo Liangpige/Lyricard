@@ -1062,6 +1062,47 @@ namespace Amc
             if (_preview != null) _preview.RefreshFromCard();
         }
 
+        /// <summary>
+        /// The transport row's size is the Controls module's box: 30 units tall is the design size,
+        /// so the module height *is* the button hit box. Width is derived from it so the box keeps
+        /// hugging the three buttons -- 96 units at 30 plus the 6 units of slack the shipped
+        /// template had, so 30 reproduces today's box exactly.
+        /// </summary>
+        double ControlsSizeOf()
+        {
+            CardConfig m = _card.Model;
+            ModuleConfig mc = m == null ? null : m.Find(ModuleKind.Controls);
+            return mc == null || mc.H <= 1 ? 30.0 : mc.H;
+        }
+
+        void ControlsModule(double h)
+        {
+            CardConfig m = _card.Model;
+            if (m == null) return;
+            ModuleConfig mc = m.Find(ModuleKind.Controls);
+            if (mc == null)
+            {
+                mc = new ModuleConfig(ModuleKind.Controls);
+                mc.X = 16;
+                mc.Y = 100;
+                mc.ZIndex = 5;
+                m.Modules.Add(mc);
+            }
+            mc.Enabled = true;
+            // grow around the box's centre, so a bigger button row stays under the text column
+            // instead of sliding right into the cover
+            double cx = mc.X + mc.W / 2.0;
+            mc.H = h;
+            mc.W = Math.Round(h * 3.2) + 6.0;
+            mc.X = Math.Max(0.0, Math.Round(cx - mc.W / 2.0));
+            _card.InvalidateModel();
+            _card.SaveModel();
+            _card.ApplyLook();
+            // the board draws the same template: resize its copy in place so an unapplied drag
+            // survives the stepper (RefreshFromCard would start the draft over from the card)
+            if (_preview != null) _preview.ResizeModule(ModuleKind.Controls, mc.X, mc.Y, mc.W, mc.H);
+        }
+
         void SetCap(ModuleKind kind, int chars)
         {
             if (chars < 0) chars = 0;
