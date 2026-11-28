@@ -764,7 +764,10 @@ namespace Amc
                 RadiusY = 1,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Bottom,
-                Fill = Brushes.Transparent
+                Fill = Brushes.Transparent,
+                // Starts invisible: SetPage paints every line white before it fades the inactive
+                // ones out, and on a fresh tab that white used to be visible for a frame.
+                Opacity = 0
             };
             inner.Children.Add(line);
             box.Height = 34;
@@ -884,6 +887,16 @@ namespace Amc
                     line.RenderTransform = new ScaleTransform(1.0, 1.0);
                 }
                 var stx = (ScaleTransform)line.RenderTransform;
+                if (samePage)
+                {
+                    // Re-rendering the page we are already on must not touch the strip: snapping
+                    // here keeps the underline exactly where it was instead of re-fading it.
+                    line.BeginAnimation(UIElement.OpacityProperty, null);
+                    stx.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                    line.Opacity = on ? 1.0 : 0.0;
+                    stx.ScaleX = on ? 1.0 : 0.55;
+                    continue;
+                }
                 var lo = new DoubleAnimation(on ? 1.0 : 0.0, TimeSpan.FromMilliseconds(on ? 150 : 90));
                 lo.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
                 line.BeginAnimation(UIElement.OpacityProperty, lo);
