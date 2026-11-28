@@ -223,15 +223,17 @@ namespace Amc
                 if (!lay.TryFind(mc.Kind, out r)) continue;
 
                 FrameworkElement box;
-                if (mc.Kind == ModuleKind.Cover) box = Placeholder(Strings.T("mod.cover"), r, true);
-                else if (mc.Kind == ModuleKind.Title) box = Placeholder(Strings.T("mod.title"), r, false);
-                else if (mc.Kind == ModuleKind.Artist) box = Placeholder(Strings.T("mod.artist"), r, false);
-                else if (mc.Kind == ModuleKind.Album) box = Placeholder(Strings.T("mod.album"), r, false);
-                else if (mc.Kind == ModuleKind.Lyrics) box = Placeholder(Strings.T("mod.lyrics"), r, false);
-                else if (mc.Kind == ModuleKind.Progress) box = Placeholder(Strings.T("mod.progress"), r, false);
-                else if (mc.Kind == ModuleKind.Controls) box = Placeholder(Strings.T("mod.controls"), r, false);
-                else if (mc.Kind == ModuleKind.MusicBars) box = Placeholder(Strings.T("mod.bars"), r, false);
-                else box = Placeholder(Strings.T("mod.button"), r, false);
+                // The disc turns into a square sleeve the moment the shape setting says so; the
+                // board has to show that, otherwise the preview lies about the card above it.
+                if (mc.Kind == ModuleKind.Cover) box = CoverBox(r, _card == null || _card.IsRoundArt);
+                else if (mc.Kind == ModuleKind.Title) box = Placeholder(Strings.T("mod.title"), r);
+                else if (mc.Kind == ModuleKind.Artist) box = Placeholder(Strings.T("mod.artist"), r);
+                else if (mc.Kind == ModuleKind.Album) box = Placeholder(Strings.T("mod.album"), r);
+                else if (mc.Kind == ModuleKind.Lyrics) box = Placeholder(Strings.T("mod.lyrics"), r);
+                else if (mc.Kind == ModuleKind.Progress) box = Placeholder(Strings.T("mod.progress"), r);
+                else if (mc.Kind == ModuleKind.Controls) box = Placeholder(Strings.T("mod.controls"), r);
+                else if (mc.Kind == ModuleKind.MusicBars) box = Placeholder(Strings.T("mod.bars"), r);
+                else box = Placeholder(Strings.T("mod.button"), r);
 
                 box.Tag = mc.Kind;
                 Canvas.SetLeft(box, (r.X + _padX) * _s);
@@ -244,26 +246,43 @@ namespace Amc
             _canvas.Children.Add(_guideH);
         }
 
-        FrameworkElement Placeholder(string label, ModuleRect r, bool round)
+        /// <summary>Cover sketch: a disc (circle mode) or the square sleeve, sized to the module.</summary>
+        FrameworkElement CoverBox(ModuleRect r, bool round)
         {
             double w = Math.Max(2.0, r.W * _s);
             double h = Math.Max(2.0, r.H * _s);
-
+            var wrap = new Grid { Width = w, Height = h, Background = Brushes.Transparent };
             if (round)
             {
                 double d = Math.Min(w, h);
-                var ring = new Ellipse
+                wrap.Children.Add(new Ellipse
                 {
                     Width = d,
                     Height = d,
                     Stroke = BoxStroke,
                     StrokeThickness = 1,
                     Fill = BoxFill
-                };
-                var wrap = new Grid { Width = w, Height = h, Background = Brushes.Transparent };
-                wrap.Children.Add(ring);
-                return wrap;
+                });
             }
+            else
+            {
+                wrap.Children.Add(new Border
+                {
+                    Width = w,
+                    Height = h,
+                    CornerRadius = new CornerRadius(3),
+                    BorderBrush = BoxStroke,
+                    BorderThickness = new Thickness(1),
+                    Background = BoxFill
+                });
+            }
+            return wrap;
+        }
+
+        FrameworkElement Placeholder(string label, ModuleRect r)
+        {
+            double w = Math.Max(2.0, r.W * _s);
+            double h = Math.Max(2.0, r.H * _s);
 
             var border = new Border
             {

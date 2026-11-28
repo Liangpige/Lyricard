@@ -2117,7 +2117,7 @@ namespace Amc
         }
 
         /// <summary>True while the cover is drawn as a disc (the square sleeve never turns).</summary>
-        bool IsRoundArt
+        public bool IsRoundArt
         {
             get { return !string.Equals(_cfg.ArtShape, "square", StringComparison.OrdinalIgnoreCase); }
         }

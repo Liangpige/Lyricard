@@ -69,6 +69,15 @@ namespace Amc
 
             // Length caps: the character cap *is* the width while the box is on auto, so these
             // three steer the frames you just saw above.
+            // 封面形状 came here from the 封面 page. It is not a template size (it lives in
+            // config.ini and applies at once), but the board is the place where you actually see
+            // the disc turn into a square sleeve, so the switch belongs next to the sketch.
+            box.Children.Add(Section(Strings.T("lbl.artshape")));
+            box.Children.Add(Segmented(
+                new string[] { Strings.T("artshape.circle"), Strings.T("artshape.square") },
+                string.Equals(_cfg.ArtShape, "square", StringComparison.OrdinalIgnoreCase) ? 1 : 0,
+                delegate(int i) { _card.SetArtShape(i == 1 ? "square" : "circle"); RebuildAll(); }));
+
             box.Children.Add(Section(Strings.T("page.look.size")));
             var capStack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
             capStack.Children.Add(Row(Strings.T("cap.title"), Stepper(CapOf(ModuleKind.Title), 0, 80, 2, "0",
@@ -293,10 +302,7 @@ namespace Amc
         void ArtStop(StackPanel box)
         {
             box.Children.Add(Section(Strings.T("rail.art")));
-            box.Children.Add(Row(Strings.T("lbl.artshape"), Segmented(
-                new string[] { Strings.T("artshape.circle"), Strings.T("artshape.square") },
-                string.Equals(_cfg.ArtShape, "square", StringComparison.OrdinalIgnoreCase) ? 1 : 0,
-                delegate(int i) { _card.SetArtShape(i == 1 ? "square" : "circle"); RebuildAll(); })));
+            // 封面形状 moved to the board (the place where you watch the disc turn into a sleeve).
             box.Children.Add(Row(Strings.T("lbl.spin"), Toggle(_cfg.ArtSpin, delegate(bool v)
             { _card.SetArtSpin(v); _cfg.Save(); })));
             if (_cfg.ArtTint)
