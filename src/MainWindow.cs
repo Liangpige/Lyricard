@@ -293,7 +293,9 @@ namespace Amc
         UIElement PageFrame(string key, UIElement body)
         {
             var box = new StackPanel();
-            string navKey = key == "look" ? "nav.appearance" : "nav." + key;
+            // The appearance tab is a shell around ten pages: its heading names the stop on
+            // screen, not the tab, or every stop would look like the same page.
+            string navKey = key == "look" ? _lookPage : "nav." + key;
             var title = Label(Strings.T(navKey), 17, TextMain, FontWeights.SemiBold);
             title.Margin = new Thickness(0, 0, 0, 12);
             box.Children.Add(title);
@@ -751,7 +753,14 @@ namespace Amc
             else body = HomePage();
             _sectionCount = 0;
             // The rail belongs to the appearance page alone; the other pages leave the column empty.
-            if (_railHost != null && key != "look") _railHost.Content = null;
+            if (_railHost != null)
+            {
+                // The rail's column is auto-width, so an empty host still costs its own margin
+                // and every other page would start 28 px further right than it ends. Collapsing
+                // the host takes the whole column away instead.
+                if (key != "look") _railHost.Content = null;
+                _railHost.Visibility = key == "look" ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            }
             _host.Content = PageFrame(key, body);
 
             if (samePage)
