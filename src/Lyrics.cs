@@ -434,6 +434,20 @@ namespace Amc
             string file = Path.Combine(CacheDir, key + ".lrc");
             string miss = Path.Combine(CacheDir, key + ".miss");
 
+            // The user's own folder wins over everything: cache, "no lyrics" markers, network.
+            // A hand-made .lrc is trusted as-is, so a short one is not thrown away as a fragment.
+            if (!skipLocal)
+            {
+                var own = TryLocal(title, artist, duration);
+                if (own != null && (own.Lines.Count >= 3 || own.Instrumental))
+                {
+                    own.Score = 1.0;
+                    Log("  take local " + own.Matched + " lines=" + own.Lines.Count +
+                        " instr=" + own.Instrumental + " (authoritative, cache bypassed)");
+                    return own;
+                }
+            }
+
             if (!force)
             {
                 if (File.Exists(file))
@@ -473,7 +487,9 @@ namespace Amc
             // know the song's length:
             //   * duration known and long  -> the lyric must reach at least half of it
             //   * duration unknown         -> a lyric that ends inside 90 s is a clip
-            if (found != null && !found.Instrumental && found.Lines.Count > 0)
+            bool trusted = found != null &&
+                (found.Source ?? "").StartsWith("local", StringComparison.OrdinalIgnoreCase);
+            if (found != null && !trusted && !found.Instrumental && found.Lines.Count > 0)
             {
                 double ends = found.Lines[found.Lines.Count - 1].Time;
                 double floor = 0;
@@ -807,6 +823,24 @@ namespace Amc
             }
         }
 
+        // .lrc files in the wild are UTF-8 (often with BOM) or GBK/GB18030 from Chinese
+        // download sites. Read the bytes once and pick a decoder that actually fits.
+        static string ReadTextSmart(string path)
+        {
+            byte[] raw = File.ReadAllBytes(path);
+            if (raw.Length >= 3 && raw[0] == 0xEF && raw[1] == 0xBB && raw[2] == 0xBF)
+                return Encoding.UTF8.GetString(raw, 3, raw.Length - 3);
+            if (raw.Length >= 2 && raw[0] == 0xFF && raw[1] == 0xFE)
+                return Encoding.Unicode.GetString(raw, 2, raw.Length - 2);
+            if (raw.Length >= 2 && raw[0] == 0xFE && raw[1] == 0xFF)
+                return Encoding.BigEndianUnicode.GetString(raw, 2, raw.Length - 2);
+            try { return new UTF8Encoding(false, true).GetString(raw); }
+            catch { }
+            try { return Encoding.GetEncoding(936).GetString(raw); }
+            catch { }
+            return Encoding.UTF8.GetString(raw);
+        }
+
         static LyricDoc TryLocal(string title, string artist, double duration)
         {
             try
@@ -833,7 +867,13 @@ namespace Amc
                     if (sim > bestSim) { bestSim = sim; bestPath = f; }
                 }
                 if (bestPath == null || bestSim < 0.80) return null;
-                var doc = Parse(File.ReadAllText(bestPath, Encoding.UTF8), "local");
+                var doc = Parse(ReadTextSmart(bestPath), "local");
+                if (doc.Lines.Count == 0 && !doc.Instrumental)
+                {
+                    Log("  local file has no timed lines (plain text?) " +
+                        Path.GetFileName(bestPath) + " sim=" + F2(bestSim));
+                    return doc;
+                }
                 doc.Matched = Path.GetFileNameWithoutExtension(bestPath);
                 // A user-supplied file is trusted: no duration sanity check (pass 0 to skip it).
                 doc = Sanitize(doc, title, artist, 0);
