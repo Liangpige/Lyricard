@@ -494,13 +494,42 @@ namespace Amc
         // ------------------------------------------------------------ segmented ---
 
         /// <summary>HandyControl-ish tab strip: the highlight slides to the picked item.</summary>
+        /// <summary>Pixel width of a label at the theme's body size, for controls that size to text.</summary>
+        static double MeasureWidth(UiTheme t, string text)
+        {
+            var dpi = 1.0;
+            try
+            {
+                var src = System.Windows.Media.VisualTreeHelper.GetDpi(new System.Windows.Controls.Border());
+                dpi = src.PixelsPerDip > 0 ? src.PixelsPerDip : 1.0;
+            }
+            catch { }
+            var ft = new FormattedText(text ?? "",
+                System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+                new Typeface(new FontFamily(t.FontFamily), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                t.FontBody, Brushes.Black, dpi);
+            return ft.Width;
+        }
+
         public static Grid Segmented(UiTheme t, string[] items, int index, Action<int> changed)
         {
-            const double ITEM_W = 78, H = 30;
+            const double H = 30, MIN_W = 62, PAD = 30;
             var root = new Grid();
             root.HorizontalAlignment = HorizontalAlignment.Left;
-            root.Width = ITEM_W * items.Length;
             root.Height = H;
+
+            // Width per item, not a fixed column: "Scale the card" is twice as wide as "Off", and a
+            // fixed column truncated the English labels.
+            var widths = new double[items.Length];
+            var offsets = new double[items.Length];
+            double total = 0;
+            for (int i = 0; i < items.Length; i++)
+            {
+                widths[i] = Math.Max(MIN_W, MeasureWidth(t, items[i]) + PAD);
+                offsets[i] = total;
+                total += widths[i];
+            }
+            root.Width = total;
 
             var well = new Border();
             well.CornerRadius = new CornerRadius(t.RadiusControl + 2);
@@ -511,14 +540,14 @@ namespace Amc
 
             var pillBg = new SolidColorBrush(t.Solid);
             var pill = new Border();
-            pill.Width = ITEM_W - 4;
+            pill.Width = widths[index] - 4;
             pill.Height = H - 4;
             pill.CornerRadius = new CornerRadius(t.RadiusControl);
             pill.Background = pillBg;
             pill.HorizontalAlignment = HorizontalAlignment.Left;
             pill.VerticalAlignment = VerticalAlignment.Top;
             pill.Margin = new Thickness(2, 2, 0, 0);
-            var pt = new TranslateTransform(index * ITEM_W, 0);
+            var pt = new TranslateTransform(offsets[index], 0);
             pill.RenderTransform = pt;
             root.Children.Add(pill);
 
@@ -532,7 +561,7 @@ namespace Amc
             {
                 int idx = i;
                 var cell = new Border();
-                cell.Width = ITEM_W;
+                cell.Width = widths[i];
                 cell.Height = H;
                 cell.Cursor = Cursors.Hand;
                 cell.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
@@ -550,7 +579,8 @@ namespace Amc
                     if (idx == current) return;
                     int prev = current;
                     current = idx;
-                    UiMotion.Slide(pt, idx * ITEM_W, 0, 200, UiMotion.Quick);
+                    pill.Width = widths[idx] - 4;
+                    UiMotion.Slide(pt, offsets[idx], 0, 200, UiMotion.Quick);
                     UiMotion.Color((SolidColorBrush)labels[prev].Foreground, t.TextTertiary, 150);
                     labels[prev].FontWeight = FontWeights.Normal;
                     labels[idx].FontWeight = FontWeights.SemiBold;
