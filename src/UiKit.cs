@@ -763,6 +763,32 @@ namespace Amc
         /// settles in about a fifth of a second and a spun wheel still tracks the finger.
         /// The indicator listens to ScrollChanged, so the handle rides the same animation.
         /// </remarks>
+        /// <summary>Glides the viewport to <paramref name="y"/> over <paramref name="ms"/>.</summary>
+        public static void ScrollTo(ScrollViewer sv, double y, double ms)
+        {
+            if (sv == null) return;
+            if (ms <= 0)
+            {
+                sv.ScrollToVerticalOffset(y);
+                return;
+            }
+            double from = sv.VerticalOffset;
+            double span = y - from;
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            EventHandler frame = null;
+            frame = delegate
+            {
+                double elapsed = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) / (double)System.Diagnostics.Stopwatch.Frequency;
+                double p = Math.Min(1.0, elapsed / (ms / 1000.0));
+                // cubic ease-out: quick to leave, slow to land, which is what a jump to a stop
+                // should feel like.
+                double k = 1.0 - Math.Pow(1.0 - p, 3.0);
+                sv.ScrollToVerticalOffset(from + span * k);
+                if (p >= 1.0) CompositionTarget.Rendering -= frame;
+            };
+            CompositionTarget.Rendering += frame;
+        }
+
         static void SmoothWheel(ScrollViewer sv)
         {
             const double Step = 60;        // distance of one notch
