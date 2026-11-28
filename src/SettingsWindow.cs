@@ -44,7 +44,7 @@ namespace Amc
 
         TextBlock _headTitle;
         TextBlock _footHint;
-        const string Version = "v0.3.6";
+        const string Version = "v0.4.0";
         TextBlock _btnDoneText;
         TextBlock _btnResetText;
         Border _panel;

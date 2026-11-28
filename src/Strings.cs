@@ -79,8 +79,8 @@ namespace Amc
             Both("lbl.barsAttack", "上升速度", "Attack");
             Both("lbl.barsRelease", "回落速度", "Release");
             Both("lbl.barsColor", "频谱颜色", "Spectrum colour");
-            Both("app.version", "v0.3.6", "v0.3.6");
-            Both("app.tip", "Lyricard v0.3.6 · 桌面歌词卡片", "Lyricard v0.3.6 · desktop lyric card");
+            Both("app.version", "v0.4.0", "v0.4.0");
+            Both("app.tip", "Lyricard v0.4.0 · 桌面歌词卡片", "Lyricard v0.4.0 · desktop lyric card");
 
             Both("menu.showHide", "显示 / 隐藏", "Show / hide");
             Both("menu.settings", "个性化设置…", "Appearance…");
@@ -90,8 +90,6 @@ namespace Amc
             Both("nav.lyrics", "歌词", "Lyrics");
             Both("nav.settings", "设置", "Settings");
             Both("nav.about", "关于", "About");
-            Both("nav.body.empty", "页面还是空的", "This page is still empty");
-            Both("page.look.more", "更多设置…", "More settings…");
             Both("page.home.language", "界面语言", "Language");
             Both("page.settings.fullscreen", "全屏时隐藏", "Fullscreen");
             Both("lbl.hideFullscreen", "有窗口全屏时隐藏卡片", "Hide the card when a window is fullscreen");
@@ -104,9 +102,6 @@ namespace Amc
                 "只对桌面卡片生效。音量指系统总音量（等同音量键），不是单独调某个播放器。",
                 "Applies to the desktop card only. Volume is the system master level (same as the volume keys), not one player's slider.");
             Both("page.settings.clickthrough", "交互穿透（让点击落到下层）", "Click-through (let clicks fall through)");
-            Both("page.settings.clickthrough.hint",
-                "打开后卡片不再接收任何鼠标操作，点在卡片上的动作会落到它下面的窗口；要关掉就从托盘菜单或这一页关。",
-                "With this on the card stops taking mouse input -- clicks go to the window below it. Turn it off from the tray menu or this page.");
             Both("page.home.startup", "启动", "Startup");
             Both("page.home.autostart", "开机自动启动", "Start at logon");
             Both("page.home.autostart.hint",
@@ -145,14 +140,6 @@ namespace Amc
             Both("lbl.artshape", "封面样式", "Cover style");
             Both("artshape.circle", "圆形", "Circle");
             Both("artshape.square", "方形", "Square");
-            Both("page.look.hint", "改动立即生效", "Changes apply instantly");
-            Both("page.look.scale", "整体缩放", "Scale");
-            Both("page.look.opacity", "整体不透明度", "Opacity");
-            Both("page.look.lyricsize", "歌词字号", "Lyric size");
-            Both("page.look.barthick", "进度条粗细", "Bar thickness");
-            Both("page.look.clear", "透明背景（只留文字）", "Transparent background");
-            Both("page.look.spin", "封面旋转", "Spin artwork");
-            Both("page.look.shadow", "文字阴影（浅色壁纸）", "Text shadow (light wallpaper)");
             Both("page.lyr.title", "歌词来源", "Lyric sources");
             Both("page.lyr.order", "优先级：本地文件 → QQ → 网易云 → lrclib（英文歌还会额外问酷狗）", "Order: local file → QQ → NetEase → lrclib (Kugou is also asked for Latin titles)");
             Both("page.lyr.local", "本地文件歌词放在：程序目录下的 data\\lrc\\ 文件夹\n歌词文件需要带有时间轴（.lrc，每行以 [mm:ss.xx] 开头）", "Local lyric files go in data\\lrc\\ next to the program\nThe .lrc file needs a timeline (each line starts with [mm:ss.xx])");
@@ -161,7 +148,6 @@ namespace Amc
             Both("page.lyr.export", "导出歌词…", "Export lyrics…");
             Both("page.lyr.clearcache", "清除歌词缓存", "Clear lyric cache");
             Both("page.lyr.opendir", "打开数据目录", "Open data folder");
-            Both("page.lyr.cleared", "已清除", "Cleared");
             Both("page.lyr.confirm", "确定要清掉全部歌词缓存吗？下次播放会重新联网取词。", "Clear the whole lyric cache? They will be fetched again on next play.");
             Both("page.about.blurb",
                  "Lyricard —— 一张浮在桌面上的歌词卡片。版式是模板，画板里拖出你自己的一张；默认跟 Apple Music，也可以同时盯 9 家播放器。",
@@ -222,10 +208,6 @@ namespace Amc
             Both("ct.transport", "只留按钮", "Buttons only");
             Both("ct.hint", "「全部穿透」时卡片完全不接鼠标；「只留按钮」时卡片透传，只有下面那排按钮（上一首/播放/下一首）还能点。滚轮在两种穿透下都用不了。",
                  "\"Everything\" makes the whole card transparent to the mouse. \"Buttons only\" pushes clicks through everywhere except the transport row, so pause/next still work. The wheel is off in both.");
-            Both("menu.clearBg", "透明背景（只留文字）", "Transparent background (text only)");
-            Both("menu.clearBgShort", "透明背景", "Transparent background");
-            Both("menu.spin", "封面旋转", "Spin artwork");
-            Both("menu.listenAll", "监听所有播放器", "Listen to all players");
             Both("menu.autostart", "开机自启", "Start with Windows");
             Both("menu.close", "关闭卡片", "Close card");
             Both("menu.cancel", "取消", "Cancel");
@@ -269,16 +251,12 @@ namespace Amc
             Both("uninst.done",
                  "已卸载：关闭了 {0} 个运行中的副本，开机自启已清除（{1}），删除了 {2} 个数据目录。",
                  "Uninstalled: closed {0} running copy(ies), startup entry cleared ({1}), {2} data folder(s) removed.");
-            Both("menu.uninstall", "卸载…", "Uninstall…");
 
 
             Both("lbl.titleSize", "歌名字号", "Title size");
             Both("lbl.titleColor", "歌名颜色", "Title colour");
             Both("lbl.artistSize", "作者字号", "Artist size");
             Both("lbl.artistMax", "作者长度上限", "Artist max chars");
-            Both("lbl.titleIndent", "歌名顶格余量", "Title left padding");
-            Both("lbl.lyricIndent", "歌词顶格余量", "Lyrics left padding");
-            Both("lbl.align", "对齐方式", "Alignment");
             Both("align.left", "左", "L");
             Both("align.center", "中", "C");
             Both("align.right", "右", "R");
@@ -297,13 +275,11 @@ namespace Amc
             Both("lbl.btnSize", "按钮大小", "Button size");
             Both("lbl.artSat", "饱和度", "Saturation");
             Both("lbl.artHiCut", "高光压制", "Highlight cut");
-            Both("lbl.artShadow", "封面阴影", "Artwork shadow");
             Both("lbl.textShadow", "文字阴影（浅色壁纸用）", "Text shadow (for light wallpapers)");
 
             Both("lbl.scale", "整体缩放", "Scale");
             Both("lbl.opacity", "整体不透明度", "Opacity");
             Both("lbl.controlsColor", "下方按钮颜色", "Button colour");
-            Both("lbl.controlsX", "下方按钮X轴位置（%）", "Buttons X position (%)");
             Both("lbl.clearBg", "透明背景（只留文字）", "Transparent background");
             Both("lbl.spin", "封面旋转", "Spin artwork");
 

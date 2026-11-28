@@ -51,7 +51,9 @@ namespace Amc
             }
             try
             {
-                var frame = BitmapFrame.Create(new MemoryStream(bytes), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                BitmapFrame frame;
+                using (var ms = new MemoryStream(bytes))
+                    frame = BitmapFrame.Create(ms, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
                 int w = frame.PixelWidth, h = frame.PixelHeight;
                 if (w <= 0 || h <= 0) return false;
                 double k = 24.0 / Math.Max(w, h);
@@ -233,9 +235,11 @@ namespace Amc
         {
             try
             {
-                var fr = System.Windows.Media.Imaging.BitmapFrame.Create(new MemoryStream(bytes),
-                    System.Windows.Media.Imaging.BitmapCreateOptions.IgnoreColorProfile,
-                    System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+                System.Windows.Media.Imaging.BitmapFrame fr;
+                using (var ms = new MemoryStream(bytes))
+                    fr = System.Windows.Media.Imaging.BitmapFrame.Create(ms,
+                        System.Windows.Media.Imaging.BitmapCreateOptions.IgnoreColorProfile,
+                        System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
                 return fr != null && fr.PixelWidth > 0;
             }
             catch { return false; }

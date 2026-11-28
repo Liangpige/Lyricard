@@ -76,43 +76,6 @@ namespace Amc
                 return;
             }
 
-            if (args != null && args.Length >= 1 && args[0] == "--uikit")
-            {
-                // Main runs before any Application exists, and a bare Show() has no message loop
-                // behind it -- the window would appear and the process would exit immediately.
-                var uiApp = new Application();
-                // A preview window that dies without a word is useless: record why, then let it die.
-                AppDomain.CurrentDomain.UnhandledException += delegate(object s, UnhandledExceptionEventArgs e)
-                {
-                    try
-                    {
-                        object o = e.ExceptionObject;
-                        System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "uikit_crash.txt"),
-                            DateTime.Now.ToString("HH:mm:ss") + " domain " + (o == null ? "null" : o.ToString()) + "\r\n\r\n");
-                    }
-                    catch (Exception) { }
-                };
-                uiApp.DispatcherUnhandledException += delegate(object s, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
-                {
-                    try
-                    {
-                        System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "uikit_crash.txt"),
-                            DateTime.Now.ToString("HH:mm:ss") + " dispatcher " + e.Exception + "\r\n\r\n");
-                    }
-                    catch (Exception) { }
-                    // The preview must outlive a bad handler: swallow, show it, keep going.
-                    e.Handled = true;
-                };
-                uiApp.Run(new UiKitDemo());
-                return;
-            }
-
-            if (args != null && args.Length >= 1 && args[0] == "--boardtest")
-            {
-                RunBoardTest();
-                return;
-            }
-
             if (args != null && args.Length >= 1 && args[0] == "--smtcdump")
             {
                 RunSmtcDump();
@@ -549,24 +512,5 @@ namespace Amc
         // Head-less check of the template undo path (what the board's Cancel button runs): mutate a
         // module, stash the previous template, save, then restore. Lets the logic be verified
         // without driving a mouse.
-        static void RunBoardTest()
-        {
-            string live = CardConfig.DefaultPath;
-            CardConfig model = CardConfig.LoadOr(live);
-            ModuleConfig lyrics = model.Find(ModuleKind.Lyrics);
-            double before = lyrics == null ? double.NaN : lyrics.Y;
-            if (lyrics != null) lyrics.Y = (double.IsNaN(before) ? 0.0 : before) - 40.0;
-            model.Save(live + ".prev");                  // the pre-Apply snapshot
-            model.Save(live);
-            CardConfig saved = CardConfig.LoadOr(live);
-            ModuleConfig a = saved.Find(ModuleKind.Lyrics);
-            Console.WriteLine("saved lyrics.Y=" + (a == null ? "?" : a.Y.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)));
-
-            CardConfig prev = CardConfig.Parse(File.ReadAllText(live + ".prev", System.Text.Encoding.UTF8));
-            ModuleConfig b = prev.Find(ModuleKind.Lyrics);
-            prev.Save(live);
-            Console.WriteLine("restored lyrics.Y=" + (b == null ? "?" : b.Y.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))
-                + " (before " + before.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + ")");
-        }
 }
 }

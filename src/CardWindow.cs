@@ -3466,9 +3466,16 @@ namespace Amc
                 // NOTE: BitmapCreateOptions.IgnoreImageCache + OnLoad + StreamSource throws
                 // ArgumentNullException("key") in ImagingCache.RemoveFromCache on .NET Fx.
                 bi.CacheOption = BitmapCacheOption.OnLoad;
-                bi.StreamSource = new MemoryStream(bytes);
                 bi.DecodePixelWidth = 192;
-                bi.EndInit();
+                // OnLoad copies the pixels, so the stream can go as soon as EndInit returns:
+                // leaving it open keeps the whole encoded payload alive until the GC gets to it.
+                var src = new MemoryStream(bytes);
+                try
+                {
+                    bi.StreamSource = src;
+                    bi.EndInit();
+                }
+                finally { src.Dispose(); }
                 bi.Freeze();
 
                 BitmapSource shown = bi;
