@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -17,6 +18,7 @@ namespace Amc
         StackPanel _page;
         Border _shell;
         Border _bar;
+        UiDialogHost _dialogs;
         TextBlock _themeName;
         TextBlock _status;
         int _demoState;
@@ -46,7 +48,11 @@ namespace Amc
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            _shell.Child = grid;
+            // The dialog layer needs a panel that spans the whole window, header included.
+            var stackRoot = new Grid();
+            stackRoot.Children.Add(grid);
+            _shell.Child = stackRoot;
+            _dialogs = new UiDialogHost(stackRoot, _t);
 
             // ---- header: drag to move, X to close (Preview, so DragMove cannot eat the click) ----
             var head = new Border();
@@ -131,7 +137,7 @@ namespace Amc
 
             var cards = new Border[]
             {
-                ButtonsCard(), SwitchesCard(), InputsCard(), RowsCard(), MotionCard()
+                ButtonsCard(), SwitchesCard(), InputsCard(), RowsCard(), OverlaysCard(), MotionCard()
             };
             for (int i = 0; i < cards.Length; i++) _page.Children.Add(cards[i]);
 
@@ -241,6 +247,59 @@ namespace Amc
             stack.Children.Add(UiKit.Divider(_t));
             stack.Children.Add(UiKit.Hint(_t, "分段的高亮块会滑过去；滑杆拖动时进度条跟着走。"));
             return UiKit.Card(_t, "输入与选择", "分段 / 步进 / 搜索 / 滑杆 / 复选 / 进度", stack);
+        }
+
+        Border OverlaysCard()
+        {
+            var row = new WrapPanel();
+
+            var open = UiKit.Button(_t, "打开对话框", UiButtonKind.Primary, delegate
+            {
+                Guard(delegate
+                {
+                    Border card = UiOverlays.ConfirmCard(_t, "清空歌词缓存？",
+                        "会删掉 data\\lyrics 下的 274 首缓存，再次播放时重新联网取。这个动作不能撤销。",
+                        "清空", "算了", delegate(bool ok)
+                    {
+                        _dialogs.Hide();
+                        _status.Text = ok ? "对话框：选择了清空" : "对话框：取消了";
+                    });
+                    _dialogs.Show(card);
+                });
+            });
+            open.Margin = new Thickness(0, 0, 8, 8);
+            row.Children.Add(open);
+
+            var flyoutHost = UiKit.Button(_t, "显示浮层", UiButtonKind.Ghost, delegate { });
+            flyoutHost.Margin = new Thickness(0, 0, 8, 8);
+            row.Children.Add(flyoutHost);
+
+            var panel = new StackPanel();
+            panel.Children.Add(UiKit.ListRow(_t, "从这张专辑里选", "3 个候选", null));
+            panel.Children.Add(UiKit.ListRow(_t, "换一个歌词源", "QQ / 网易云 / lrclib", null));
+            panel.Children.Add(UiKit.ListRow(_t, "导出这份歌词", "写进 data\\lrc-export", null));
+            var shell = new Border();
+            shell.Background = _t.Brush(_t.Surface);
+            shell.BorderBrush = _t.Brush(_t.Border);
+            shell.BorderThickness = new Thickness(1);
+            shell.CornerRadius = new CornerRadius(_t.RadiusCard);
+            shell.Padding = new Thickness(_t.Space2);
+            shell.MinWidth = 240;
+            shell.Child = panel;
+            var flyout = UiOverlays.Flyout(flyoutHost, shell, PlacementMode.Bottom);
+            flyoutHost.PreviewMouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e)
+            {
+                e.Handled = true;
+                flyout.IsOpen = !flyout.IsOpen;
+                Bump();
+            };
+
+            var tipped = UiKit.Chip(_t, "悬停看提示", null);
+            tipped.Margin = new Thickness(0, 0, 8, 8);
+            UiOverlays.Tip(tipped, "提示 420 ms 后才出现，扫过去不会闪");
+            row.Children.Add(tipped);
+
+            return UiKit.Card(_t, "对话框与弹层", "遮罩弹窗 / 贴边浮层 / 悬停提示", row);
         }
 
         Border MotionCard()
