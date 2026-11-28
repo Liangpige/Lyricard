@@ -590,10 +590,26 @@ namespace Amc
             // The kit template does not forward Padding to its presenter, so the gutter is a
             // wrapper instead of a ScrollViewer property.
             var gutter = new Border { Padding = new Thickness(24, 20, 24, 20), Child = _host };
+
+            // The rail is auto-width, so every page but the appearance one leaves the column at
+            // zero and nothing shifts.
+            _railHost = new ContentControl
+            {
+                Margin = new Thickness(24, 24, 4, 20),
+                VerticalAlignment = VerticalAlignment.Top
+            };
             FrameworkElement scrollHost;
             var body = UiKit.Scroll(_kit, gutter, Bg, out scrollHost);
-            Grid.SetRow(scrollHost, 1);
-            root.Children.Add(scrollHost);
+
+            var columns = new Grid();
+            columns.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetColumn(_railHost, 0);
+            columns.Children.Add(_railHost);
+            Grid.SetColumn(scrollHost, 1);
+            columns.Children.Add(scrollHost);
+            Grid.SetRow(columns, 1);
+            root.Children.Add(columns);
             _scroll = body;
 
             return new Border
@@ -750,6 +766,14 @@ namespace Amc
 
         bool _showOthers;
         ScrollViewer _scroll;
+        // The appearance page keeps its own section rail in the shell's first column.
+        ContentControl _railHost;
+        StackPanel _lookBox;
+        readonly List<KeyValuePair<string, FrameworkElement>> _lookAnchors = new List<KeyValuePair<string, FrameworkElement>>();
+        readonly List<Border> _railItems = new List<Border>();
+        bool _railHook;
+        int _railSelected = -1;
+        string _lookPage = "rail.board";
         double _pendingScroll;
 
         // ---- update state (see Updater.cs) ----
@@ -1076,6 +1100,7 @@ namespace Amc
             // The ScrollViewer dies with the old Content, so capture the offset first and let
             // SetPage put the freshly built page back at the same place (and skip the transition).
             _pendingScroll = _scroll == null ? 0.0 : _scroll.VerticalOffset;
+            if (_railHost != null) _railHost.Content = null;
             Title = Strings.T("app.title");
             Content = BuildUi();
             SetPage(_page);
@@ -1152,6 +1177,9 @@ namespace Amc
             return box;
         }
 
+        /// <summary>True when the given rail stop is the page being built.</summary>
+        bool On(string key) { return _lookPage == key; }
+
         UIElement LookPage()
         {
             var box = new StackPanel();
@@ -1206,6 +1234,7 @@ namespace Amc
             boardHost.Children.Add(boardScroll);
             board.Child = boardHost;
             box.Children.Add(board);
+            Anchor("rail.board", board);
 
             var boardBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 16) };
             boardBar.Children.Add(Pill(Strings.T("board.apply"), delegate { _preview.RaiseApply(); }, true));
@@ -1306,7 +1335,11 @@ namespace Amc
             box.Children.Add(Rule());
 
             // ---- text -------------------------------------------------------
-            box.Children.Add(Section(Strings.T("sec.text")));
+            // The rail puts 歌名 / 艺人 / 歌词 on separate stops, so they are marked with quiet
+            // sub-heads instead of one shared section title.
+            var titleHead = SubHead(Strings.T("rail.title"));
+            box.Children.Add(titleHead);
+            Anchor("rail.title", titleHead);
             box.Children.Add(Row(Strings.T("lbl.titleSize"), Stepper(_cfg.TitleScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
             { _cfg.TitleScale = v; _card.ApplyLook(); _cfg.Save(); })));
 
@@ -1332,12 +1365,18 @@ namespace Amc
             box.Children.Add(ColorRow(Strings.T("lbl.titleColor"), _cfg.TitleColor, delegate(string v)
             { _cfg.TitleColor = v; _card.ApplyLook(); _cfg.Save(); }));
 
+            var artistHead = SubHead(Strings.T("rail.artist"));
+            box.Children.Add(artistHead);
+            Anchor("rail.artist", artistHead);
             box.Children.Add(Row(Strings.T("lbl.artistSize"), Stepper(_cfg.ArtistScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
             { _cfg.ArtistScale = v; _card.ApplyLook(); _cfg.Save(); })));
             // the artist length cap now lives on the module itself (MaxChars in layout.ini)
             box.Children.Add(ColorRow(Strings.T("lbl.artistColor"), _cfg.ArtistColor, delegate(string v)
             { _cfg.ArtistColor = v; _card.ApplyLook(); _cfg.Save(); }));
 
+            var lyricHead = SubHead(Strings.T("rail.lyrics"));
+            box.Children.Add(lyricHead);
+            Anchor("rail.lyrics", lyricHead);
             box.Children.Add(Row(Strings.T("lbl.lyricSize"), Stepper(_cfg.LyricScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
             { _cfg.LyricScale = v; _card.ApplyLook(); _cfg.Save(); })));
             box.Children.Add(ColorRow(Strings.T("lbl.lyricColor"), _cfg.LyricColor, delegate(string v)
@@ -1346,7 +1385,9 @@ namespace Amc
 
 
             // ---- progress bar -----------------------------------------------
-            box.Children.Add(Section(Strings.T("sec.bar")));
+            var barHead = Section(Strings.T("sec.bar"));
+            box.Children.Add(barHead);
+            Anchor("sec.bar", barHead);
             box.Children.Add(Row(Strings.T("lbl.barThickness"), Stepper(_cfg.BarThickness, 2, 8, 0.5, "0.0", delegate(double v)
             { _cfg.BarThickness = v; _card.ApplyLook(); _cfg.Save(); })));
             box.Children.Add(ColorRow(Strings.T("lbl.barColor"), _cfg.BarColor, delegate(string v)
@@ -1355,12 +1396,13 @@ namespace Amc
             { _cfg.BarFillColor = v; _card.ApplyLook(); _cfg.Save(); }));
 
             // ---- artwork ----------------------------------------------------
-            box.Children.Add(Section(Strings.T("sec.art")));
 
             // ---- spectrum bars -------------------------------------------------
             // Length and height write straight into the MusicBars module, so the board's box and the
             // card's row always agree; the rest are pure look knobs that only need a repaint.
-            box.Children.Add(Section(Strings.T("sec.spectrum")));
+            var spectrumHead = Section(Strings.T("sec.spectrum"));
+            box.Children.Add(spectrumHead);
+            Anchor("sec.spectrum", spectrumHead);
             box.Children.Add(Row(Strings.T("lbl.barsCount"), Stepper(_cfg.BarsCount, 0, 96, 1, "0", delegate(double v)
             {
                 _cfg.BarsCount = (int)Math.Round(v);
@@ -1389,6 +1431,11 @@ namespace Amc
                 _card.ApplyLook();
                 _cfg.Save();
             }));
+            // The cover knobs sit with the spectrum rows today; the stop is placed where they
+            // begin, so the rail lands on the controls rather than on an empty heading.
+            var artHead = SubHead(Strings.T("sec.art"));
+            box.Children.Add(artHead);
+            Anchor("rail.art", artHead);
             if (_cfg.ArtTint)
                 box.Children.Add(Label(Strings.T("artSat.off"), 11.5, TextDim, FontWeights.Normal));
             else
@@ -1427,11 +1474,16 @@ namespace Amc
             // the cover glow was removed: the halo bled over the title and lyrics
 
             // ---- card -------------------------------------------------------
-            box.Children.Add(Section(Strings.T("sec.card")));
+            var cardHead = Section(Strings.T("sec.card"));
+            box.Children.Add(cardHead);
+            Anchor("rail.card", cardHead);
             box.Children.Add(Row(Strings.T("lbl.scale"), Stepper(_cfg.Scale, 0.55, 2.2, 0.05, "0.00", delegate(double v)
             { _cfg.Scale = v; _card.ApplyCurrentScale(); _cfg.Save(); })));
             box.Children.Add(Row(Strings.T("lbl.opacity"), Stepper(_cfg.Opacity, 0.25, 1.0, 0.02, "0.00", delegate(double v)
             { _cfg.Opacity = v; _card.ApplyCurrentOpacity(); _cfg.Save(); })));
+            var buttonsHead = SubHead(Strings.T("rail.buttons"));
+            box.Children.Add(buttonsHead);
+            Anchor("rail.buttons", buttonsHead);
             box.Children.Add(ColorRow(Strings.T("lbl.controlsColor"), _cfg.ControlsColor, delegate(string v)
             { _cfg.ControlsColor = v; _card.ApplyLook(); _cfg.Save(); }));
 
@@ -1479,17 +1531,108 @@ namespace Amc
             }, false);
             savePill.Margin = new Thickness(8, 0, 0, 0);
             saveRow.Children.Add(savePill);
-            box.Children.Add(saveRow);
+            // The preset block is a page of its own: it snapshots the whole look, so it belongs
+            // to no single group above.
+            var presetPage = new StackPanel();
+            presetPage.Children.Add(Section(Strings.T("rail.preset")));
+            presetPage.Children.Add(saveRow);
 
             var chips = new WrapPanel { Margin = new Thickness(0, 0, 0, 4) };
             if (_cfg.Presets.Count == 0) chips.Children.Add(Hint(Strings.T("preset.empty")));
             else for (int i = 0; i < _cfg.Presets.Count; i++) chips.Children.Add(PresetChip(_cfg.Presets[i]));
-            box.Children.Add(chips);
+            presetPage.Children.Add(chips);
+            Anchor("rail.preset", presetPage.Children[0]);
+            if (On("rail.preset")) box.Children.Add(presetPage);
 
+            _lookBox = box;
+            BuildRail();
             return box;
         }
 
         // one saved look: click the name to apply it, click the x to delete it
+
+        /// <summary>Registers a stop for the appearance page's rail.</summary>
+        void Anchor(string key, UIElement el)
+        {
+            _lookAnchors.Add(new KeyValuePair<string, FrameworkElement>(key, el as FrameworkElement));
+        }
+
+        TextBlock SubHead(string text)
+        {
+            var head = Label(text, 11.5, TextDim, FontWeights.Normal);
+            head.Margin = new Thickness(0, 10, 0, 6);
+            return head;
+        }
+
+        /// <summary>Left-side stops for the appearance page; each one scrolls the page to its row.</summary>
+        void BuildRail()
+        {
+            _railItems.Clear();
+            var rail = new StackPanel { Width = 106 };
+            // Fixed order, independent of where the blocks sit in the document: the rail is the
+            // table of contents, so it reads the way the user listed the pages.
+            string[] order = { "rail.board", "rail.card", "rail.title", "rail.artist", "rail.lyrics",
+                               "sec.bar", "rail.buttons", "sec.spectrum", "rail.art", "rail.preset" };
+            foreach (string key in order)
+            {
+                var item = new Border
+                {
+                    Height = 32,
+                    CornerRadius = new CornerRadius(7),
+                    Padding = new Thickness(10, 0, 8, 0),
+                    Background = Brushes.Transparent,
+                    Cursor = Cursors.Hand
+                };
+                var text = Label(Strings.T(key), 12.5, TextDim, FontWeights.Normal);
+                text.VerticalAlignment = VerticalAlignment.Center;
+                item.Child = text;
+                item.MouseEnter += delegate
+                {
+                    if (_railItems.IndexOf(item) == _railSelected) return;
+                    item.Background = new SolidColorBrush(Color.FromArgb(10, 255, 255, 255));
+                };
+                item.MouseLeave += delegate
+                {
+                    if (_railItems.IndexOf(item) == _railSelected) return;
+                    item.Background = Brushes.Transparent;
+                };
+                item.MouseLeftButtonUp += delegate
+                {
+                    // Each stop is its own page, not a place to scroll to.
+                    if (_lookPage == key) return;
+                    _lookPage = key;
+                    _railSelected = -1;
+                    RebuildAll();
+                };
+                _railItems.Add(item);
+                rail.Children.Add(item);
+            }
+            _railHost.Content = rail;
+            if (!_railHook)
+            {
+                _railHook = true;
+                _scroll.ScrollChanged += delegate { UpdateRailSelection(); };
+            }
+            UpdateRailSelection();
+        }
+
+        /// <summary>Highlights the stop the viewport is currently sitting on.</summary>
+        void UpdateRailSelection()
+        {
+            if (_lookBox == null || _railItems.Count == 0) return;
+            int best = 0;
+            for (int i = 0; i < _lookAnchors.Count && i < _railItems.Count; i++)
+                if (_lookAnchors[i].Key == _lookPage) { best = i; break; }
+            if (best == _railSelected) return;
+            _railSelected = best;
+            for (int i = 0; i < _railItems.Count; i++)
+            {
+                bool on = i == best;
+                _railItems[i].Background = on ? new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)) : Brushes.Transparent;
+                ((TextBlock)_railItems[i].Child).Foreground = on ? new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)) : new SolidColorBrush(TextDim);
+            }
+        }
+
         // A preset used to be "how the card looks": colours, sizes, cover treatment. Since the
         // template became the only description of where things sit, it also has to carry the
         // template, otherwise applying a preset leaves the layout behind and the chip looks broken.

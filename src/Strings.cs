@@ -246,6 +246,14 @@ namespace Amc
             Both("sec.presets", "预设", "Presets");
 
             Both("sec.text", "文字", "Text");
+            Both("rail.board", "画板", "Canvas");
+            Both("rail.title", "歌名", "Title");
+            Both("rail.artist", "艺人", "Artist");
+            Both("rail.lyrics", "歌词", "Lyrics");
+            Both("rail.buttons", "按钮", "Buttons");
+            Both("rail.preset", "预设", "Presets");
+            Both("rail.card", "卡片", "Card");
+            Both("rail.art", "封面", "Cover");
                         Both("sec.art", "封面", "Artwork");
             Both("sec.card", "卡片", "Card");
             Both("lbl.lang", "界面语言", "Language");
