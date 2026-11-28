@@ -377,39 +377,6 @@ namespace Amc
         }
 
         /// <summary>Thin dark scrollbar used by the page body (see BuildUi).</summary>
-        const string ThinScrollBarXaml = @"
-<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
-       xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
-       TargetType='ScrollBar'>
-  <Setter Property='Width' Value='10'/>
-  <Setter Property='Background' Value='Transparent'/>
-  <Setter Property='Template'>
-    <Setter.Value>
-      <ControlTemplate TargetType='ScrollBar'>
-        <Grid Background='Transparent'>
-          <Track x:Name='PART_Track' IsDirectionReversed='True'>
-            <Track.DecreaseRepeatButton>
-              <RepeatButton Command='ScrollBar.PageUpCommand' Opacity='0' Focusable='False'/>
-            </Track.DecreaseRepeatButton>
-            <Track.Thumb>
-              <Thumb>
-                <Thumb.Template>
-                  <ControlTemplate TargetType='Thumb'>
-                    <Border CornerRadius='5' Margin='1,0' Background='#59FFFFFF'/>
-                  </ControlTemplate>
-                </Thumb.Template>
-              </Thumb>
-            </Track.Thumb>
-            <Track.IncreaseRepeatButton>
-              <RepeatButton Command='ScrollBar.PageDownCommand' Opacity='0' Focusable='False'/>
-            </Track.IncreaseRepeatButton>
-          </Track>
-        </Grid>
-      </ControlTemplate>
-    </Setter.Value>
-  </Setter>
-</Style>";
-
         // palette shared by every colour row: neutral first, then accents
         static readonly string[] Swatches = new string[]
         {
@@ -618,19 +585,13 @@ namespace Amc
             root.Children.Add(nav);
 
             _host = new ContentControl();
-            var body = new ScrollViewer
-            {
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Padding = new Thickness(24, 20, 24, 20),
-                Background = new SolidColorBrush(Bg),
-                Content = _host
-            };
-            // A thin, self-drawn scrollbar: the stock one is a light Win32-ish bar that
-            // fights the dark shell. Declared as XAML because a ScrollBar template in code
-            // is a page of boilerplate.
-            try { body.Resources.Add(typeof(ScrollBar), (Style)XamlReader.Parse(ThinScrollBarXaml)); }
-            catch { }
+            // The kit draws the bar, so the page and the preview window cannot drift apart
+            // (the XAML style that used to live here silently never applied).
+            // The kit template does not forward Padding to its presenter, so the gutter is a
+            // wrapper instead of a ScrollViewer property.
+            var gutter = new Border { Padding = new Thickness(24, 20, 24, 20), Child = _host };
+            var body = UiKit.Scroll(_kit, gutter);
+            body.Background = new SolidColorBrush(Bg);
             Grid.SetRow(body, 1);
             root.Children.Add(body);
             _scroll = body;

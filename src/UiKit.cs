@@ -743,8 +743,8 @@ namespace Amc
             var bar = new FrameworkElementFactory(typeof(ScrollBar));
             bar.SetValue(ScrollBar.OrientationProperty, Orientation.Vertical);
             bar.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
-            bar.SetValue(FrameworkElement.WidthProperty, 4.0);
-            bar.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 3, 0, 3));
+            bar.SetValue(FrameworkElement.WidthProperty, 8.0);
+            bar.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 4, 0, 4));
             bar.SetValue(Control.TemplateProperty, ScrollBarTemplate(t));
             root.AppendChild(bar);
 
@@ -763,17 +763,17 @@ namespace Amc
             if (_barTemplate != null && ReferenceEquals(_barTheme, t)) return _barTemplate;
 
             var grid = new FrameworkElementFactory(typeof(Grid));
-            grid.SetValue(FrameworkElement.WidthProperty, 4.0);
+            grid.SetValue(FrameworkElement.WidthProperty, 8.0);
 
             var track = new FrameworkElementFactory(typeof(Border));
-            track.SetValue(Border.WidthProperty, 4.0);
-            track.SetValue(Border.CornerRadiusProperty, new CornerRadius(2));
+            track.SetValue(Border.WidthProperty, 8.0);
+            track.SetValue(Border.CornerRadiusProperty, new CornerRadius(1));
             track.SetValue(Border.BackgroundProperty, t.Brush(Color.FromArgb(10, 255, 255, 255)));
             grid.AppendChild(track);
 
             var thumb = new FrameworkElementFactory(typeof(Border));
-            thumb.SetValue(Border.WidthProperty, 4.0);
-            thumb.SetValue(Border.CornerRadiusProperty, new CornerRadius(2));
+            thumb.SetValue(Border.WidthProperty, 8.0);
+            thumb.SetValue(Border.CornerRadiusProperty, new CornerRadius(1));
             thumb.SetValue(Border.BackgroundProperty, t.Brush(Color.FromArgb(76, 255, 255, 255)));
             thumb.SetValue(FrameworkElement.NameProperty, "PART_Thumb");
             grid.AppendChild(thumb);
