@@ -173,31 +173,124 @@ namespace Amc
         /// cases where two unrelated controls sit close together without a group heading.</summary>
         UIElement Rule()
         {
-            return new Rectangle
+            var r = new Rectangle
             {
                 Height = 1,
                 Fill = new SolidColorBrush(Color.FromArgb(16, 255, 255, 255)),
                 Margin = new Thickness(0, 16, 0, 12)
             };
+            r.Tag = "rule";
+            return r;
         }
 
         UIElement Section(string text)
         {
             var t = Label(text, 11, TextFaint, FontWeights.Normal);
             t.Margin = new Thickness(0, 12, 0, 6);
+            // Tagged so PageFrame can regroup the page into cards without every call site
+            // knowing about it.
+            t.Tag = "section";
             if (_sectionCount++ == 0) return t;
             var box = new StackPanel();
-            box.Children.Add(new Rectangle
+            var rule = new Rectangle
             {
                 Height = 1,
                 Fill = new SolidColorBrush(Color.FromArgb(16, 255, 255, 255)),
                 Margin = new Thickness(0, 14, 0, 0)
-            });
+            };
+            rule.Tag = "rule";
+            box.Children.Add(rule);
             box.Children.Add(t);
+            // Tag the wrapper too: the heading is what the card grouper keys on, and for every
+            // heading but the first that wrapper is the element the page actually receives.
+            box.Tag = "section";
             return box;
         }
 
         /// <summary>Page shell: big title, then the content. Gives every page a top edge.</summary>
+        /// <summary>
+        /// Re-groups a page into the kit's big frames: everything from one section heading up to
+        /// the next becomes a rounded panel, so the page is a stack of cards instead of a run of
+        /// hairlines. Preamble items (the board, its button row) stay outside, and pairing inside
+        /// a card is still handled by <see cref="TwoColumn"/>.
+        /// </summary>
+        UIElement Cards(UIElement body)
+        {
+            StackPanel src = body as StackPanel;
+            if (src == null) return body;
+
+            var items = new System.Collections.Generic.List<UIElement>();
+            foreach (UIElement child in src.Children) items.Add(child);
+            src.Children.Clear();
+
+            var dst = new StackPanel();
+            var loose = new System.Collections.Generic.List<UIElement>();
+            string title = null;
+            var rows = new System.Collections.Generic.List<UIElement>();
+
+            Action flush = delegate
+            {
+                if (title == null)
+                {
+                    for (int i = 0; i < loose.Count; i++) dst.Children.Add(loose[i]);
+                    loose.Clear();
+                    rows.Clear();
+                    return;
+                }
+
+                if (rows.Count == 0) { title = null; return; }   // a heading with nothing under it
+                var card = new Border();
+                card.CornerRadius = new CornerRadius(10);
+                card.Background = new SolidColorBrush(Color.FromArgb(255, 23, 23, 27));
+                card.BorderBrush = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255));
+                card.BorderThickness = new Thickness(1);
+                card.Padding = new Thickness(14, 12, 14, 8);
+                card.Margin = new Thickness(0, 0, 0, 12);
+
+                var inner = new StackPanel();
+                var cap = Label(title, 11.5, TextDim, FontWeights.Normal);
+                cap.Margin = new Thickness(0, 0, 0, 10);
+                inner.Children.Add(cap);
+
+                var box = new StackPanel();
+                for (int i = 0; i < rows.Count; i++) box.Children.Add(rows[i]);
+                rows.Clear();
+                inner.Children.Add(TwoColumn(box));
+
+                card.Child = inner;
+                dst.Children.Add(card);
+                title = null;
+            };
+
+            foreach (UIElement child in items)
+            {
+                FrameworkElement fe = child as FrameworkElement;
+                string tag = fe == null ? null : fe.Tag as string;
+                if (tag == "section")
+                {
+                    flush();
+                    TextBlock head = child as TextBlock;
+                    if (head == null)
+                    {
+                        StackPanel sp = child as StackPanel;
+                        if (sp != null)
+                            foreach (UIElement ic in sp.Children)
+                            {
+                                TextBlock tb = ic as TextBlock;
+                                if (tb != null) { head = tb; break; }
+                            }
+                    }
+                    title = head == null ? "" : head.Text;
+                    continue;
+                }
+                if (tag == "rule") continue;        // the card edge does that job now
+                if (title == null) loose.Add(child);
+                else rows.Add(child);
+            }
+            flush();
+            return dst;
+        }
+
         UIElement PageFrame(string key, UIElement body)
         {
             var box = new StackPanel();
@@ -205,7 +298,7 @@ namespace Amc
             var title = Label(Strings.T(navKey), 17, TextMain, FontWeights.SemiBold);
             title.Margin = new Thickness(0, 0, 0, 12);
             box.Children.Add(title);
-            box.Children.Add(TwoColumn(body));
+            box.Children.Add(Cards(body));
             return box;
         }
 

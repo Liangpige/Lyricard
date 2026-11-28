@@ -1012,7 +1012,9 @@ namespace Amc
         public static WrapPanel ColorSwatches(UiTheme t, Color? current, Color[] palette,
                                              Action<Color> pick, Action reset, Action more)
         {
-            const double D = 22;
+            // 20 px with a 4 px gap: the app's rows carry ten slots (clear + eight colours + the
+            // "..." chip) and must stay on one line inside a card, where the padding costs ~28 px.
+            const double D = 20;
             var row = new WrapPanel();
             row.Orientation = Orientation.Horizontal;
 
@@ -1023,7 +1025,7 @@ namespace Amc
                 clear.CornerRadius = new CornerRadius(D / 2);
                 clear.BorderBrush = t.Brush(t.Track);
                 clear.BorderThickness = new Thickness(1);
-                clear.Margin = new Thickness(0, 0, 5, 0);
+                clear.Margin = new Thickness(0, 0, 4, 0);
                 clear.Cursor = Cursors.Hand;
                 var x = Label(t, "\u00d7", 12, t.TextTertiary, false);
                 x.HorizontalAlignment = HorizontalAlignment.Center;
@@ -1044,7 +1046,7 @@ namespace Amc
                     dot.Width = dot.Height = D;
                     dot.CornerRadius = new CornerRadius(D / 2);
                     dot.Background = t.Brush(c);
-                    dot.Margin = new Thickness(0, 0, 5, 0);
+                    dot.Margin = new Thickness(0, 0, 4, 0);
                     dot.Cursor = Cursors.Hand;
                     dot.BorderThickness = new Thickness(on ? 2 : 0);
                     dot.BorderBrush = t.Brush(t.Text);
