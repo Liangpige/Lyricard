@@ -763,18 +763,18 @@ namespace Amc
             if (_barTemplate != null && ReferenceEquals(_barTheme, t)) return _barTemplate;
 
             var grid = new FrameworkElementFactory(typeof(Grid));
-            grid.SetValue(FrameworkElement.WidthProperty, 8.0);
+            grid.SetValue(FrameworkElement.WidthProperty, 4.0);
 
             var track = new FrameworkElementFactory(typeof(Border));
-            track.SetValue(Border.WidthProperty, 8.0);
+            track.SetValue(Border.WidthProperty, 4.0);
             track.SetValue(Border.CornerRadiusProperty, new CornerRadius(1));
             track.SetValue(Border.BackgroundProperty, t.Brush(Color.FromArgb(10, 255, 255, 255)));
             grid.AppendChild(track);
 
             var thumb = new FrameworkElementFactory(typeof(Border));
-            thumb.SetValue(Border.WidthProperty, 8.0);
+            thumb.SetValue(Border.WidthProperty, 4.0);
             thumb.SetValue(Border.CornerRadiusProperty, new CornerRadius(1));
-            thumb.SetValue(Border.BackgroundProperty, t.Brush(Color.FromArgb(76, 255, 255, 255)));
+            thumb.SetValue(Border.BackgroundProperty, t.Brush(Color.FromArgb(92, 255, 255, 255)));
             thumb.SetValue(FrameworkElement.NameProperty, "PART_Thumb");
             grid.AppendChild(thumb);
 
