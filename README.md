@@ -5,7 +5,7 @@
 [![Build](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml/badge.svg)](https://github.com/Liangpige/Lyricard/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6.svg)](#快速使用)
-[![Version](https://img.shields.io/badge/version-v0.3.6-blue.svg)](https://github.com/Liangpige/Lyricard/releases/tag/v0.3.6)
+[![Version](https://img.shields.io/badge/version-v0.4.0-blue.svg)](https://github.com/Liangpige/Lyricard/releases/tag/v0.4.0)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#自己编译)
 
 ![](docs/card.png)
@@ -13,6 +13,14 @@
 零安装、零管理员权限、无外部运行时依赖：单个 exe + 系统自带的 .NET Framework 4.x，配置与歌词缓存都放在 exe 同目录的 `data\`。
 
 ---
+
+## 外观页：十个停靠点
+
+v0.4 把「外观」拆成左栏十个独立页面 —— **画板 / 卡片 / 歌名 / 艺人 / 歌词 / 进度条 / 按钮 / 频谱 / 封面 / 预设**。点哪一项换哪一页，标题跟着写成「外观 · 画板」；左栏逐条淡入，切页有一瞬间的淡入。
+
+- **画板**：拖动、应用/取消、添加模块、刷新，以及全部「模板尺寸」（歌名/艺人/歌词长度上限、封面大小、进度条长度、**按钮大小**、频谱长度与最大高度）和**封面样式（圆形/方形）** —— 选方形，画板里的封面框当场变方。
+- 板上的拖动是**草稿**：没点「应用」就切去别的页再回来，位置还在；只有「应用」「取消」会清掉它。
+- **预设**：保存当前 / 点胶囊套用 / ×删除 / **恢复默认**（只重置外观数值，不动模板，也不删预设）。
 
 ## 一张卡片，由你自己摆
 
@@ -33,18 +41,22 @@ v0.3 起，卡片的版式不再是写死的，而是**一份可编辑的模板*
 
 | 分组 | 可调 |
 | --- | --- |
-| 文字 | 歌名/艺人/歌词的字号、颜色、对齐（居左/居中/居右）、歌名与艺人是否同框 |
-| 进度条 | 长度、粗细、轨道色、填充色 |
-| 封面 | 大小、圆形/方形、旋转（仅圆形）、饱和度、高光压制、亮度、对比度、色温、色相、暗角、双色调（暗部色 + 高光色 + 混合）、48 色调色板 |
-| 卡片 | 整体缩放、透明度、按钮颜色、透明背景、文字阴影、交互穿透 |
-| 律动条 | 长度、最大高度、条数、线条粗细、上升/回落速度、颜色 |
-| 预设 | 保存/套用/删除，最多 10 套 |
+| 画板 | 模块几何、长度上限、封面大小、进度条长度、按钮大小、频谱尺寸、封面样式 |
+| 卡片 | 整体缩放、整体不透明度、透明背景、文字阴影 |
+| 文字 | 歌名 / 艺人 / 歌词各自：字号、颜色、对齐（居左/居中/居右）；歌名另有「歌名与艺人同框」 |
+| 进度条 | 粗细、轨道色、填充色 |
+| 按钮 | 下方按钮颜色（空 = 白色） |
+| 封面 | 旋转（仅圆形）、饱和度、高光压制、亮度、对比度、色温、色相、暗角、双色调（暗部色 + 高光色 + 混合）、48 色调色板 |
+| 律动条 | 条数、线条粗细、上升/回落速度、颜色 |
+| 预设 | 保存/套用/删除/恢复默认，最多 10 套 |
+
+**颜色各管各的**：按钮颜色不再跟着歌词色走，律动条颜色也不再跟着进度条走 —— 空就是白色，点了哪个色就只有那一行变。
 
 **预设保存的是整套状态**：外观键 + 模板（base64 内嵌在预设行里）。套用会写回 `layout.ini` 并刷新卡片与画板，不只是换个颜色。
 
 ### 封面
 
-- 圆形 = 唱片，会慢慢转；方形 = 唱片封套，不转。
+- 圆形 = 唱片，会慢慢转；方形 = 唱片封套，不转。形状在**画板**页选，和封面大小放在一起。
 - 所有调节都在「换封面时跑一遍」的那次像素遍历里完成（192×192，约 3.7 万像素），逐帧零成本。
 - 双色调把亮度映射到「暗部色 → 高光色」的渐变上（0.85 gamma，暗部不会糊成纯黑），再按混合比例叠回原图；色调开启时饱和度置灰，避免两个控件打架。
 
@@ -93,8 +105,10 @@ Apple Music 的进度是 3~8 秒才跳一次，所以卡片不用「每次轮询
 
 ## 歌词
 
-- 三源并行：QQ 音乐 / 网易云 / lrclib，另有本地 `data\lrc\*.lrc` 优先。
-- 匹配打分：标题 0.50 + 艺人 0.30 + 时长 0.20，双边时长差 >12 秒直接判 0；单时间戳的整篇丢掉。
+- 三源并行：QQ 音乐 / 网易云 / lrclib；本地 `data\lrc\*.lrc` **优先且权威** —— 命中就直接用，越过网络缓存和「找不到」的负缓存。
+- 本地文件按 BOM → UTF-8（严格）→ GBK 依次尝试解码，中文 `.lrc` 不会乱码；只覆盖半首、尾巴很长的歌词也照用（片段过滤只针对网络结果）。
+- 本地 `.lrc` 必须带时间轴（每行以 `[mm:ss.xx]` 开头）；纯文本歌词不接受。
+- 网络结果打分：标题 0.50 + 艺人 0.30 + 时长 0.20，双边时长差 >12 秒直接判 0；单时间戳的整篇丢掉。
 - 「选择歌词…」列出候选并显示匹配度（≥0.88 绿、≥0.70 琥珀），挑一个就固定下来。
 - 缓存按需清理（间隔天数可设，默认只记日期不自动删），可导出到 `data\lrc-export\`。
 
@@ -124,7 +138,7 @@ Apple Music 的进度是 3~8 秒才跳一次，所以卡片不用「每次轮询
 
 ```bash
 bash build.sh            # 编译 + 部署到安装目录
-bash build.sh dist       # 另外生成 dist/Lyricard-v0.3.2.zip
+bash build.sh dist       # 另外生成 dist/Lyricard-v0.4.0.zip
 bash build.sh desktop    # dist + 复制 zip 到桌面
 ```
 
@@ -143,6 +157,8 @@ bash build.sh desktop    # dist + 复制 zip 到桌面
 
 **Lyricard** is a floating lyrics card for Windows 10/11, built with plain C# 5 + WPF and nothing else: one exe, no installer, no admin rights, no third-party libraries.
 
+- **Ten look pages** (v0.4): a left rail splits the Look tab into board / card / title / artist / lyrics / progress / buttons / spectrum / cover / presets; the heading reads "Appearance · Board". The rail fades in row by row and every page switch fades, with no flicker on in-place rebuilds. Unsaved board edits survive the switch (only Apply / Cancel drop them).
+- **Defaults mirror the author's own card**, so a fresh install already looks right: 0.73 scale, no wheel action, cover saturation 0.2 / highlight 0.08, spectrum 300 px wide on 18 px, button colour `#FFC9CCD2`, three built-in presets, and a Reset-defaults button on the Presets page that only touches look values.
 - **Template, not hard-coded layout.** v0.3 moved the card's geometry into `data\layout.ini`. The Look page starts with a sketch pad: every module (cover, title, artist, album, lyrics, progress, controls, spectrum) is a dashed box you can drag; Apply commits it to the card, Cancel reverts the last apply, Refresh re-reads the template. Board and card render at the same scale, and the card grows to fit its content instead of keeping margins.
 - **Per-module controls**: alignment, char-count width caps (the box is the text box, overflow ellipsizes), optional single-line title + artist, per-module font size.
 - **Presets** store the look *and* the template, so applying one restores the whole card, not just its colours.
