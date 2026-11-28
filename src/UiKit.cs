@@ -748,10 +748,81 @@ namespace Amc
             host.Children.Add(sv);
             host.Children.Add(thumb);
             WireThumb(t, sv, thumb);
+            SmoothWheel(sv);
             // Callers add hostView (the shell places a Border and a ContentControl around it) while
             // keeping the ScrollViewer itself, which is what the page asks for offsets.
             hostView = host;
             return sv;
+        }
+
+        /// <summary>Wheel scrolling eases into place instead of hopping a fixed number of lines.</summary>
+        /// <remarks>
+        /// WPF's own wheel handler moves the offset once per notch, which on a tall page reads as a
+        /// snap. Here the offset is animated: every frame covers a share of what is left, so a notch
+        /// settles in about a fifth of a second and a spun wheel still tracks the finger.
+        /// The indicator listens to ScrollChanged, so the handle rides the same animation.
+        /// </remarks>
+        static void SmoothWheel(ScrollViewer sv)
+        {
+            const double Step = 54;      // distance of one notch
+            const double Ease = 0.28;    // share of the remaining gap covered per frame
+            double target = 0;
+            bool easing = false;
+            DispatcherTimer timer = null;
+
+            Action stop = delegate
+            {
+                easing = false;
+                if (timer != null)
+                {
+                    timer.Stop();
+                    timer = null;
+                }
+            };
+
+            Action tick = delegate
+            {
+                if (!easing) return;
+                double cur = sv.VerticalOffset;
+                double left = target - cur;
+                if (Math.Abs(left) < 0.6)
+                {
+                    sv.ScrollToVerticalOffset(target);
+                    stop();
+                    return;
+                }
+                sv.ScrollToVerticalOffset(cur + left * Ease);
+            };
+
+            sv.PreviewMouseWheel += delegate(object s, MouseWheelEventArgs e)
+            {
+                if (sv.ScrollableHeight <= 0) return;
+                if (!easing) target = sv.VerticalOffset;
+                target -= e.Delta / 120.0 * Step;
+                if (target < 0) target = 0;
+                if (target > sv.ScrollableHeight) target = sv.ScrollableHeight;
+                easing = true;
+                if (timer == null)
+                {
+                    timer = new DispatcherTimer();
+                    timer.Interval = TimeSpan.FromMilliseconds(15);
+                    timer.Tick += delegate { tick(); };
+                    timer.Start();
+                }
+                e.Handled = true;
+            };
+
+            // Anything else that moves the viewport (the handle, a restored page) takes over; a new
+            // page resizes the viewport, and an ease still running would drag it off the restored spot.
+            sv.ScrollChanged += delegate
+            {
+                if (!easing) target = sv.VerticalOffset;
+            };
+            sv.SizeChanged += delegate
+            {
+                stop();
+                target = sv.VerticalOffset;
+            };
         }
 
         static void WireThumb(UiTheme t, ScrollViewer sv, Border thumb)
