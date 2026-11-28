@@ -47,6 +47,11 @@ namespace Amc
         readonly Config _cfg;
         readonly CardWindow _card;
 
+        /// <summary>The UI kit, mapped onto this window's monochrome palette. The look page is being
+        /// migrated onto it first; other pages keep the older inline primitives for now.</summary>
+        UiTheme _kit;
+        bool _kitPage;
+
         ContentControl _host;
         readonly Dictionary<string, TextBlock> _tabText = new Dictionary<string, TextBlock>();
         readonly Dictionary<string, Rectangle> _tabLine = new Dictionary<string, Rectangle>();
@@ -58,6 +63,7 @@ namespace Amc
         {
             _cfg = cfg;
             _card = card;
+            _kit = KitTheme();
 
             Title = Strings.T("app.title");
             Width = WinW;
@@ -319,6 +325,39 @@ namespace Amc
             "#FFE5484D", "#FFFFB224", "#FF3FB950", "#FF3B82F6"
         };
 
+        /// <summary>
+        /// The kit ships its own palette; the look page has to keep this window's ramp, so the
+        /// semantic tokens are re-pointed at the same colours the rest of the UI uses. Nothing but
+        /// the control shapes should change when a page moves onto the kit.
+        /// </summary>
+        static UiTheme KitTheme()
+        {
+            UiTheme t = UiTheme.Dark();
+            t.Window = Bg;
+            t.Surface = NavBg;
+            t.SurfaceAlt = Color.FromArgb(255, 28, 28, 32);
+            t.Hover = Color.FromArgb(255, 36, 36, 41);
+            t.Pressed = Color.FromArgb(255, 46, 46, 52);
+            t.Border = Hair;
+            t.BorderStrong = Color.FromArgb(52, 255, 255, 255);
+            t.Text = TextMain;
+            t.TextSecondary = Color.FromArgb(210, 224, 226, 230);
+            t.TextTertiary = TextDim;
+            t.Solid = Color.FromArgb(255, 236, 238, 242);
+            t.SolidHover = Color.FromArgb(255, 255, 255, 255);
+            t.SolidPressed = Color.FromArgb(255, 214, 217, 223);
+            t.OnSolid = Color.FromRgb(20, 20, 22);
+            t.Accent = t.Solid;
+            t.AccentHover = t.SolidHover;
+            t.OnAccent = t.OnSolid;
+            t.AccentSoft = Color.FromArgb(26, 255, 255, 255);
+            t.Danger = Color.FromArgb(255, 229, 72, 77);
+            t.DangerInk = t.Danger;
+            t.Track = Color.FromArgb(255, 62, 62, 70);
+            t.TrackOn = t.Solid;
+            return t;
+        }
+
         static bool TryHex(string hex, out Color c)
         {
             c = Colors.White;
@@ -359,7 +398,24 @@ namespace Amc
         /// (see ColorLibraryWindow) for anything the quick row does not cover.</summary>
         UIElement ColorRow(string label, string current, Action<string> apply)
         {
-            var dots = new WrapPanel();
+            if (_kitPage)
+            {
+                string sel0 = current ?? "";
+                Color here;
+                Color? picked = (sel0.Length > 0 && TryHex(sel0, out here)) ? (Color?)here : null;
+                var palette = new List<Color>();
+                for (int i = 1; i < Swatches.Length; i++)   // [0] is the reset slot, the kit draws its own
+                {
+                    Color one;
+                    if (TryHex(Swatches[i], out one)) palette.Add(one);
+                }
+                WrapPanel dots = UiKit.ColorSwatches(_kit, picked, palette.ToArray(),
+                    delegate(Color c) { apply("#" + c.ToString().Substring(3)); },
+                    delegate { apply(""); },
+                    delegate { ColorLibraryWindow.Open(label, sel0, delegate(string v) { apply(v ?? ""); }); });
+                return Row(label, dots);
+            }
+            var dotsOld = new WrapPanel();
             string sel = current ?? "";
             foreach (string hex in Swatches)
             {
@@ -392,9 +448,9 @@ namespace Amc
                 {
                     sel = value ?? "";
                     apply(sel);
-                    RepaintDots(dots, sel);
+                    RepaintDots(dotsOld, sel);
                 };
-                dots.Children.Add(dot);
+                dotsOld.Children.Add(dot);
             }
 
             var more = new Border
@@ -416,12 +472,12 @@ namespace Amc
                 {
                     sel = v ?? "";
                     apply(sel);
-                    RepaintDots(dots, sel);
+                    RepaintDots(dotsOld, sel);
                 });
             };
-            dots.Children.Add(more);
+            dotsOld.Children.Add(more);
 
-            var wide = Row(label, dots);
+            var wide = Row(label, dotsOld);
             wide.Tag = "rowwide";
             return wide;
         }
@@ -429,6 +485,7 @@ namespace Amc
         /// <summary>− value + stepper; every look value in this app uses the same one.</summary>
         UIElement Stepper(double value, double min, double max, double step, string fmt, Action<double> apply)
         {
+            if (_kitPage) return UiKit.Stepper(_kit, value, min, max, step, fmt, apply);
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             var val = Label(value.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture), 12, TextDim, FontWeights.Normal);
             val.Width = 58;
@@ -468,6 +525,13 @@ namespace Amc
 
         Border Pill(string text, Action act, bool primary)
         {
+            if (_kitPage)
+            {
+                var kb = UiKit.Button(_kit, text, primary ? UiButtonKind.Primary : UiButtonKind.Ghost,
+                                      delegate { try { act(); } catch { } });
+                kb.Margin = new Thickness(0, 0, 8, 0);
+                return kb;
+            }
             var b = new Border
             {
                 CornerRadius = new CornerRadius(8),
@@ -497,6 +561,7 @@ namespace Amc
 
         UIElement Toggle(bool on, Action<bool> apply, bool enabled)
         {
+            if (_kitPage && enabled) return UiKit.Switch(_kit, on, apply);
             Color onBg = Color.FromArgb(255, 236, 238, 242);
             Color offBg = Color.FromArgb(34, 255, 255, 255);
             var track = new Border
@@ -828,10 +893,14 @@ namespace Amc
             }
 
             UIElement body;
+            // Only the look page is on the kit so far; the flag switches the shared primitives
+            // (pill / stepper / switch / segmented / colour row) for this build and nothing else.
+            _kitPage = (key == "look");
             if (key == "look") body = LookPage();
             else if (key == "lyrics") body = LyricsPage();
             else if (key == "about") body = AboutPage();
             else body = HomePage();
+            _kitPage = false;
             _sectionCount = 0;
             _host.Content = PageFrame(key, body);
 
@@ -1194,6 +1263,7 @@ namespace Amc
 
         UIElement Segmented(string[] labels, int selected, Action<int> pick)
         {
+            if (_kitPage) return UiKit.Segmented(_kit, labels, selected, pick);
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             // Every pill needs to be reachable from every other pill: clicking one has to move the
             // highlight, and the caller only reports "index N was chosen", so the row repaints itself.
@@ -1675,6 +1745,20 @@ namespace Amc
 
         Border PresetChip(Config.LookPreset p)
         {
+            if (_kitPage)
+            {
+                var kc = UiKit.Chip(_kit, p.Name, delegate
+                {
+                    _cfg.Presets.Remove(p);
+                    _cfg.Save();
+                    SetPage("look");
+                });
+                // Chip's delete callback fires on the cross only, so the chip body is free to
+                // apply; the old handler had to guess with IsMouseOver.
+                kc.MouseLeftButtonUp += delegate { ApplyPreset(p); };
+                kc.Margin = new Thickness(0, 0, 6, 6);
+                return kc;
+            }
             Color idle = Color.FromArgb(22, 255, 255, 255);
             Color hot = Color.FromArgb(38, 255, 255, 255);
             var b = new Border

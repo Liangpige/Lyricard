@@ -557,7 +557,13 @@ namespace Amc
                 x.Cursor = Cursors.Hand;
                 x.MouseEnter += delegate { UiMotion.Color((SolidColorBrush)x.Foreground, t.Danger, t.MotionFast); };
                 x.MouseLeave += delegate { UiMotion.Color((SolidColorBrush)x.Foreground, t.TextTertiary, t.MotionBase); };
-                x.MouseLeftButtonUp += delegate { remove(); };
+                // Swallow the click: without this the chip's own handler also fires and the
+                // preset would be deleted *and* applied in the same press.
+                x.MouseLeftButtonUp += delegate(object s, MouseButtonEventArgs e)
+                {
+                    e.Handled = true;
+                    remove();
+                };
                 row.Children.Add(x);
             }
             b.Child = row;
@@ -999,6 +1005,13 @@ namespace Amc
         public static WrapPanel ColorSwatches(UiTheme t, Color? current, Color[] palette,
                                              Action<Color> pick, Action reset)
         {
+            return ColorSwatches(t, current, palette, pick, reset, null);
+        }
+
+        /// <summary>Same row, plus an ellipsis chip that opens a bigger palette.</summary>
+        public static WrapPanel ColorSwatches(UiTheme t, Color? current, Color[] palette,
+                                             Action<Color> pick, Action reset, Action more)
+        {
             const double D = 22;
             var row = new WrapPanel();
             row.Orientation = Orientation.Horizontal;
@@ -1010,7 +1023,7 @@ namespace Amc
                 clear.CornerRadius = new CornerRadius(D / 2);
                 clear.BorderBrush = t.Brush(t.Track);
                 clear.BorderThickness = new Thickness(1);
-                clear.Margin = new Thickness(0, 0, 6, 0);
+                clear.Margin = new Thickness(0, 0, 5, 0);
                 clear.Cursor = Cursors.Hand;
                 var x = Label(t, "\u00d7", 12, t.TextTertiary, false);
                 x.HorizontalAlignment = HorizontalAlignment.Center;
@@ -1031,7 +1044,7 @@ namespace Amc
                     dot.Width = dot.Height = D;
                     dot.CornerRadius = new CornerRadius(D / 2);
                     dot.Background = t.Brush(c);
-                    dot.Margin = new Thickness(0, 0, 6, 0);
+                    dot.Margin = new Thickness(0, 0, 5, 0);
                     dot.Cursor = Cursors.Hand;
                     dot.BorderThickness = new Thickness(on ? 2 : 0);
                     dot.BorderBrush = t.Brush(t.Text);
@@ -1046,6 +1059,28 @@ namespace Amc
                     row.Children.Add(dot);
                 }
             }
+
+            if (more != null)
+            {
+                var ell = new Border();
+                ell.Width = ell.Height = D;
+                ell.CornerRadius = new CornerRadius(D / 2);
+                ell.Background = t.Brush(t.SurfaceAlt);
+                ell.BorderBrush = t.Brush(t.Track);
+                ell.BorderThickness = new Thickness(1);
+                ell.Margin = new Thickness(0);
+                ell.Cursor = Cursors.Hand;
+                var dots = Label(t, "\u2026", 12, t.TextSecondary, false);
+                dots.HorizontalAlignment = HorizontalAlignment.Center;
+                dots.TextAlignment = TextAlignment.Center;
+                ell.Child = dots;
+                ell.MouseLeftButtonUp += delegate { more(); };
+                row.Children.Add(ell);
+            }
+            // The last swatch never needs a trailing gap; without this the extra 5 px is enough
+            // to push the "..." chip onto a second line in the two-column layout.
+            if (row.Children.Count > 0)
+                ((FrameworkElement)row.Children[row.Children.Count - 1]).Margin = new Thickness(0);
             return row;
         }
 
