@@ -294,9 +294,12 @@ namespace Amc
         {
             var box = new StackPanel();
             // The appearance tab is a shell around ten pages: its heading names the stop on
-            // screen, not the tab, or every stop would look like the same page.
-            string navKey = key == "look" ? _lookPage : "nav." + key;
-            var title = Label(Strings.T(navKey), 17, TextMain, FontWeights.SemiBold);
+            // screen as well as the tab, so the stop's own caption underneath is not the only
+            // thing telling you where you are.
+            string heading = key == "look"
+                ? Strings.T("nav.appearance") + " \u00b7 " + Strings.T(_lookPage)
+                : Strings.T("nav." + key);
+            var title = Label(heading, 17, TextMain, FontWeights.SemiBold);
             title.Margin = new Thickness(0, 0, 0, 12);
             box.Children.Add(title);
             box.Children.Add(Cards(body));
