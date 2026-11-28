@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows.Media;
 
@@ -35,6 +35,16 @@ namespace Amc
         public Color OnAccent;        // text/glyph drawn on Accent
         public Color Danger;
         public Color Success;
+
+        // ---- the solid pill ------------------------------------------------------
+        // The app's own controls are monochrome: a white capsule with ink on it. Primary and
+        // Danger both use this background; danger is carried by the label colour, not by a
+        // red block.
+        public Color Solid;
+        public Color SolidHover;
+        public Color SolidPressed;
+        public Color OnSolid;
+        public Color DangerInk;
         public Color Warning;
 
         // ---- geometry ------------------------------------------------------------
@@ -105,6 +115,11 @@ namespace Amc
             t.AccentSoft = Color.FromArgb(38, 90, 170, 245);
             t.OnAccent = Color.FromRgb(250, 251, 253);
             t.Danger = Color.FromRgb(224, 92, 92);
+            t.Solid = Color.FromRgb(242, 243, 245);
+            t.SolidHover = Color.FromRgb(255, 255, 255);
+            t.SolidPressed = Color.FromRgb(226, 228, 232);
+            t.OnSolid = Color.FromRgb(22, 24, 27);
+            t.DangerInk = Color.FromRgb(206, 84, 84);
             t.Success = Color.FromRgb(88, 190, 130);
             t.Warning = Color.FromRgb(226, 170, 82);
             return t;
@@ -132,6 +147,11 @@ namespace Amc
             t.AccentSoft = Color.FromArgb(28, 35, 126, 214);
             t.OnAccent = Color.FromRgb(255, 255, 255);
             t.Danger = Color.FromRgb(207, 74, 74);
+            t.Solid = Color.FromRgb(22, 24, 27);
+            t.SolidHover = Color.FromRgb(35, 38, 44);
+            t.SolidPressed = Color.FromRgb(14, 16, 19);
+            t.OnSolid = Color.FromRgb(255, 255, 255);
+            t.DangerInk = Color.FromRgb(192, 50, 47);
             t.Success = Color.FromRgb(60, 160, 104);
             t.Warning = Color.FromRgb(196, 138, 46);
             return t;

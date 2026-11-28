@@ -19,6 +19,7 @@ namespace Amc
         TextBlock _themeName;
         TextBlock _status;
         int _demoState;
+        bool _isDark = true;
 
         public UiKitDemo()
         {
@@ -52,7 +53,14 @@ namespace Amc
             head.Background = _t.Brush(_t.Window);
             head.BorderBrush = _t.Brush(_t.Border);
             head.BorderThickness = new Thickness(0, 0, 0, 1);
-            head.MouseLeftButtonDown += delegate { try { DragMove(); } catch (Exception) { } };
+            // Drag from the header background only. Dragging from the whole header swallowed the
+            // mouse-up that the theme picker needs -- the same way DragMove ate the close button in
+            // the picker window.
+            head.MouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e)
+            {
+                if (!ReferenceEquals(e.OriginalSource, head)) return;
+                try { DragMove(); } catch (Exception) { }
+            };
             grid.Children.Add(head);
 
             var headRow = new Grid();
@@ -66,19 +74,26 @@ namespace Amc
             var name = UiKit.Label(_t, "UI kit", 13.5, _t.Text, true);
             headRow.Children.Add(name);
 
-            _themeName = UiKit.Label(_t, "深色", _t.FontCaption, _t.TextTertiary, false);
+            _themeName = UiKit.Label(_t, "主题", _t.FontCaption, _t.TextTertiary, false);
             _themeName.Margin = new Thickness(_t.Space3, 0, _t.Space2, 0);
             _themeName.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(_themeName, 1);
             headRow.Children.Add(_themeName);
 
-            var sw = UiKit.Switch(_t, false, delegate(bool on)
+            // A two-segment picker rather than a switch: the switch shares its click with the
+            // header's drag area and fired twice when the tree was rebuilt under the pointer.
+            var sw = UiKit.Segmented(_t, new string[] { "深色", "浅色" }, _isDark ? 0 : 1,
+                                     delegate(int pick)
             {
-                Guard(delegate
+                Dispatcher.BeginInvoke(new Action(delegate
                 {
-                    _t = on ? UiTheme.Light() : UiTheme.Dark();
-                    Build();
-                });
+                    Guard(delegate
+                    {
+                        _isDark = pick == 0;
+                        _t = _isDark ? UiTheme.Dark() : UiTheme.Light();
+                        Build();
+                    });
+                }), System.Windows.Threading.DispatcherPriority.Background);
             });
             sw.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(sw, 2);
@@ -113,12 +128,19 @@ namespace Amc
             Grid.SetRow(statusBar, 2);
             grid.Children.Add(statusBar);
 
-            _page.Children.Add(ButtonsCard());
-            _page.Children.Add(SwitchesCard());
-            _page.Children.Add(InputsCard());
-            _page.Children.Add(MotionCard());
+            var cards = new Border[]
+            {
+                ButtonsCard(), SwitchesCard(), InputsCard(), MotionCard()
+            };
+            for (int i = 0; i < cards.Length; i++) _page.Children.Add(cards[i]);
 
+            // Stagger the cards by 45 ms: the eye reads them in order instead of seeing one slab
+            // fade in as a block.
             UiMotion.Enter(_page, _t.MotionSlow + 120, 10);
+            for (int i = 0; i < cards.Length; i++)
+            {
+                UiMotion.Enter(cards[i], _t.MotionSlow, 12, 60 + i * 45);
+            }
         }
 
         Border ButtonsCard()
@@ -201,7 +223,7 @@ namespace Amc
             fill.Height = 6;
             fill.CornerRadius = new CornerRadius(3);
             fill.HorizontalAlignment = HorizontalAlignment.Left;
-            fill.Background = _t.Brush(_t.Accent);
+            fill.Background = _t.Brush(_t.Solid);
             fill.Width = 120;
             var host = new Grid();
             host.Children.Add(bar);

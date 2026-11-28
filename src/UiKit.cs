@@ -18,6 +18,8 @@ namespace Amc
     {
         public static readonly IEasingFunction Out = new CubicEase { EasingMode = EasingMode.EaseOut };
         public static readonly IEasingFunction InOut = new CubicEase { EasingMode = EasingMode.EaseInOut };
+        /// <summary>Snappier than Cubic: slides arrive without a long tail of travel.</summary>
+        public static readonly IEasingFunction Quick = new QuinticEase { EasingMode = EasingMode.EaseOut };
 
         /// <summary>Animate a brush's colour. The brush must be unfrozen (created for one control).</summary>
         public static void Color(SolidColorBrush brush, Color to, int ms)
@@ -52,11 +54,16 @@ namespace Amc
 
         public static void Slide(TranslateTransform tt, double x, double y, int ms)
         {
+            Slide(tt, x, y, ms, Out);
+        }
+
+        public static void Slide(TranslateTransform tt, double x, double y, int ms, IEasingFunction ease)
+        {
             if (tt == null) return;
             var ax = new DoubleAnimation(x, TimeSpan.FromMilliseconds(ms));
-            ax.EasingFunction = Out;
+            ax.EasingFunction = ease;
             var ay = new DoubleAnimation(y, TimeSpan.FromMilliseconds(ms));
-            ay.EasingFunction = Out;
+            ay.EasingFunction = ease;
             tt.BeginAnimation(TranslateTransform.XProperty, ax);
             tt.BeginAnimation(TranslateTransform.YProperty, ay);
         }
@@ -89,10 +96,11 @@ namespace Amc
             Canvas.SetTop(dot, pos.Y - r);
             layer.Children.Add(dot);
 
+            if (peak > 0) dot.Opacity = peak < 1.0 ? peak : 1.0;
             var grow = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(ms));
-            grow.EasingFunction = Out;
+            grow.EasingFunction = Quick;
             var fade = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(ms));
-            fade.BeginTime = TimeSpan.FromMilliseconds(ms * 0.25);
+            fade.BeginTime = TimeSpan.FromMilliseconds(ms * 0.20);
             fade.EasingFunction = Out;
             fade.Completed += delegate { layer.Children.Remove(dot); };
             st.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
@@ -149,14 +157,27 @@ namespace Amc
         /// <summary>Fade in and rise a few pixels: the entrance used by pages and cards.</summary>
         public static void Enter(FrameworkElement el, int ms, double lift)
         {
+            Enter(el, ms, lift, 0);
+        }
+
+        /// <summary>Same entrance, held back by <paramref name="delay"/> ms (used to stagger cards).</summary>
+        public static void Enter(FrameworkElement el, int ms, double lift, int delay)
+        {
+            var wait = TimeSpan.FromMilliseconds(delay);
             el.Opacity = 0;
             var tt = el.RenderTransform as TranslateTransform;
             if (tt == null) { tt = new TranslateTransform(0, lift); el.RenderTransform = tt; }
             else tt.Y = lift;
+
             var fade = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(ms));
+            fade.BeginTime = wait;
             fade.EasingFunction = Out;
             el.BeginAnimation(UIElement.OpacityProperty, fade);
-            Slide(tt, 0, 0, ms);
+
+            var ax = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(ms));
+            ax.BeginTime = wait;
+            ax.EasingFunction = Out;
+            tt.BeginAnimation(TranslateTransform.YProperty, ax);
         }
     }
 
@@ -255,9 +276,10 @@ namespace Amc
             switch (kind)
             {
                 case UiButtonKind.Primary:
-                    rest = t.Accent; hot = t.AccentHover; fg = t.OnAccent; break;
+                    rest = t.Solid; hot = t.SolidHover; fg = t.OnSolid; break;
                 case UiButtonKind.Danger:
-                    rest = t.Danger; hot = Lighten(t.Danger, 18); fg = t.OnAccent; break;
+                    // Monochrome by design: the capsule stays solid, the label carries the warning.
+                    rest = t.Solid; hot = t.SolidHover; fg = t.DangerInk; break;
                 case UiButtonKind.Ghost:
                     rest = Color.FromArgb(0, t.Surface.R, t.Surface.G, t.Surface.B);
                     hot = t.Hover; fg = t.Text; break;
@@ -281,19 +303,22 @@ namespace Amc
             border.RenderTransform = st;
             ClipRounded(border, t.RadiusControl);
 
+            bool filled = kind == UiButtonKind.Primary || kind == UiButtonKind.Danger;
             border.MouseEnter += delegate { UiMotion.Color(bg, hot, t.MotionFast); };
             border.MouseLeave += delegate { UiMotion.Color(bg, rest, t.MotionBase); };
             border.PreviewMouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e)
             {
-                UiMotion.Scale(st, 0.96, 80);
-                var tint = kind == UiButtonKind.Primary || kind == UiButtonKind.Danger
-                    ? Color.FromArgb(70, 255, 255, 255)
-                    : Color.FromArgb(46, t.Accent.R, t.Accent.G, t.Accent.B);
+                // Press: small and quick. Release: a slightly slower spring back, so the button
+                // reads as rubber rather than as a snap.
+                UiMotion.Scale(st, 0.965, 90);
+                UiMotion.Color(bg, t.SolidPressed, 90);
+                var tint = filled ? Color.FromArgb(26, 0, 0, 0) : Color.FromArgb(30, 255, 255, 255);
                 UiMotion.Ripple(border, e, tint, 1.0, t.MotionSlow);
             };
             border.PreviewMouseLeftButtonUp += delegate
             {
-                UiMotion.Scale(st, 1.0, t.MotionBase);
+                UiMotion.Scale(st, 1.0, 200);
+                UiMotion.Color(bg, hot, 140);
             };
             if (click != null)
             {
@@ -308,8 +333,8 @@ namespace Amc
         public static Border Switch(UiTheme t, bool on, Action<bool> changed)
         {
             const double W = 42, H = 24, K = 17, PAD = 3.5;
-            var track = new SolidColorBrush(on ? t.Accent : Color.FromArgb(255, 62, 62, 70));
-            var knobFill = new SolidColorBrush(on ? t.OnAccent : Color.FromArgb(235, 232, 234, 240));
+            var track = new SolidColorBrush(on ? t.Solid : Color.FromArgb(255, 62, 62, 70));
+            var knobFill = new SolidColorBrush(on ? t.OnSolid : Color.FromArgb(235, 232, 234, 240));
 
             var host = new Border();
             host.Width = W; host.Height = H;
@@ -337,19 +362,31 @@ namespace Amc
             Action toggle = null;
             Action applyColours = delegate
             {
-                Color c = state ? t.Accent : Color.FromArgb(255, 62, 62, 70);
+                Color c = state ? t.Solid : Color.FromArgb(255, 62, 62, 70);
                 if (hover && !state) c = Color.FromArgb(255, 76, 76, 86);
                 UiMotion.Color(track, c, t.MotionBase);
             };
 
             host.MouseEnter += delegate { hover = true; applyColours(); };
             host.MouseLeave += delegate { hover = false; applyColours(); };
-            host.MouseLeftButtonDown += delegate { host.Focus(); };
+            var ks = new ScaleTransform(1, 1);
+            knob.RenderTransformOrigin = new Point(0.5, 0.5);
+            var kgroup = new TransformGroup();
+            kgroup.Children.Add(kt);
+            kgroup.Children.Add(ks);
+            knob.RenderTransform = kgroup;
+            host.MouseLeftButtonDown += delegate
+            {
+                host.Focus();
+                UiMotion.Scale(ks, 0.88, 90);
+            };
+            host.MouseLeftButtonUp += delegate { UiMotion.Scale(ks, 1.0, 200); };
             toggle = delegate
             {
                 state = !state;
-                UiMotion.Slide(kt, state ? (W - K - PAD * 2) : 0, 0, t.MotionBase);
-                UiMotion.Color(knobFill, state ? t.OnAccent : Color.FromArgb(235, 232, 234, 240), t.MotionBase);
+                // Quintic rather than Cubic: the knob arrives instead of drifting in.
+                UiMotion.Slide(kt, state ? (W - K - PAD * 2) : 0, 0, 150, UiMotion.Quick);
+                UiMotion.Color(knobFill, state ? t.OnSolid : Color.FromArgb(235, 232, 234, 240), t.MotionBase);
                 applyColours();
                 if (changed != null) changed(state);
             };
@@ -433,7 +470,7 @@ namespace Amc
             well.BorderThickness = new Thickness(t.StrokeWidth);
             root.Children.Add(well);
 
-            var pillBg = new SolidColorBrush(t.Surface);
+            var pillBg = new SolidColorBrush(t.Solid);
             var pill = new Border();
             pill.Width = ITEM_W - 4;
             pill.Height = H - 4;
@@ -461,10 +498,10 @@ namespace Amc
                 cell.Cursor = Cursors.Hand;
                 cell.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
                 var tb = Label(t, items[i], t.FontBody,
-                               i == index ? t.Text : t.TextTertiary, i == index);
+                               i == index ? t.OnSolid : t.TextTertiary, i == index);
                 // Own the brush: selecting a segment animates it, and animating the shared frozen
                 // token throws.
-                tb.Foreground = new SolidColorBrush(i == index ? t.Text : t.TextTertiary);
+                tb.Foreground = new SolidColorBrush(i == index ? t.OnSolid : t.TextTertiary);
                 tb.TextAlignment = TextAlignment.Center;
                 tb.HorizontalAlignment = HorizontalAlignment.Center;
                 cell.Child = tb;
@@ -474,14 +511,13 @@ namespace Amc
                     if (idx == current) return;
                     int prev = current;
                     current = idx;
-                    UiMotion.Slide(pt, idx * ITEM_W, 0, t.MotionBase);
-                    UiMotion.Color((SolidColorBrush)labels[prev].Foreground, t.TextTertiary, t.MotionBase);
+                    UiMotion.Slide(pt, idx * ITEM_W, 0, 200, UiMotion.Quick);
+                    UiMotion.Color((SolidColorBrush)labels[prev].Foreground, t.TextTertiary, 150);
                     labels[prev].FontWeight = FontWeights.Normal;
-                    UiMotion.Opacity(pill, 1.0, t.MotionBase);
                     labels[idx].FontWeight = FontWeights.SemiBold;
                     var fg = new SolidColorBrush(t.TextTertiary);
                     labels[idx].Foreground = fg;
-                    UiMotion.Color(fg, t.Text, t.MotionBase);
+                    UiMotion.Color(fg, t.OnSolid, 150);
                     if (changed != null) changed(idx);
                 };
                 strip.Children.Add(cell);
@@ -562,7 +598,7 @@ namespace Amc
             box.Background = Brushes.Transparent;
             box.BorderThickness = new Thickness(0);
             box.Foreground = t.Brush(t.Text);
-            box.CaretBrush = t.Brush(t.Accent);
+            box.CaretBrush = t.Brush(t.Solid);
             box.FontFamily = new FontFamily(t.FontFamily);
             box.FontSize = t.FontBody;
             box.VerticalContentAlignment = VerticalAlignment.Center;
@@ -587,7 +623,7 @@ namespace Amc
             };
             box.GotKeyboardFocus += delegate
             {
-                UiMotion.Color(edge, t.Accent, t.MotionFast);
+                UiMotion.Color(edge, t.Solid, t.MotionFast);
                 b.BorderThickness = new Thickness(t.StrokeWidth + 0.5);
             };
             box.LostKeyboardFocus += delegate
