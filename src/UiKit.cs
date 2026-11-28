@@ -181,6 +181,15 @@ namespace Amc
         }
     }
 
+    /// <summary>Semantic colour of a notice or a badge.</summary>
+    public enum UiTone
+    {
+        Info,
+        Ok,
+        Warn,
+        Danger
+    }
+
     /// <summary>Which visual weight a button gets.</summary>
     public enum UiButtonKind
     {
@@ -719,6 +728,455 @@ namespace Amc
                 if (b.ActualWidth <= 0 || b.ActualHeight <= 0) return;
                 b.Clip = new RectangleGeometry(new Rect(0, 0, b.ActualWidth, b.ActualHeight), radius, radius);
             };
+        }
+
+        // ------------------------------------------------------------ checkbox ----
+
+        /// <summary>A 18 px rounded box plus a label; the whole row is the hit target.</summary>
+        public static Border Checkbox(UiTheme t, string text, bool on, Action<bool> changed)
+        {
+            bool state = on;
+            var fill = new SolidColorBrush(state ? t.Solid : Color.FromArgb(0, 0, 0, 0));
+            var edge = new SolidColorBrush(state ? t.Solid : t.Track);
+
+            var mark = new Path();
+            mark.Data = Geometry.Parse("M3,7.2 L6,10.4 L11.4,3.6");
+            mark.Stroke = t.Brush(t.OnSolid);
+            mark.StrokeThickness = 1.8;
+            mark.StrokeStartLineCap = PenLineCap.Round;
+            mark.StrokeEndLineCap = PenLineCap.Round;
+            mark.Width = 14; mark.Height = 14;
+            mark.Opacity = state ? 1 : 0;
+            mark.IsHitTestVisible = false;
+
+            var box = new Border();
+            box.Width = box.Height = 18;
+            box.CornerRadius = new CornerRadius(5);
+            box.Background = fill;
+            box.BorderBrush = edge;
+            box.BorderThickness = new Thickness(1.4);
+            box.Child = mark;
+            box.VerticalAlignment = VerticalAlignment.Center;
+
+            var row = new StackPanel();
+            row.Orientation = Orientation.Horizontal;
+            row.Children.Add(box);
+            var label = Label(t, text, t.FontBody, t.Text, false);
+            label.Margin = new Thickness(t.Space2, 0, 0, 0);
+            row.Children.Add(label);
+
+            var host = new Border();
+            host.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+            host.Cursor = Cursors.Hand;
+            host.Padding = new Thickness(0, 3, 0, 3);
+            host.Child = row;
+            host.Focusable = true;
+            host.FocusVisualStyle = null;
+
+            Action apply = delegate
+            {
+                UiMotion.Color(fill, state ? t.Solid : Color.FromArgb(0, 0, 0, 0), 120);
+                UiMotion.Color(edge, state ? t.Solid : t.Track, 120);
+                UiMotion.Opacity(mark, state ? 1 : 0, 120);
+            };
+            Action act = delegate
+            {
+                state = !state;
+                apply();
+                if (changed != null) changed(state);
+            };
+            host.MouseLeftButtonUp += delegate { act(); };
+            host.KeyDown += delegate(object s, KeyEventArgs e)
+            {
+                if (e.Key != Key.Space && e.Key != Key.Enter) return;
+                e.Handled = true;
+                act();
+            };
+            return host;
+        }
+
+        // --------------------------------------------------------------- input ----
+
+        /// <summary>One-line text field: sunken well, hairline that turns solid on focus.</summary>
+        public static Border Input(UiTheme t, string placeholder, string text, Action<string> changed)
+        {
+            var edge = new SolidColorBrush(t.Border);
+            var b = new Border();
+            b.Height = 32;
+            b.MinWidth = 220;
+            b.HorizontalAlignment = HorizontalAlignment.Left;
+            b.CornerRadius = new CornerRadius(t.RadiusControl);
+            b.Background = new SolidColorBrush(t.SurfaceAlt);
+            b.BorderBrush = edge;
+            b.BorderThickness = new Thickness(t.StrokeWidth);
+            b.Padding = new Thickness(10, 0, 10, 0);
+
+            var box = new TextBox();
+            box.Text = text == null ? "" : text;
+            box.Background = Brushes.Transparent;
+            box.BorderThickness = new Thickness(0);
+            box.Foreground = t.Brush(t.Text);
+            box.CaretBrush = t.Brush(t.Solid);
+            box.FontFamily = new FontFamily(t.FontFamily);
+            box.FontSize = t.FontBody;
+            box.VerticalContentAlignment = VerticalAlignment.Center;
+            box.Padding = new Thickness(0);
+
+            var ph = Label(t, placeholder, t.FontBody, t.TextTertiary, false);
+            ph.IsHitTestVisible = false;
+            ph.Visibility = box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            var g = new Grid();
+            g.Children.Add(box);
+            g.Children.Add(ph);
+            b.Child = g;
+            ClipRounded(b, t.RadiusControl);
+
+            box.TextChanged += delegate
+            {
+                ph.Visibility = box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+                if (changed != null) changed(box.Text);
+            };
+            box.GotKeyboardFocus += delegate
+            {
+                UiMotion.Color(edge, t.Solid, t.MotionFast);
+                b.BorderThickness = new Thickness(t.StrokeWidth + 0.5);
+            };
+            box.LostKeyboardFocus += delegate
+            {
+                UiMotion.Color(edge, t.Border, t.MotionBase);
+                b.BorderThickness = new Thickness(t.StrokeWidth);
+            };
+            b.MouseLeftButtonDown += delegate { box.Focus(); };
+
+            // Expose the TextBox so a caller can read the value without keeping a second reference.
+            b.Tag = box;
+            return b;
+        }
+
+        /// <summary>The text currently in an <see cref="Input"/>.</summary>
+        public static string InputText(Border field)
+        {
+            var box = field == null ? null : field.Tag as TextBox;
+            return box == null ? "" : box.Text;
+        }
+
+        // -------------------------------------------------------------- slider ----
+
+        /// <summary>Rail + knob, dragged with the mouse; values are continuous, not stepped.</summary>
+        public static Grid Slider(UiTheme t, double min, double max, double value, Action<double> changed)
+        {
+            const double KNOB = 14;
+
+            var rail = new Border();
+            rail.Height = 4;
+            rail.CornerRadius = new CornerRadius(2);
+            rail.Background = t.Brush(t.Track);
+            rail.VerticalAlignment = VerticalAlignment.Center;
+
+            var fill = new Border();
+            fill.Height = 4;
+            fill.CornerRadius = new CornerRadius(2);
+            fill.Background = t.Brush(t.Solid);
+            fill.HorizontalAlignment = HorizontalAlignment.Left;
+            fill.VerticalAlignment = VerticalAlignment.Center;
+
+            var knob = new Border();
+            knob.Width = knob.Height = KNOB;
+            knob.CornerRadius = new CornerRadius(KNOB / 2);
+            knob.Background = new SolidColorBrush(t.Solid);
+            knob.HorizontalAlignment = HorizontalAlignment.Left;
+            knob.VerticalAlignment = VerticalAlignment.Center;
+            knob.IsHitTestVisible = false;
+
+            var host = new Grid();
+            host.Height = 22;
+            host.Width = 200;
+            host.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+            host.Cursor = Cursors.Hand;
+            host.Children.Add(rail);
+            host.Children.Add(fill);
+            host.Children.Add(knob);
+
+            double frac = max > min ? (value - min) / (max - min) : 0;
+            if (frac < 0) frac = 0;
+            if (frac > 1) frac = 1;
+
+            Action layout = delegate
+            {
+                double w = host.ActualWidth;
+                if (w <= 0) return;
+                fill.Width = Math.Max(0, frac * w);
+                knob.Margin = new Thickness(Math.Max(0, Math.Min(w - KNOB, frac * (w - KNOB))), 0, 0, 0);
+            };
+            host.SizeChanged += delegate { layout(); };
+            host.Loaded += delegate { layout(); };
+            layout();
+
+            bool dragging = false;
+            Action<MouseEventArgs> seek = delegate(MouseEventArgs e)
+            {
+                double w = host.ActualWidth;
+                if (w <= 0) return;
+                double x = e.GetPosition(host).X - KNOB / 2;
+                double span = Math.Max(1, w - KNOB);
+                double f = x / span;
+                if (f < 0) f = 0;
+                if (f > 1) f = 1;
+                if (Math.Abs(f - frac) < 0.0001) return;
+                frac = f;
+                layout();
+                if (changed != null) changed(min + frac * (max - min));
+            };
+            host.MouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e)
+            {
+                dragging = true;
+                host.CaptureMouse();
+                seek(e);
+                UiMotion.Scale(knob.RenderTransform as ScaleTransform, 0.9, 90);
+            };
+            host.MouseMove += delegate(object s, MouseEventArgs e)
+            {
+                if (dragging) seek(e);
+            };
+            host.MouseLeftButtonUp += delegate
+            {
+                if (!dragging) return;
+                dragging = false;
+                host.ReleaseMouseCapture();
+            };
+            host.MouseEnter += delegate { UiMotion.Color((SolidColorBrush)fill.Background, t.SolidHover, t.MotionFast); };
+            host.MouseLeave += delegate { UiMotion.Color((SolidColorBrush)fill.Background, t.Solid, t.MotionBase); };
+            return host;
+        }
+
+        // -------------------------------------------------------- progress bar ----
+
+        public static Border ProgressBar(UiTheme t, double fraction)
+        {
+            var rail = new Border();
+            rail.Height = 6;
+            rail.CornerRadius = new CornerRadius(3);
+            rail.Background = t.Brush(t.Track);
+            ClipRounded(rail, 3);
+
+            var fill = new Border();
+            fill.Name = "fill";
+            fill.Height = 6;
+            fill.CornerRadius = new CornerRadius(3);
+            fill.Background = t.Brush(t.Solid);
+            fill.HorizontalAlignment = HorizontalAlignment.Left;
+
+            var g = new Grid();
+            g.Children.Add(fill);
+            rail.Child = g;
+            SetProgress(rail, fraction);
+            rail.SizeChanged += delegate
+            {
+                double f = rail.Tag is double ? (double)rail.Tag : 0;
+                SetProgress(rail, f);
+            };
+            return rail;
+        }
+
+        public static void SetProgress(Border bar, double fraction)
+        {
+            if (bar == null) return;
+            if (fraction < 0) fraction = 0;
+            if (fraction > 1) fraction = 1;
+            bar.Tag = fraction;
+            var g = bar.Child as Grid;
+            if (g == null || g.Children.Count == 0) return;
+            var fill = g.Children[0] as Border;
+            if (fill == null) return;
+            double w = bar.ActualWidth;
+            fill.Width = w > 0 ? fraction * w : 0;
+        }
+
+        // ------------------------------------------------------- colour swatches ---
+
+        /// <summary>A palette row: round chips, a ring on the current colour, optional reset.</summary>
+        public static WrapPanel ColorSwatches(UiTheme t, Color? current, Color[] palette,
+                                             Action<Color> pick, Action reset)
+        {
+            const double D = 22;
+            var row = new WrapPanel();
+            row.Orientation = Orientation.Horizontal;
+
+            if (reset != null)
+            {
+                var clear = new Border();
+                clear.Width = clear.Height = D;
+                clear.CornerRadius = new CornerRadius(D / 2);
+                clear.BorderBrush = t.Brush(t.Track);
+                clear.BorderThickness = new Thickness(1);
+                clear.Margin = new Thickness(0, 0, 6, 0);
+                clear.Cursor = Cursors.Hand;
+                var x = Label(t, "\u00d7", 12, t.TextTertiary, false);
+                x.HorizontalAlignment = HorizontalAlignment.Center;
+                x.TextAlignment = TextAlignment.Center;
+                clear.Child = x;
+                clear.MouseLeftButtonUp += delegate { reset(); };
+                row.Children.Add(clear);
+            }
+
+            if (palette != null)
+            {
+                for (int i = 0; i < palette.Length; i++)
+                {
+                    Color c = palette[i];
+                    bool on = current.HasValue && current.Value == c;
+
+                    var dot = new Border();
+                    dot.Width = dot.Height = D;
+                    dot.CornerRadius = new CornerRadius(D / 2);
+                    dot.Background = t.Brush(c);
+                    dot.Margin = new Thickness(0, 0, 6, 0);
+                    dot.Cursor = Cursors.Hand;
+                    dot.BorderThickness = new Thickness(on ? 2 : 0);
+                    dot.BorderBrush = t.Brush(t.Text);
+                    dot.Tag = c;
+
+                    var st = new ScaleTransform(1, 1);
+                    dot.RenderTransformOrigin = new Point(0.5, 0.5);
+                    dot.RenderTransform = st;
+                    dot.MouseEnter += delegate { UiMotion.Scale(st, 1.12, 110); };
+                    dot.MouseLeave += delegate { UiMotion.Scale(st, 1.0, 160); };
+                    dot.MouseLeftButtonUp += delegate { if (pick != null) pick(c); };
+                    row.Children.Add(dot);
+                }
+            }
+            return row;
+        }
+
+        // ------------------------------------------------------------- list row ---
+
+        /// <summary>Title over a caption with a control on the right; hover wash like a list item.</summary>
+        public static Border ListRow(UiTheme t, string title, string subtitle, UIElement trailing)
+        {
+            var bg = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+            var b = new Border();
+            b.CornerRadius = new CornerRadius(t.RadiusControl);
+            b.Background = bg;
+            b.Padding = new Thickness(t.Space3, 8, t.Space3, 8);
+            b.Margin = new Thickness(0, 0, 0, 2);
+            b.MouseEnter += delegate { UiMotion.Color(bg, t.Hover, t.MotionFast); };
+            b.MouseLeave += delegate { UiMotion.Color(bg, Color.FromArgb(0, 0, 0, 0), t.MotionBase); };
+
+            var g = new Grid();
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var text = new StackPanel();
+            text.VerticalAlignment = VerticalAlignment.Center;
+            text.Children.Add(Label(t, title, t.FontBody, t.Text, false));
+            if (!string.IsNullOrEmpty(subtitle))
+            {
+                var sub = Label(t, subtitle, t.FontCaption, t.TextTertiary, false);
+                sub.Margin = new Thickness(0, 1, 0, 0);
+                text.Children.Add(sub);
+            }
+            g.Children.Add(text);
+
+            if (trailing != null)
+            {
+                var fe = trailing as FrameworkElement;
+                if (fe != null) fe.VerticalAlignment = VerticalAlignment.Center;
+                Grid.SetColumn(trailing, 1);
+                g.Children.Add(trailing);
+            }
+            b.Child = g;
+            return b;
+        }
+
+        // --------------------------------------------------------------- notice ---
+
+        /// <summary>Inline message: tinted plate, a 3 px tone bar, and the message.</summary>
+        public static Border Notice(UiTheme t, UiTone tone, string text)
+        {
+            Color ink = ToneInk(t, tone);
+            var b = new Border();
+            b.CornerRadius = new CornerRadius(t.RadiusControl);
+            b.Background = t.Brush(Color.FromArgb(26, ink.R, ink.G, ink.B));
+            b.Padding = new Thickness(0);
+            b.Margin = new Thickness(0, 0, 0, t.Space2);
+
+            var bar = new Border();
+            bar.Width = 3;
+            bar.Background = t.Brush(ink);
+            bar.CornerRadius = new CornerRadius(2, 0, 0, 2);
+
+            var body = Label(t, text, t.FontCaption, ink, false);
+            body.TextWrapping = TextWrapping.Wrap;
+            body.Margin = new Thickness(t.Space3, 9, t.Space3, 9);
+
+            var g = new Grid();
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            g.Children.Add(bar);
+            Grid.SetColumn(body, 1);
+            g.Children.Add(body);
+            b.Child = g;
+            return b;
+        }
+
+        /// <summary>A small tinted tag, for states and counts.</summary>
+        public static Border Badge(UiTheme t, string text, UiTone tone)
+        {
+            Color ink = ToneInk(t, tone);
+            var b = new Border();
+            b.CornerRadius = new CornerRadius(t.RadiusPill);
+            b.Background = t.Brush(Color.FromArgb(34, ink.R, ink.G, ink.B));
+            b.Padding = new Thickness(8, 2, 8, 2);
+            b.Margin = new Thickness(0, 0, 6, 0);
+            b.VerticalAlignment = VerticalAlignment.Center;
+            var tb = Label(t, text, 10.5, ink, true);
+            b.Child = tb;
+            return b;
+        }
+
+        static Color ToneInk(UiTheme t, UiTone tone)
+        {
+            switch (tone)
+            {
+                case UiTone.Ok: return t.Success;
+                case UiTone.Warn: return t.Warning;
+                case UiTone.Danger: return t.Danger;
+                default: return t.TextSecondary;
+            }
+        }
+
+        // -------------------------------------------------------------- spinner ---
+
+        /// <summary>An arc that turns while the control is loaded; stop by removing it.</summary>
+        public static Grid Spinner(UiTheme t, double size)
+        {
+            var arc = new Path();
+            arc.Data = Geometry.Parse("M11,2 A9,9 0 1,1 2.6,6.5");
+            arc.Stroke = t.Brush(t.TextTertiary);
+            arc.StrokeThickness = 2;
+            arc.StrokeStartLineCap = PenLineCap.Round;
+            arc.StrokeEndLineCap = PenLineCap.Round;
+            arc.HorizontalAlignment = HorizontalAlignment.Center;
+            arc.VerticalAlignment = VerticalAlignment.Center;
+
+            var g = new Grid();
+            g.Width = g.Height = size;
+            var scale = size / 20.0;
+            var st = new ScaleTransform(scale, scale);
+            st.CenterX = 10; st.CenterY = 10;
+            arc.RenderTransform = st;
+            g.Children.Add(arc);
+
+            var spin = new RotateTransform(0, size / 2, size / 2);
+            g.RenderTransform = spin;
+            g.Loaded += delegate
+            {
+                var a = new DoubleAnimation(360, TimeSpan.FromMilliseconds(900));
+                a.RepeatBehavior = RepeatBehavior.Forever;
+                spin.BeginAnimation(RotateTransform.AngleProperty, a);
+            };
+            return g;
         }
 
         static Color Lighten(Color c, int by)

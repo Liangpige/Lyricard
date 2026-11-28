@@ -16,6 +16,7 @@ namespace Amc
         UiTheme _t;
         StackPanel _page;
         Border _shell;
+        Border _bar;
         TextBlock _themeName;
         TextBlock _status;
         int _demoState;
@@ -130,7 +131,7 @@ namespace Amc
 
             var cards = new Border[]
             {
-                ButtonsCard(), SwitchesCard(), InputsCard(), MotionCard()
+                ButtonsCard(), SwitchesCard(), InputsCard(), RowsCard(), MotionCard()
             };
             for (int i = 0; i < cards.Length; i++) _page.Children.Add(cards[i]);
 
@@ -207,8 +208,39 @@ namespace Amc
             stack.Children.Add(chips);
 
             stack.Children.Add(UiKit.Divider(_t));
-            stack.Children.Add(UiKit.Hint(_t, "分段控件的高亮块会滑过去，搜索框聚焦时描边变强调色。"));
-            return UiKit.Card(_t, "输入与选择", "分段 / 步进 / 搜索 / 胶囊", stack);
+
+            var input = UiKit.Input(_t, "歌单名字…", "", delegate { Bump(); });
+            input.Margin = new Thickness(0, _t.Space3, 0, _t.Space3);
+            stack.Children.Add(input);
+
+            stack.Children.Add(UiKit.Checkbox(_t, "只在该播放器出声时显示卡片", true, delegate(bool v) { Bump(); _status.Text = "复选 " + (v ? "开" : "关"); }));
+            stack.Children.Add(UiKit.Checkbox(_t, "歌词淡出后保留一行", false, delegate(bool v) { Bump(); _status.Text = "复选 " + (v ? "开" : "关"); }));
+
+            var slideValue = UiKit.Label(_t, "0.85", _t.FontCaption, _t.TextTertiary, false);
+            var slider = UiKit.Slider(_t, 0.5, 1.5, 0.85, delegate(double v)
+            {
+                slideValue.Text = v.ToString("0.00");
+                UiKit.SetProgress(_bar, (v - 0.5) / 1.0);
+                Bump();
+            });
+            slider.Width = 200;
+            var slideRow = new StackPanel();
+            slideRow.Orientation = Orientation.Horizontal;
+            slideRow.Margin = new Thickness(0, _t.Space3, 0, 0);
+            slider.Margin = new Thickness(0, 0, _t.Space3, 0);
+            slider.VerticalAlignment = VerticalAlignment.Center;
+            slideValue.VerticalAlignment = VerticalAlignment.Center;
+            slideRow.Children.Add(slider);
+            slideRow.Children.Add(slideValue);
+            stack.Children.Add(Row("整体缩放", slideRow));
+
+            _bar = UiKit.ProgressBar(_t, 0.35);
+            _bar.Margin = new Thickness(0, _t.Space2, 0, 0);
+            stack.Children.Add(_bar);
+
+            stack.Children.Add(UiKit.Divider(_t));
+            stack.Children.Add(UiKit.Hint(_t, "分段的高亮块会滑过去；滑杆拖动时进度条跟着走。"));
+            return UiKit.Card(_t, "输入与选择", "分段 / 步进 / 搜索 / 滑杆 / 复选 / 进度", stack);
         }
 
         Border MotionCard()
@@ -249,6 +281,57 @@ namespace Amc
             stack.Children.Add(replay);
             stack.Children.Add(UiKit.Hint(_t, "卡片与页面的入场：淡入 + 上浮 10 px，缓动 cubic-out。"));
             return UiKit.Card(_t, "动效", "同一套缓动常数，" + _t.MotionSlow + " ms 封顶", stack);
+        }
+
+        Border RowsCard()
+        {
+            var stack = new StackPanel();
+
+            var badge = UiKit.Badge(_t, "运行中", UiTone.Ok);
+            var sw = UiKit.Switch(_t, true, delegate { Bump(); });
+            var tail = new StackPanel();
+            tail.Orientation = Orientation.Horizontal;
+            badge.Margin = new Thickness(0, 0, _t.Space3, 0);
+            tail.Children.Add(badge);
+            tail.Children.Add(sw);
+            stack.Children.Add(UiKit.ListRow(_t, "Apple Music", "正在播放 · 勋章", tail));
+
+            var sw2 = UiKit.Switch(_t, false, delegate { Bump(); });
+            stack.Children.Add(UiKit.ListRow(_t, "Spotify", "已安装，未在播放", sw2));
+
+            var sw3 = UiKit.Switch(_t, false, delegate { Bump(); });
+            stack.Children.Add(UiKit.ListRow(_t, "Salt Player", "未检测到", sw3));
+
+            var spin = UiKit.Spinner(_t, 18);
+            var spinRow = new StackPanel();
+            spinRow.Orientation = Orientation.Horizontal;
+            spin.Margin = new Thickness(0, 0, _t.Space2, 0);
+            spinRow.Children.Add(spin);
+            var spinText = UiKit.Label(_t, "正在取歌词…", _t.FontCaption, _t.TextTertiary, false);
+            spinText.VerticalAlignment = VerticalAlignment.Center;
+            spinRow.Children.Add(spinText);
+            var badgeInfo = UiKit.Badge(_t, "异步", UiTone.Info);
+            badgeInfo.Margin = new Thickness(_t.Space2, 0, 0, 0);
+            spinRow.Children.Add(badgeInfo);
+            stack.Children.Add(UiKit.ListRow(_t, "歌词缓存", "274 首 · 460 KB", spinRow));
+
+            stack.Children.Add(UiKit.Divider(_t));
+            stack.Children.Add(UiKit.Notice(_t, UiTone.Info, "提示条：信息用中性色，注意用琥珀，出错用红字，不铺大色块。"));
+            stack.Children.Add(UiKit.Notice(_t, UiTone.Warn, "「哔哩哔哩」不会上报播放位置，卡片只能按自己的秒表估。"));
+            stack.Children.Add(UiKit.Notice(_t, UiTone.Danger, "取歌词失败：3 个源都没有可用时间轴。"));
+
+            var badgeRow = new WrapPanel();
+            badgeRow.Margin = new Thickness(0, _t.Space2, 0, 0);
+            badgeRow.Children.Add(UiKit.Badge(_t, "≥ 0.88", UiTone.Ok));
+            badgeRow.Children.Add(UiKit.Badge(_t, "0.70+", UiTone.Warn));
+            badgeRow.Children.Add(UiKit.Badge(_t, "本地", UiTone.Info));
+            var spacer = new Border();
+            spacer.Width = _t.Space2;
+            badgeRow.Children.Add(spacer);
+            badgeRow.Children.Add(UiKit.Badge(_t, "未检测到", UiTone.Danger));
+            stack.Children.Add(badgeRow);
+
+            return UiKit.Card(_t, "列表与提示", "行 / 徽章 / 提示条 / 转圈", stack);
         }
 
         /// <summary>

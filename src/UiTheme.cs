@@ -45,6 +45,10 @@ namespace Amc
         public Color SolidPressed;
         public Color OnSolid;
         public Color DangerInk;
+
+        // ---- grooves -------------------------------------------------------------
+        public Color Track;           // slider groove, progress rail, checkbox outline
+        public Color TrackOn;         // filled part of a rail
         public Color Warning;
 
         // ---- geometry ------------------------------------------------------------
@@ -120,6 +124,8 @@ namespace Amc
             t.SolidPressed = Color.FromRgb(226, 228, 232);
             t.OnSolid = Color.FromRgb(22, 24, 27);
             t.DangerInk = Color.FromRgb(206, 84, 84);
+            t.Track = Color.FromArgb(38, 255, 255, 255);
+            t.TrackOn = Color.FromRgb(214, 216, 220);
             t.Success = Color.FromRgb(88, 190, 130);
             t.Warning = Color.FromRgb(226, 170, 82);
             return t;
@@ -152,6 +158,8 @@ namespace Amc
             t.SolidPressed = Color.FromRgb(14, 16, 19);
             t.OnSolid = Color.FromRgb(255, 255, 255);
             t.DangerInk = Color.FromRgb(192, 50, 47);
+            t.Track = Color.FromArgb(30, 0, 0, 0);
+            t.TrackOn = Color.FromRgb(60, 64, 72);
             t.Success = Color.FromRgb(60, 160, 104);
             t.Warning = Color.FromRgb(196, 138, 46);
             return t;
