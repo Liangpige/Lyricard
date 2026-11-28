@@ -76,6 +76,35 @@ namespace Amc
                 return;
             }
 
+            if (args != null && args.Length >= 1 && args[0] == "--uikit")
+            {
+                // Main runs before any Application exists, and a bare Show() has no message loop
+                // behind it -- the window would appear and the process would exit immediately.
+                var uiApp = new Application();
+                // A preview window that dies without a word is useless: record why, then let it die.
+                AppDomain.CurrentDomain.UnhandledException += delegate(object s, UnhandledExceptionEventArgs e)
+                {
+                    try
+                    {
+                        object o = e.ExceptionObject;
+                        System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "uikit_crash.txt"),
+                            DateTime.Now.ToString("HH:mm:ss") + " domain " + (o == null ? "null" : o.ToString()) + "\r\n\r\n");
+                    }
+                    catch (Exception) { }
+                };
+                uiApp.DispatcherUnhandledException += delegate(object s, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+                {
+                    try
+                    {
+                        System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "uikit_crash.txt"),
+                            DateTime.Now.ToString("HH:mm:ss") + " dispatcher " + e.Exception + "\r\n\r\n");
+                    }
+                    catch (Exception) { }
+                };
+                uiApp.Run(new UiKitDemo());
+                return;
+            }
+
             if (args != null && args.Length >= 1 && args[0] == "--boardtest")
             {
                 RunBoardTest();
