@@ -28,7 +28,7 @@ namespace Amc
     ///
     /// Closing only hides the window -- the card and the tray keep running.
     /// </summary>
-    public class MainWindow : Window
+    public partial class MainWindow : Window
     {
         public const double WinW = 800;
         public const double WinH = 540;
@@ -747,10 +747,20 @@ namespace Amc
             else if (key == "about") body = AboutPage();
             else body = HomePage();
             _sectionCount = 0;
+            // The rail belongs to the appearance page alone; the other pages leave the column empty.
+            if (_railHost != null && key != "look") _railHost.Content = null;
             _host.Content = PageFrame(key, body);
 
             if (samePage)
             {
+                // Picking another rail stop opens that stop at its top: the offset on screen
+                // belonged to the page we just left and means nothing here.
+                if (_scrollTopOnce)
+                {
+                    _scrollTopOnce = false;
+                    if (_scroll != null) Dispatcher.BeginInvoke(new Action(delegate { _scroll.ScrollToVerticalOffset(0); }));
+                    return;
+                }
                 // Content swapped in place: restore where the user was looking instead of jumping
                 // back to the top, and skip the fade/lift entirely.
                 if (_scroll != null && keepScroll > 0.5)
@@ -769,12 +779,13 @@ namespace Amc
         // The appearance page keeps its own section rail in the shell's first column.
         ContentControl _railHost;
         StackPanel _lookBox;
-        readonly List<KeyValuePair<string, FrameworkElement>> _lookAnchors = new List<KeyValuePair<string, FrameworkElement>>();
         readonly List<Border> _railItems = new List<Border>();
-        bool _railHook;
         int _railSelected = -1;
         string _lookPage = "rail.board";
         double _pendingScroll;
+        // Set when a rail stop is picked: the next render of the look page opens at its top
+        // instead of keeping the offset of the stop we just left.
+        bool _scrollTopOnce;
 
         // ---- update state (see Updater.cs) ----
         TextBlock _updText;
@@ -1182,14 +1193,9 @@ namespace Amc
 
         UIElement LookPage()
         {
-            var box = new StackPanel();
-
-            // No subtitle here any more: the divider further down already explains which half of
-            // the page needs Apply and which half is live, and two notes said the same thing twice.
-
-            // ---- board: a sketch pad, never a live mirror --------------------
-            // Everything dragged here goes into a private draft; the card itself does not
-            // move until the user presses Apply, which is what keeps this silky.
+            // The board is a draft, not a mirror, and every stop rebuilds this page: create it
+            // here, then let BoardStop draw it only while 画板 is the current stop. 预设 still
+            // touches it -- applying a preset refreshes the board through _preview.
             if (_preview != null) { _card.LayoutChanged -= OnCardLayoutChanged; _card.LookChanged -= OnCardLookChanged; }
             _preview = new CardPreview();
             _preview.FitWidth = 430;
@@ -1211,373 +1217,45 @@ namespace Amc
                 Config.LookPreset target = _cfg.Presets[presetIdx];
                 Dispatcher.BeginInvoke(new Action(delegate { ApplyPreset(target); }), System.Windows.Threading.DispatcherPriority.Background);
             }
-            var board = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(12, 255, 255, 255)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(16, 255, 255, 255)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(14, 16, 14, 16),
-                Margin = new Thickness(0, 2, 0, 14)
-            };
-            // 1:1 with the card, so the panel scrolls instead of silently rescaling the drawing
-            var boardScroll = new System.Windows.Controls.ScrollViewer
-            {
-                HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Disabled,
-                Content = _preview,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
-            var boardHost = new Grid { MinHeight = 150 };
-            boardHost.Children.Add(boardScroll);
-            board.Child = boardHost;
-            box.Children.Add(board);
-            Anchor("rail.board", board);
-
-            var boardBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 16) };
-            boardBar.Children.Add(Pill(Strings.T("board.apply"), delegate { _preview.RaiseApply(); }, true));
-            boardBar.Children.Add(Pill(Strings.T("board.cancel"), delegate { _preview.RaiseCancel(); }, false));
-            boardBar.Children.Add(Pill(Strings.T("board.addModule"), delegate { _preview.ShowAddMenu(); }, false));
-            boardBar.Children.Add(Pill(Strings.T("board.refresh"), delegate { _preview.RefreshFromCard(); }, false));
-            box.Children.Add(boardBar);
-
-            // 画板下的一句话说明：拖是改位置，尺寸在下面那些选项里改。
-            var dragHint = Hint(Strings.T("board.dragHint"));
-            dragHint.Margin = new Thickness(0, -6, 0, 12);
-            box.Children.Add(dragHint);
-
-            // 长度上限：it is the character cap, and with the box on auto the cap *is* the width,
-            // so these three steer the frames you just saw above.
-            box.Children.Add(Section(Strings.T("page.look.size")));
-            var capStack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
-            capStack.Children.Add(Row(Strings.T("cap.title"), Stepper(CapOf(ModuleKind.Title), 0, 80, 2, "0",
-                delegate(double v) { SetCap(ModuleKind.Title, (int)Math.Round(v)); })));
-            capStack.Children.Add(Row(Strings.T("cap.artist"), Stepper(CapOf(ModuleKind.Artist), 0, 60, 2, "0",
-                delegate(double v) { SetCap(ModuleKind.Artist, (int)Math.Round(v)); })));
-            capStack.Children.Add(Row(Strings.T("cap.lyrics"), Stepper(CapOf(ModuleKind.Lyrics), 0, 80, 2, "0",
-                delegate(double v) { SetCap(ModuleKind.Lyrics, (int)Math.Round(v)); })));
-            capStack.Children.Add(Row(Strings.T("lbl.coverSize"), Stepper(_cfg.ArtSize, 56, 160, 4, "0", delegate(double v)
-            {
-                _cfg.ArtSize = v;
-                // one size for both views: write it into the Cover module, so the board's circle
-                // grows with the disc instead of staying at the old radius
-                CardConfig m2 = _card.Model;
-                if (m2 != null)
-                {
-                    ModuleConfig cov = m2.Find(ModuleKind.Cover);
-                    if (cov != null) { cov.W = v; cov.H = v; }
-                    _card.InvalidateModel();
-                    // the cover size is the template's Cover module: persist it, do not just repaint
-                    bool okSize = _card.SaveModel();
-                    LyricsService.Log("artsize=" + v.ToString("0") + " saved=" + (okSize ? 1 : 0));
-                }
-                _card.ApplyLook();
-                _cfg.Save();
-                _preview.RefreshFromCard();
-            })));
-            // Same story as the cover: these steer the Progress and MusicBars modules, so they
-            // sit with the draft controls instead of pretending to be instant repaints.
-            capStack.Children.Add(Row(Strings.T("lbl.barLength"), Stepper(_cfg.BarScale, 0.5, 3.0, 0.05, "0%", delegate(double v)
-            {
-                double oldScale = _cfg.BarScale <= 0 ? 1.0 : _cfg.BarScale;
-                _cfg.BarScale = v;
-                // The bar's length is the Progress module's width. Scale the width that is already
-                // there instead of recomputing from a constant, so a width dragged in the board is
-                // kept: newW = oldW * (new / old).
-                CardConfig m2 = _card.Model;
-                if (m2 != null)
-                {
-                    ModuleConfig pr = m2.Find(ModuleKind.Progress);
-                    if (pr != null)
-                    {
-                        double baseW = pr.W > 0 ? pr.W / oldScale : 320.0;
-                        pr.W = Math.Max(40.0, Math.Round(baseW * v));
-                    }
-                    _card.InvalidateModel();
-                    // the width lives in the template, so write it there and let the board follow
-                    _card.SaveModel();
-                }
-                _card.ApplyLook();
-                _cfg.Save();
-                _preview.RefreshFromCard();
-            })));
-            box.Children.Add(TwoColumn(capStack));
 
             _card.LookChanged += OnCardLookChanged;
             _preview.BeginDraft(_card);
 
-            // The board edits a draft template: nothing above this line touches the card until
-            // 应用. Everything below is a live setting that repaints the card as you drag it.
-            // Cover size is the template's Cover module, so it belongs with the draft controls above
-
-            box.Children.Add(Row(Strings.T("lbl.barsLength"), Stepper(_cfg.BarsLength, 40, 420, 10, "0", delegate(double v)
-            {
-                _cfg.BarsLength = v;
-                BarsModule(v, -1);
-                _cfg.Save();
-            })));
-            box.Children.Add(Row(Strings.T("lbl.barsHeight"), Stepper(_cfg.BarsMaxHeight, 8, 90, 2, "0", delegate(double v)
-            {
-                _cfg.BarsMaxHeight = v;
-                BarsModule(-1, v);
-                _cfg.Save();
-            })));
-
-
-            box.Children.Add(Rule());
-            var applyNote = Label(Strings.T("board.applyNote"),
-                                  11.5, TextDim, FontWeights.Normal);
-            applyNote.TextWrapping = TextWrapping.Wrap;
-            applyNote.Margin = new Thickness(0, 0, 0, 4);
-            box.Children.Add(applyNote);
-            box.Children.Add(Rule());
-
-            // ---- text -------------------------------------------------------
-            // The rail puts 歌名 / 艺人 / 歌词 on separate stops, so they are marked with quiet
-            // sub-heads instead of one shared section title.
-            var titleHead = SubHead(Strings.T("rail.title"));
-            box.Children.Add(titleHead);
-            Anchor("rail.title", titleHead);
-            box.Children.Add(Row(Strings.T("lbl.titleSize"), Stepper(_cfg.TitleScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
-            { _cfg.TitleScale = v; _card.ApplyLook(); _cfg.Save(); })));
-
-            // Alignment lives on the module (layout.ini), not on the appearance settings: the box is
-            // the text box, so "left/centre/right" is how the text sits inside it.
-            box.Children.Add(Row(Strings.T("lbl.alignTitle"), Segmented(new string[] { Strings.T("align.left"), Strings.T("align.center"), Strings.T("align.right") },
-                AlignIndex(ModuleKind.Title), delegate(int idx) { SetModuleAlign(ModuleKind.Title, idx); })));
-            box.Children.Add(Row(Strings.T("lbl.alignArtist"), Segmented(new string[] { Strings.T("align.left"), Strings.T("align.center"), Strings.T("align.right") },
-                AlignIndex(ModuleKind.Artist), delegate(int idx) { SetModuleAlign(ModuleKind.Artist, idx); })));
-            box.Children.Add(Row(Strings.T("lbl.alignLyrics"), Segmented(new string[] { Strings.T("align.left"), Strings.T("align.center"), Strings.T("align.right") },
-                AlignIndex(ModuleKind.Lyrics), delegate(int idx) { SetModuleAlign(ModuleKind.Lyrics, idx); })));
-            box.Children.Add(Row(Strings.T("lbl.sameLine"), Toggle(SameLine(), delegate(bool on)
-            {
-                CardConfig m = _card.Model;
-                if (m == null) return;
-                m.TitleArtistInline = on;
-                bool saved = m.Save(CardConfig.DefaultPath);
-                LyricsService.Log("toggle inline=" + (on ? "1" : "0") + " saved=" + (saved ? "1" : "0"));
-                _card.ReloadModel();
-                _card.RefreshArtistLine();
-                RebuildAll();
-            })));
-            box.Children.Add(ColorRow(Strings.T("lbl.titleColor"), _cfg.TitleColor, delegate(string v)
-            { _cfg.TitleColor = v; _card.ApplyLook(); _cfg.Save(); }));
-
-            var artistHead = SubHead(Strings.T("rail.artist"));
-            box.Children.Add(artistHead);
-            Anchor("rail.artist", artistHead);
-            box.Children.Add(Row(Strings.T("lbl.artistSize"), Stepper(_cfg.ArtistScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
-            { _cfg.ArtistScale = v; _card.ApplyLook(); _cfg.Save(); })));
-            // the artist length cap now lives on the module itself (MaxChars in layout.ini)
-            box.Children.Add(ColorRow(Strings.T("lbl.artistColor"), _cfg.ArtistColor, delegate(string v)
-            { _cfg.ArtistColor = v; _card.ApplyLook(); _cfg.Save(); }));
-
-            var lyricHead = SubHead(Strings.T("rail.lyrics"));
-            box.Children.Add(lyricHead);
-            Anchor("rail.lyrics", lyricHead);
-            box.Children.Add(Row(Strings.T("lbl.lyricSize"), Stepper(_cfg.LyricScale, 0.6, 1.6, 0.05, "0.00", delegate(double v)
-            { _cfg.LyricScale = v; _card.ApplyLook(); _cfg.Save(); })));
-            box.Children.Add(ColorRow(Strings.T("lbl.lyricColor"), _cfg.LyricColor, delegate(string v)
-            { _cfg.LyricColor = v; _card.ApplyLook(); _cfg.Save(); }));
-
-
-
-            // ---- progress bar -----------------------------------------------
-            var barHead = Section(Strings.T("sec.bar"));
-            box.Children.Add(barHead);
-            Anchor("sec.bar", barHead);
-            box.Children.Add(Row(Strings.T("lbl.barThickness"), Stepper(_cfg.BarThickness, 2, 8, 0.5, "0.0", delegate(double v)
-            { _cfg.BarThickness = v; _card.ApplyLook(); _cfg.Save(); })));
-            box.Children.Add(ColorRow(Strings.T("lbl.barColor"), _cfg.BarColor, delegate(string v)
-            { _cfg.BarColor = v; _card.ApplyLook(); _cfg.Save(); }));
-            box.Children.Add(ColorRow(Strings.T("lbl.barFill"), _cfg.BarFillColor, delegate(string v)
-            { _cfg.BarFillColor = v; _card.ApplyLook(); _cfg.Save(); }));
-
-            // ---- artwork ----------------------------------------------------
-
-            // ---- spectrum bars -------------------------------------------------
-            // Length and height write straight into the MusicBars module, so the board's box and the
-            // card's row always agree; the rest are pure look knobs that only need a repaint.
-            var spectrumHead = Section(Strings.T("sec.spectrum"));
-            box.Children.Add(spectrumHead);
-            Anchor("sec.spectrum", spectrumHead);
-            box.Children.Add(Row(Strings.T("lbl.barsCount"), Stepper(_cfg.BarsCount, 0, 96, 1, "0", delegate(double v)
-            {
-                _cfg.BarsCount = (int)Math.Round(v);
-                _card.ApplyLook();
-                _cfg.Save();
-            })));
-            box.Children.Add(Row(Strings.T("lbl.barsThickness"), Stepper(_cfg.BarsThickness, 2, 14, 1, "0", delegate(double v)
-            {
-                _cfg.BarsThickness = v;
-                _card.ApplyLook();
-                _cfg.Save();
-            })));
-            box.Children.Add(Row(Strings.T("lbl.barsAttack"), Stepper(_cfg.BarsAttack, 0.05, 1.0, 0.05, "0.00", delegate(double v)
-            {
-                _cfg.BarsAttack = v;
-                _cfg.Save();
-            })));
-            box.Children.Add(Row(Strings.T("lbl.barsRelease"), Stepper(_cfg.BarsRelease, 0.02, 1.0, 0.02, "0.00", delegate(double v)
-            {
-                _cfg.BarsRelease = v;
-                _cfg.Save();
-            })));
-            box.Children.Add(ColorRow(Strings.T("lbl.barsColor"), _cfg.BarsColor, delegate(string v)
-            {
-                _cfg.BarsColor = v;
-                _card.ApplyLook();
-                _cfg.Save();
-            }));
-            // The cover knobs sit with the spectrum rows today; the stop is placed where they
-            // begin, so the rail lands on the controls rather than on an empty heading.
-            var artHead = SubHead(Strings.T("sec.art"));
-            box.Children.Add(artHead);
-            Anchor("rail.art", artHead);
-            if (_cfg.ArtTint)
-                box.Children.Add(Label(Strings.T("artSat.off"), 11.5, TextDim, FontWeights.Normal));
-            else
-                box.Children.Add(Row(Strings.T("lbl.artSat"), Stepper(_cfg.ArtSat, 0, 1, 0.05, "0.00", delegate(double v)
-                { _cfg.ArtSat = v; _card.RefreshArt(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artHiCut"), Stepper(_cfg.ArtHiCut, 0, 0.6, 0.02, "0.00", delegate(double v)
-            { _cfg.ArtHiCut = v; _card.RefreshArt(); _cfg.Save(); })));
-            // Duotone sits right above the grading sliders: it decides the hue, they shape the tone.
-            box.Children.Add(Row(Strings.T("lbl.artTint"), Toggle(_cfg.ArtTint, delegate(bool v)
-            { _card.SetArtTint(v); RebuildAll(); })));
-            box.Children.Add(Row(Strings.T("lbl.artTintPreset"), Segmented(
-                new string[] { Strings.T("tint.warm"), Strings.T("tint.cool"), Strings.T("tint.violet") },
-                TintPresetIndex(),
-                delegate(int i)
-                {
-                    if (i == 0) { _cfg.ArtTintDark = "#3A0A0A"; _cfg.ArtTintLight = "#FFB4B4"; }
-                    else if (i == 1) { _cfg.ArtTintDark = "#061826"; _cfg.ArtTintLight = "#A9D6FF"; }
-                    else { _cfg.ArtTintDark = "#1A0A2E"; _cfg.ArtTintLight = "#D9B8FF"; }
-                    _cfg.ArtTint = true;
-                    _card.SetArtTint(true);
-                    _cfg.Save();
-                    RebuildAll();
-                })));
-            box.Children.Add(Row(Strings.T("lbl.artTintMix"), Stepper(_cfg.ArtTintMix, 0, 1, 0.05, "0.00", delegate(double v)
-            { _cfg.ArtTintMix = v; _cfg.Save(); _card.RefreshArt(); })));
-            box.Children.Add(Row(Strings.T("lbl.artBright"), Stepper(_cfg.ArtBrightness, 0.5, 1.6, 0.02, "0.00", delegate(double v)
-            { _cfg.ArtBrightness = v; _card.RefreshArt(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artContrast"), Stepper(_cfg.ArtContrast, 0.5, 1.8, 0.02, "0.00", delegate(double v)
-            { _cfg.ArtContrast = v; _card.RefreshArt(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artWarmth"), Stepper(_cfg.ArtWarmth, -1, 1, 0.05, "0.00", delegate(double v)
-            { _cfg.ArtWarmth = v; _card.RefreshArt(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artHue"), Stepper(_cfg.ArtHue, -180, 180, 5, "0", delegate(double v)
-            { _cfg.ArtHue = v; _card.RefreshArt(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artVignette"), Stepper(_cfg.ArtVignette, 0, 0.8, 0.02, "0.00", delegate(double v)
-            { _cfg.ArtVignette = v; _card.RefreshArt(); _cfg.Save(); })));
-            // the cover glow was removed: the halo bled over the title and lyrics
-
-            // ---- card -------------------------------------------------------
-            var cardHead = Section(Strings.T("sec.card"));
-            box.Children.Add(cardHead);
-            Anchor("rail.card", cardHead);
-            box.Children.Add(Row(Strings.T("lbl.scale"), Stepper(_cfg.Scale, 0.55, 2.2, 0.05, "0.00", delegate(double v)
-            { _cfg.Scale = v; _card.ApplyCurrentScale(); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.opacity"), Stepper(_cfg.Opacity, 0.25, 1.0, 0.02, "0.00", delegate(double v)
-            { _cfg.Opacity = v; _card.ApplyCurrentOpacity(); _cfg.Save(); })));
-            var buttonsHead = SubHead(Strings.T("rail.buttons"));
-            box.Children.Add(buttonsHead);
-            Anchor("rail.buttons", buttonsHead);
-            box.Children.Add(ColorRow(Strings.T("lbl.controlsColor"), _cfg.ControlsColor, delegate(string v)
-            { _cfg.ControlsColor = v; _card.ApplyLook(); _cfg.Save(); }));
-
-            box.Children.Add(Row(Strings.T("lbl.clearBg"), Toggle(_cfg.ClearBg, delegate(bool v)
-            { _card.SetClearBg(v); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.artshape"), Segmented(
-                new string[] { Strings.T("artshape.circle"), Strings.T("artshape.square") },
-                string.Equals(_cfg.ArtShape, "square", StringComparison.OrdinalIgnoreCase) ? 1 : 0,
-                delegate(int i) { _card.SetArtShape(i == 1 ? "square" : "circle"); RebuildAll(); })));
-            box.Children.Add(Row(Strings.T("lbl.spin"), Toggle(_cfg.ArtSpin, delegate(bool v)
-            { _card.SetArtSpin(v); _cfg.Save(); })));
-            box.Children.Add(Row(Strings.T("lbl.textShadow"), Toggle(_cfg.TextShadow, delegate(bool v)
-            { _cfg.TextShadow = v; _card.ApplyBackdropNow(); _cfg.Save(); })));
-
-            // ---- presets ----------------------------------------------------
-            box.Children.Add(Section(Strings.T("sec.presets")));
-
-            var saveRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 10) };
-            var nameBox = new TextBox
-            {
-                Width = 200,
-                Height = 28,
-                FontSize = 12,
-                Padding = new Thickness(8, 3, 8, 3),
-                Foreground = new SolidColorBrush(TextMain),
-                Background = new SolidColorBrush(Color.FromArgb(255, 28, 28, 32)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                BorderThickness = new Thickness(1),
-                CaretBrush = new SolidColorBrush(TextMain),
-                ToolTip = Strings.T("preset.prompt")
-            };
-            saveRow.Children.Add(nameBox);
-            var savePill = Pill(Strings.T("preset.save"), delegate
-            {
-                string nm = (nameBox.Text == null) ? "" : nameBox.Text.Trim();
-                if (nm.Length == 0) nm = Strings.F("preset.defaultName", _cfg.Presets.Count + 1);
-                if (nm.Length > 14) nm = nm.Substring(0, 14);
-                if (_cfg.Presets.Count >= 10) _cfg.Presets.RemoveAt(0);
-                Config.LookPreset np = _cfg.CaptureLook(nm);
-                string tmpl = ReadTemplateText();
-                if (tmpl != null) np.Data += ";Template=" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tmpl));
-                _cfg.Presets.Add(np);
-                _cfg.Save();
-                SetPage("look");
-            }, false);
-            savePill.Margin = new Thickness(8, 0, 0, 0);
-            saveRow.Children.Add(savePill);
-            // The preset block is a page of its own: it snapshots the whole look, so it belongs
-            // to no single group above.
-            var presetPage = new StackPanel();
-            presetPage.Children.Add(Section(Strings.T("rail.preset")));
-            presetPage.Children.Add(saveRow);
-
-            var chips = new WrapPanel { Margin = new Thickness(0, 0, 0, 4) };
-            if (_cfg.Presets.Count == 0) chips.Children.Add(Hint(Strings.T("preset.empty")));
-            else for (int i = 0; i < _cfg.Presets.Count; i++) chips.Children.Add(PresetChip(_cfg.Presets[i]));
-            presetPage.Children.Add(chips);
-            Anchor("rail.preset", presetPage.Children[0]);
-            if (On("rail.preset")) box.Children.Add(presetPage);
+            // One stop at a time: only the current stop's rows are built into the page. Building
+            // all ten and slicing the finished panel is what broke the card grouping before.
+            var box = new StackPanel();
+            if (On("rail.board")) BoardStop(box);
+            else if (On("rail.card")) CardStop(box);
+            else if (On("rail.title")) TitleStop(box);
+            else if (On("rail.artist")) ArtistStop(box);
+            else if (On("rail.lyrics")) LyricStop(box);
+            else if (On("sec.bar")) BarStop(box);
+            else if (On("rail.buttons")) ButtonStop(box);
+            else if (On("sec.spectrum")) SpectrumStop(box);
+            else if (On("rail.art")) ArtStop(box);
+            else PresetStop(box);
 
             _lookBox = box;
             BuildRail();
             return box;
         }
 
-        // one saved look: click the name to apply it, click the x to delete it
-
-        /// <summary>Registers a stop for the appearance page's rail.</summary>
-        void Anchor(string key, UIElement el)
-        {
-            _lookAnchors.Add(new KeyValuePair<string, FrameworkElement>(key, el as FrameworkElement));
-        }
-
-        TextBlock SubHead(string text)
-        {
-            var head = Label(text, 11.5, TextDim, FontWeights.Normal);
-            head.Margin = new Thickness(0, 10, 0, 6);
-            return head;
-        }
-
-        /// <summary>Left-side stops for the appearance page; each one scrolls the page to its row.</summary>
+        /// <summary>Left-side stops for the appearance page; each stop opens its own page.</summary>
         void BuildRail()
         {
             _railItems.Clear();
+            // Fresh items start unpainted: force UpdateRailSelection to paint them even when the
+            // selected stop did not move (coming back from another page keeps the same stop).
+            _railSelected = -1;
             var rail = new StackPanel { Width = 106 };
             // Fixed order, independent of where the blocks sit in the document: the rail is the
             // table of contents, so it reads the way the user listed the pages.
-            string[] order = { "rail.board", "rail.card", "rail.title", "rail.artist", "rail.lyrics",
-                               "sec.bar", "rail.buttons", "sec.spectrum", "rail.art", "rail.preset" };
-            foreach (string key in order)
+            foreach (string key in RailOrder)
             {
                 var item = new Border
                 {
                     Height = 32,
+                    Margin = new Thickness(0, 0, 0, 8),
                     CornerRadius = new CornerRadius(7),
                     Padding = new Thickness(10, 0, 8, 0),
                     Background = Brushes.Transparent,
@@ -1602,27 +1280,25 @@ namespace Amc
                     if (_lookPage == key) return;
                     _lookPage = key;
                     _railSelected = -1;
+                    // Open the new stop at its top: SetPage would otherwise keep the offset the
+                    // previous stop was scrolled to.
+                    _scrollTopOnce = true;
                     RebuildAll();
                 };
                 _railItems.Add(item);
                 rail.Children.Add(item);
             }
             _railHost.Content = rail;
-            if (!_railHook)
-            {
-                _railHook = true;
-                _scroll.ScrollChanged += delegate { UpdateRailSelection(); };
-            }
             UpdateRailSelection();
         }
 
-        /// <summary>Highlights the stop the viewport is currently sitting on.</summary>
+        /// <summary>Highlights the stop whose page is on screen.</summary>
         void UpdateRailSelection()
         {
             if (_lookBox == null || _railItems.Count == 0) return;
             int best = 0;
-            for (int i = 0; i < _lookAnchors.Count && i < _railItems.Count; i++)
-                if (_lookAnchors[i].Key == _lookPage) { best = i; break; }
+            for (int i = 0; i < RailOrder.Length && i < _railItems.Count; i++)
+                if (RailOrder[i] == _lookPage) { best = i; break; }
             if (best == _railSelected) return;
             _railSelected = best;
             for (int i = 0; i < _railItems.Count; i++)
@@ -1632,7 +1308,6 @@ namespace Amc
                 ((TextBlock)_railItems[i].Child).Foreground = on ? new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)) : new SolidColorBrush(TextDim);
             }
         }
-
         // A preset used to be "how the card looks": colours, sizes, cover treatment. Since the
         // template became the only description of where things sit, it also has to carry the
         // template, otherwise applying a preset leaves the layout behind and the chip looks broken.

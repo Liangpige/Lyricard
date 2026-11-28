@@ -61,7 +61,7 @@ LOG=$(mktemp 2>/dev/null || echo /tmp/lyricard-csc.log)
   /r:System.dll /r:System.Core.dll /r:System.Xml.dll \
   /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll \
   Program.cs Config.cs CardConfig.cs LayoutEngine.cs ModuleRenderer.cs CardPreview.cs Players.cs AudioPeak.cs AudioSpectrum.cs CoverArt.cs SystemVolume.cs FullscreenWatch.cs Json.cs Smtc.cs Lyrics.cs CardWindow.cs Native.cs Tray.cs \
-  TextMetrics.cs AmProbe.cs MenuTheme.cs UiTheme.cs UiKit.cs UiOverlay.cs UiKitDemo.cs Net.cs NetEaseQueue.cs ColorLibraryWindow.cs Strings.cs SettingsWindow.cs MainWindow.cs Uninstall.cs Shortcut.cs CandidateWindow.cs Updater.cs 2>&1 | tee "$LOG"
+  TextMetrics.cs AmProbe.cs MenuTheme.cs UiTheme.cs UiKit.cs UiOverlay.cs UiKitDemo.cs Net.cs NetEaseQueue.cs ColorLibraryWindow.cs Strings.cs SettingsWindow.cs MainWindow.cs LookPages.cs Uninstall.cs Shortcut.cs CandidateWindow.cs Updater.cs 2>&1 | tee "$LOG"
 rc=${PIPESTATUS[0]}
 WARN=$(grep -c "warning CS" "$LOG" 2>/dev/null || true)
 [ -z "$WARN" ] && WARN=0
