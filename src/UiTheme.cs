@@ -55,6 +55,9 @@ namespace Amc
         public double RadiusCard = 10;
         public double RadiusControl = 7;
         public double RadiusPill = 999;
+        /// <summary>Tags and chips: a soft rectangle, not a stadium — the stadium read as an ellipse
+        /// at this size.</summary>
+        public double RadiusTag = 6;
         public double StrokeWidth = 1;
 
         // ---- spacing scale -------------------------------------------------------

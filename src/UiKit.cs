@@ -540,9 +540,9 @@ namespace Amc
         {
             var bg = new SolidColorBrush(t.SurfaceAlt);
             var b = new Border();
-            b.CornerRadius = new CornerRadius(t.RadiusPill);
+            b.CornerRadius = new CornerRadius(t.RadiusTag);
             b.Background = bg;
-            b.Padding = new Thickness(11, 5, remove == null ? 11 : 8, 5);
+            b.Padding = new Thickness(10, 4, remove == null ? 10 : 7, 4);
             b.Margin = new Thickness(0, 0, t.Space2, 0);
             b.Cursor = Cursors.Hand;
 
@@ -1125,7 +1125,7 @@ namespace Amc
         {
             Color ink = ToneInk(t, tone);
             var b = new Border();
-            b.CornerRadius = new CornerRadius(t.RadiusPill);
+            b.CornerRadius = new CornerRadius(t.RadiusTag);
             b.Background = t.Brush(Color.FromArgb(34, ink.R, ink.G, ink.B));
             b.Padding = new Thickness(8, 2, 8, 2);
             b.Margin = new Thickness(0, 0, 6, 0);
