@@ -74,11 +74,20 @@ namespace Amc
 
         public static void Slide(TranslateTransform tt, double x, double y, int ms, IEasingFunction ease)
         {
+            Slide(tt, x, y, ms, ease, 0);
+        }
+
+        /// <summary>Same slide, held back by <paramref name="delay"/> ms (staggered lists).</summary>
+        public static void Slide(TranslateTransform tt, double x, double y, int ms, IEasingFunction ease, int delay)
+        {
             if (tt == null) return;
+            var wait = TimeSpan.FromMilliseconds(delay);
             var ax = new DoubleAnimation(x, TimeSpan.FromMilliseconds(ms));
             ax.EasingFunction = ease;
+            ax.BeginTime = wait;
             var ay = new DoubleAnimation(y, TimeSpan.FromMilliseconds(ms));
             ay.EasingFunction = ease;
+            ay.BeginTime = wait;
             tt.BeginAnimation(TranslateTransform.XProperty, ax);
             tt.BeginAnimation(TranslateTransform.YProperty, ay);
         }
@@ -178,18 +187,27 @@ namespace Amc
         /// <summary>Same entrance, held back by <paramref name="delay"/> ms (used to stagger cards).</summary>
         public static void Enter(FrameworkElement el, int ms, double lift, int delay)
         {
+            if (el == null) return;
             var wait = TimeSpan.FromMilliseconds(delay);
+
+            // A finished animation keeps holding its end value, and a new one without an explicit
+            // From would start there -- so the second entrance of any element played as a no-op
+            // (opacity already 1, transform already 0). Drop the old clock, pin the base value,
+            // then animate 0 -> 1 from a known start.
+            el.BeginAnimation(UIElement.OpacityProperty, null);
             el.Opacity = 0;
+
             var tt = el.RenderTransform as TranslateTransform;
             if (tt == null) { tt = new TranslateTransform(0, lift); el.RenderTransform = tt; }
-            else tt.Y = lift;
+            tt.BeginAnimation(TranslateTransform.YProperty, null);
+            tt.Y = lift;
 
-            var fade = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(ms));
+            var fade = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(ms));
             fade.BeginTime = wait;
             fade.EasingFunction = Out;
             el.BeginAnimation(UIElement.OpacityProperty, fade);
 
-            var ax = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(ms));
+            var ax = new DoubleAnimation(lift, 0.0, TimeSpan.FromMilliseconds(ms));
             ax.BeginTime = wait;
             ax.EasingFunction = Out;
             tt.BeginAnimation(TranslateTransform.YProperty, ax);

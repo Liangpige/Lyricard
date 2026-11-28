@@ -704,6 +704,9 @@ namespace Amc
             _pendingScroll = 0.0;
             LyricsService.Log("main page -> " + key + (samePage ? " (refresh)" : ""));
             _page = key;
+            // Opening the appearance tab from another page lays the rail down once; switching
+            // stops inside it must not replay that (the rail is rebuilt, the motion is not).
+            if (!samePage && key == "look") _railFresh = true;
             foreach (var kv in _tabText)
             {
                 bool on = (kv.Key == key);
@@ -753,6 +756,14 @@ namespace Amc
 
             if (samePage)
             {
+                // A rail stop switch is a real page change even though the tab stays: give the
+                // new stop the same fade-and-rise every other page entrance gets. Refreshes of
+                // the page we are already looking at stay still on purpose.
+                if (_pageSwitch)
+                {
+                    _pageSwitch = false;
+                    UiMotion.Enter(_host, _kit.MotionSlow, 8);
+                }
                 // Picking another rail stop opens that stop at its top: the offset on screen
                 // belonged to the page we just left and means nothing here.
                 if (_scrollTopOnce)
@@ -779,8 +790,12 @@ namespace Amc
         // The appearance page keeps its own section rail in the shell's first column.
         ContentControl _railHost;
         StackPanel _lookBox;
-        readonly List<Border> _railItems = new List<Border>();
+        readonly List<RailRow> _railItems = new List<RailRow>();
         int _railSelected = -1;
+        // Set when the appearance page is opened from elsewhere: the rail staggers in once.
+        bool _railFresh;
+        // Set when a rail stop is picked: the page fades in even though it is the same page.
+        bool _pageSwitch;
         string _lookPage = "rail.board";
         double _pendingScroll;
         // Set when a rail stop is picked: the next render of the look page opens at its top
@@ -1296,74 +1311,6 @@ namespace Amc
             return box;
         }
 
-        /// <summary>Left-side stops for the appearance page; each stop opens its own page.</summary>
-        void BuildRail()
-        {
-            _railItems.Clear();
-            // Fresh items start unpainted: force UpdateRailSelection to paint them even when the
-            // selected stop did not move (coming back from another page keeps the same stop).
-            _railSelected = -1;
-            var rail = new StackPanel { Width = 106 };
-            // Fixed order, independent of where the blocks sit in the document: the rail is the
-            // table of contents, so it reads the way the user listed the pages.
-            foreach (string key in RailOrder)
-            {
-                var item = new Border
-                {
-                    Height = 32,
-                    Margin = new Thickness(0, 0, 0, 8),
-                    CornerRadius = new CornerRadius(7),
-                    Padding = new Thickness(10, 0, 8, 0),
-                    Background = Brushes.Transparent,
-                    Cursor = Cursors.Hand
-                };
-                var text = Label(Strings.T(key), 12.5, TextDim, FontWeights.Normal);
-                text.VerticalAlignment = VerticalAlignment.Center;
-                item.Child = text;
-                item.MouseEnter += delegate
-                {
-                    if (_railItems.IndexOf(item) == _railSelected) return;
-                    item.Background = new SolidColorBrush(Color.FromArgb(10, 255, 255, 255));
-                };
-                item.MouseLeave += delegate
-                {
-                    if (_railItems.IndexOf(item) == _railSelected) return;
-                    item.Background = Brushes.Transparent;
-                };
-                item.MouseLeftButtonUp += delegate
-                {
-                    // Each stop is its own page, not a place to scroll to.
-                    if (_lookPage == key) return;
-                    _lookPage = key;
-                    _railSelected = -1;
-                    // Open the new stop at its top: SetPage would otherwise keep the offset the
-                    // previous stop was scrolled to.
-                    _scrollTopOnce = true;
-                    RebuildAll();
-                };
-                _railItems.Add(item);
-                rail.Children.Add(item);
-            }
-            _railHost.Content = rail;
-            UpdateRailSelection();
-        }
-
-        /// <summary>Highlights the stop whose page is on screen.</summary>
-        void UpdateRailSelection()
-        {
-            if (_lookBox == null || _railItems.Count == 0) return;
-            int best = 0;
-            for (int i = 0; i < RailOrder.Length && i < _railItems.Count; i++)
-                if (RailOrder[i] == _lookPage) { best = i; break; }
-            if (best == _railSelected) return;
-            _railSelected = best;
-            for (int i = 0; i < _railItems.Count; i++)
-            {
-                bool on = i == best;
-                _railItems[i].Background = on ? new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)) : Brushes.Transparent;
-                ((TextBlock)_railItems[i].Child).Foreground = on ? new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)) : new SolidColorBrush(TextDim);
-            }
-        }
         // A preset used to be "how the card looks": colours, sizes, cover treatment. Since the
         // template became the only description of where things sit, it also has to carry the
         // template, otherwise applying a preset leaves the layout behind and the chip looks broken.

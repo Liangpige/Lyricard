@@ -11,6 +11,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace Amc
@@ -379,6 +380,150 @@ namespace Amc
             if (_cfg.Presets.Count == 0) chips.Children.Add(Hint(Strings.T("preset.empty")));
             else for (int i = 0; i < _cfg.Presets.Count; i++) chips.Children.Add(PresetChip(_cfg.Presets[i]));
             box.Children.Add(chips);
+        }
+        // ------------------------------------------------------------------
+        // The stop rail: ten fixed rows on the left of the appearance page.
+        // It is rebuilt with the page, so every animation here is written to
+        // survive being started on a brand-new element.
+        // ------------------------------------------------------------------
+
+        /// <summary>One rail row: the clickable pill, its label, and the brushes we animate.</summary>
+        sealed class RailRow
+        {
+            public Border Item;
+            public TextBlock Text;
+            public SolidColorBrush Bg;
+            public SolidColorBrush Fg;
+            public TranslateTransform Nudge;
+        }
+
+        static readonly Color RailTint = Color.FromArgb(18, 255, 255, 255);
+        static readonly Color RailHover = Color.FromArgb(14, 255, 255, 255);
+        static readonly Color RailTextOn = Color.FromArgb(255, 255, 255, 255);
+        static readonly Color RailTextHover = Color.FromArgb(255, 206, 206, 206);
+        static readonly Color RailClear = Color.FromArgb(0, 255, 255, 255);
+
+        /// <summary>Left-side stops for the appearance page; each stop opens its own page.</summary>
+        void BuildRail()
+        {
+            _railItems.Clear();
+            // Fresh items start unpainted: force UpdateRailSelection to paint them even when the
+            // selected stop did not move (coming back from another page keeps the same stop).
+            _railSelected = -1;
+            // Only the first rail of a visit staggers in. A stop switch swaps the page, and
+            // replaying ten staggered rows on every click would read as a twitch.
+            bool fresh = _railFresh;
+            _railFresh = false;
+
+            var rail = new StackPanel { Width = 106 };
+            int at = 0;
+            // Fixed order, independent of where the blocks sit in the document: the rail is the
+            // table of contents, so it reads the way the user listed the pages.
+            foreach (string key in RailOrder)
+            {
+                var row = new RailRow();
+                row.Bg = new SolidColorBrush(RailClear);
+                row.Fg = new SolidColorBrush(TextDim);
+                row.Nudge = new TranslateTransform(0, 0);
+                var item = new Border
+                {
+                    Height = 32,
+                    Margin = new Thickness(0, 0, 0, 8),
+                    CornerRadius = new CornerRadius(7),
+                    Padding = new Thickness(10, 0, 8, 0),
+                    Background = row.Bg,
+                    Cursor = Cursors.Hand
+                };
+                row.Item = item;
+                row.Text = Label(Strings.T(key), 12.5, TextDim, FontWeights.Normal);
+                row.Text.Foreground = row.Fg;
+                row.Text.VerticalAlignment = VerticalAlignment.Center;
+                row.Text.RenderTransform = row.Nudge;
+                item.Child = row.Text;
+
+                int index = at;
+                item.MouseEnter += delegate
+                {
+                    if (index == _railSelected) return;
+                    UiMotion.Color(row.Bg, RailHover, _kit.MotionFast);
+                    UiMotion.Color(row.Fg, RailTextHover, _kit.MotionFast);
+                };
+                item.MouseLeave += delegate
+                {
+                    if (index == _railSelected) return;
+                    UiMotion.Color(row.Bg, RailClear, _kit.MotionBase);
+                    UiMotion.Color(row.Fg, TextDim, _kit.MotionBase);
+                };
+                item.MouseLeftButtonUp += delegate
+                {
+                    // Each stop is its own page, not a place to scroll to.
+                    if (_lookPage == key) return;
+                    _lookPage = key;
+                    _railSelected = -1;
+                    // Open the new stop at its top: SetPage would otherwise keep the offset the
+                    // previous stop was scrolled to.
+                    _scrollTopOnce = true;
+                    // Content fades in while the rail stays put and only recolours its pill.
+                    _pageSwitch = true;
+                    RebuildAll();
+                };
+                _railItems.Add(row);
+                rail.Children.Add(item);
+
+                if (fresh)
+                {
+                    // Rows assemble themselves from the left, one after the other, so opening
+                    // the appearance page reads as the list being laid down.
+                    item.Opacity = 0;
+                    row.Nudge.X = -6;
+                    UiMotion.Enter(item, _kit.MotionBase + 80, 0, index * 20);
+                    UiMotion.Slide(row.Nudge, 0, 0, _kit.MotionBase + 80, UiMotion.Out, index * 20);
+                }
+                at++;
+            }
+            _railHost.Content = rail;
+            UpdateRailSelection(fresh);
+        }
+
+        /// <summary>Highlights the stop whose page is on screen.</summary>
+        void UpdateRailSelection()
+        {
+            UpdateRailSelection(false);
+        }
+
+        /// <summary>
+        /// Paints the current stop. <paramref name="instant"/> is used while the rail is being
+        /// laid down: the stagger owns those rows, and a second fade on top of it would fight.
+        /// </summary>
+        void UpdateRailSelection(bool instant)
+        {
+            if (_lookBox == null || _railItems.Count == 0) return;
+            int best = 0;
+            for (int i = 0; i < RailOrder.Length && i < _railItems.Count; i++)
+                if (RailOrder[i] == _lookPage) { best = i; break; }
+            if (best == _railSelected) return;
+            _railSelected = best;
+            for (int i = 0; i < _railItems.Count; i++)
+            {
+                bool on = i == best;
+                RailRow row = _railItems[i];
+                Color bg = on ? RailTint : RailClear;
+                Color fg = on ? RailTextOn : TextDim;
+                if (instant)
+                {
+                    row.Bg.Color = bg;
+                    row.Fg.Color = fg;
+                    row.Nudge.X = on ? 2.0 : 0.0;
+                }
+                else
+                {
+                    // The pill breathes in and the label nudges right: the highlight follows the
+                    // click instead of teleporting across the rail.
+                    UiMotion.Color(row.Bg, bg, _kit.MotionBase);
+                    UiMotion.Color(row.Fg, fg, _kit.MotionBase);
+                    UiMotion.Slide(row.Nudge, on ? 2.0 : 0.0, 0, _kit.MotionBase);
+                }
+            }
         }
     }
 }
