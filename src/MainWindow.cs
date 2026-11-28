@@ -1385,6 +1385,9 @@ namespace Amc
             box.Children.Add(Section(Strings.T("page.lyr.title")));
 
             box.Children.Add(Body(Strings.T("page.lyr.order"), 12));
+            // Where a hand-made file goes, and that it must carry timestamps - the two things
+            // every "I dropped a lyric in and nothing happened" report comes down to.
+            box.Children.Add(Hint(Strings.T("page.lyr.local")));
 
             // Manual sync nudges. The card menu only offers 0.1 s steps and is easy to miss, so
             // the same operation is exposed here with a coarser 0.5 s pair for badly timed files.

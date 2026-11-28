@@ -155,6 +155,7 @@ namespace Amc
             Both("page.look.shadow", "文字阴影（浅色壁纸）", "Text shadow (light wallpaper)");
             Both("page.lyr.title", "歌词来源", "Lyric sources");
             Both("page.lyr.order", "优先级：本地文件 → QQ → 网易云 → lrclib（英文歌还会额外问酷狗）", "Order: local file → QQ → NetEase → lrclib (Kugou is also asked for Latin titles)");
+            Both("page.lyr.local", "本地文件歌词放在：程序目录下的 data\\lrc\\ 文件夹\n歌词文件需要带有时间轴（.lrc，每行以 [mm:ss.xx] 开头）", "Local lyric files go in data\\lrc\\ next to the program\nThe .lrc file needs a timeline (each line starts with [mm:ss.xx])");
             Both("page.lyr.cache", "缓存", "Cache");
             Both("page.lyr.cacheval", "首歌词，占用", "tracks, on disk");
             Both("page.lyr.export", "导出歌词…", "Export lyrics…");
