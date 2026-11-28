@@ -121,9 +121,10 @@ namespace Amc
             // ---- body ----
             _page = new StackPanel();
             _page.Margin = new Thickness(_t.Space5, _t.Space4, _t.Space5, _t.Space5);
-            var scroller = UiKit.Scroll(_t, _page);
-            Grid.SetRow(scroller, 1);
-            grid.Children.Add(scroller);
+            FrameworkElement scrollerHost;
+            var scroller = UiKit.Scroll(_t, _page, _t.Window, out scrollerHost);
+            Grid.SetRow(scrollerHost, 1);
+            grid.Children.Add(scrollerHost);
 
             var statusBar = new Border();
             statusBar.Padding = new Thickness(_t.Space4, 6, _t.Space4, 7);

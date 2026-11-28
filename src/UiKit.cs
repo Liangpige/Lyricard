@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -714,77 +715,96 @@ namespace Amc
 
         // -------------------------------------------------------------- scroll -----
 
-        /// <summary>Thin scrollbar, built as a Style in code (the kit does not read XAML).</summary>
-        public static ScrollViewer Scroll(UiTheme t, UIElement child)
+        /// <summary>A scroll viewport with a thin indicator drawn by the kit.</summary>
+        /// <remarks>
+        /// The bar cannot be a themed ScrollBar: a hand-built template needs a Track, and Track does
+        /// not implement IAddChild, so FrameworkElementFactory cannot give it children -- the only
+        /// border that could stand in as PART_Thumb then stretched over the whole rail and stopped
+        /// showing the position. Squeezing the stock bar's width had no visible effect either (its
+        /// template keeps the system width). So the bar is hidden and the kit draws the position
+        /// itself, in a grid next to the content.
+        /// </remarks>
+        public static ScrollViewer Scroll(UiTheme t, UIElement child, Color background, out FrameworkElement hostView)
         {
             var sv = new ScrollViewer();
-            sv.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            sv.Background = t.Brush(background);
+            sv.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
             sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
             sv.PanningMode = PanningMode.VerticalOnly;
             sv.Content = child;
-            sv.Template = ScrollTemplate(t);
+
+            var thumb = new Border();
+            thumb.Width = 4;
+            thumb.CornerRadius = new CornerRadius(2);
+            thumb.HorizontalAlignment = HorizontalAlignment.Right;
+            thumb.VerticalAlignment = VerticalAlignment.Top;
+            thumb.Background = t.Brush(Color.FromArgb(92, 255, 255, 255));
+            thumb.Visibility = Visibility.Collapsed;
+            thumb.Cursor = Cursors.Hand;
+            // A little air from the frame, so the handle reads as an object rather than an edge.
+            thumb.Margin = new Thickness(0, 4, 4, 4);
+
+            var host = new Grid();
+            host.Children.Add(sv);
+            host.Children.Add(thumb);
+            WireThumb(t, sv, thumb);
+            // Callers add hostView (the shell places a Border and a ContentControl around it) while
+            // keeping the ScrollViewer itself, which is what the page asks for offsets.
+            hostView = host;
             return sv;
         }
 
-        static ControlTemplate _scrollTemplate;
-        static UiTheme _scrollTheme;
-
-        static ControlTemplate ScrollTemplate(UiTheme t)
+        static void WireThumb(UiTheme t, ScrollViewer sv, Border thumb)
         {
-            if (_scrollTemplate != null && ReferenceEquals(_scrollTheme, t)) return _scrollTemplate;
+            Action place = delegate
+            {
+                double track = sv.ViewportHeight - 8;
+                double extent = sv.ExtentHeight;
+                if (track <= 0 || extent <= sv.ViewportHeight + 0.5)
+                {
+                    thumb.Visibility = Visibility.Collapsed;
+                    return;
+                }
+                thumb.Visibility = Visibility.Visible;
+                double h = Math.Max(28, track * sv.ViewportHeight / extent);
+                if (h > track) h = track;
+                double max = Math.Max(0.001, extent - sv.ViewportHeight);
+                double y = (track - h) * (sv.VerticalOffset / max);
+                thumb.Height = h;
+                thumb.Margin = new Thickness(0, 4 + y, 4, 4);
+            };
 
-            var root = new FrameworkElementFactory(typeof(Grid));
+            sv.ScrollChanged += delegate { place(); };
+            sv.SizeChanged += delegate { place(); };
 
-            var contentHost = new FrameworkElementFactory(typeof(ScrollContentPresenter));
-            contentHost.SetValue(ScrollContentPresenter.CanContentScrollProperty, false);
-            contentHost.SetValue(FrameworkElement.MarginProperty, new Thickness(0));
-            root.AppendChild(contentHost);
-
-            var bar = new FrameworkElementFactory(typeof(ScrollBar));
-            bar.SetValue(ScrollBar.OrientationProperty, Orientation.Vertical);
-            bar.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
-            bar.SetValue(FrameworkElement.WidthProperty, 8.0);
-            bar.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 4, 0, 4));
-            bar.SetValue(Control.TemplateProperty, ScrollBarTemplate(t));
-            root.AppendChild(bar);
-
-            var tpl = new ControlTemplate(typeof(ScrollViewer));
-            tpl.VisualTree = root;
-            _scrollTemplate = tpl;
-            _scrollTheme = t;
-            return tpl;
-        }
-
-        static ControlTemplate _barTemplate;
-        static UiTheme _barTheme;
-
-        static ControlTemplate ScrollBarTemplate(UiTheme t)
-        {
-            if (_barTemplate != null && ReferenceEquals(_barTheme, t)) return _barTemplate;
-
-            var grid = new FrameworkElementFactory(typeof(Grid));
-            grid.SetValue(FrameworkElement.WidthProperty, 4.0);
-
-            var track = new FrameworkElementFactory(typeof(Border));
-            track.SetValue(Border.WidthProperty, 4.0);
-            track.SetValue(Border.CornerRadiusProperty, new CornerRadius(1));
-            track.SetValue(Border.BackgroundProperty, t.Brush(Color.FromArgb(10, 255, 255, 255)));
-            grid.AppendChild(track);
-
-            var thumb = new FrameworkElementFactory(typeof(Border));
-            thumb.SetValue(Border.WidthProperty, 4.0);
-            thumb.SetValue(Border.CornerRadiusProperty, new CornerRadius(1));
-            thumb.SetValue(Border.BackgroundProperty, t.Brush(Color.FromArgb(92, 255, 255, 255)));
-            thumb.SetValue(FrameworkElement.NameProperty, "PART_Thumb");
-            grid.AppendChild(thumb);
-
-            var tpl = new ControlTemplate(typeof(ScrollBar));
-            tpl.VisualTree = grid;
-            var trigger = new Trigger { Property = ScrollBar.OrientationProperty, Value = Orientation.Vertical };
-            tpl.Triggers.Add(trigger);
-            _barTemplate = tpl;
-            _barTheme = t;
-            return tpl;
+            double grab = 0;
+            bool dragging = false;
+            thumb.MouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e)
+            {
+                grab = e.GetPosition(thumb).Y;
+                dragging = true;
+                thumb.CaptureMouse();
+                e.Handled = true;
+            };
+            thumb.MouseMove += delegate(object s, MouseEventArgs e)
+            {
+                if (!dragging) return;
+                double track = sv.ViewportHeight - 8;
+                double max = Math.Max(0.001, sv.ExtentHeight - sv.ViewportHeight);
+                double room = Math.Max(1, track - thumb.Height);
+                double y = e.GetPosition(thumb.Parent as IInputElement).Y - grab - 4;
+                if (y < 0) y = 0;
+                if (y > room) y = room;
+                sv.ScrollToVerticalOffset(y / room * max);
+            };
+            thumb.MouseLeftButtonUp += delegate(object s, MouseButtonEventArgs e)
+            {
+                dragging = false;
+                thumb.ReleaseMouseCapture();
+            };
+            thumb.MouseEnter += delegate { UiMotion.Color((SolidColorBrush)thumb.Background, Color.FromArgb(150, 255, 255, 255), t.MotionFast); };
+            thumb.MouseLeave += delegate { UiMotion.Color((SolidColorBrush)thumb.Background, Color.FromArgb(92, 255, 255, 255), t.MotionBase); };
+            place();
         }
 
         /// <summary>HandyControl rounds every control edge; WPF needs the clip spelled out for

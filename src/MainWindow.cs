@@ -590,10 +590,10 @@ namespace Amc
             // The kit template does not forward Padding to its presenter, so the gutter is a
             // wrapper instead of a ScrollViewer property.
             var gutter = new Border { Padding = new Thickness(24, 20, 24, 20), Child = _host };
-            var body = UiKit.Scroll(_kit, gutter);
-            body.Background = new SolidColorBrush(Bg);
-            Grid.SetRow(body, 1);
-            root.Children.Add(body);
+            FrameworkElement scrollHost;
+            var body = UiKit.Scroll(_kit, gutter, Bg, out scrollHost);
+            Grid.SetRow(scrollHost, 1);
+            root.Children.Add(scrollHost);
             _scroll = body;
 
             return new Border
