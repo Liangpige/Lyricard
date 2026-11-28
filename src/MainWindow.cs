@@ -30,8 +30,8 @@ namespace Amc
     /// </summary>
     public class MainWindow : Window
     {
-        public const double WinW = 640;
-        public const double WinH = 480;
+        public const double WinW = 800;
+        public const double WinH = 540;
         const double NavH = 58;
 
         // Monochrome ramp: window, nav strip, hairline, then three text steps.
