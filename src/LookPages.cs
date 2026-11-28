@@ -82,9 +82,9 @@ namespace Amc
                 // one size for both views: write it into the Cover module, so the board's circle
                 // grows with the disc instead of staying at the old radius
                 CardConfig m2 = _card.Model;
+                ModuleConfig cov = m2 == null ? null : m2.Find(ModuleKind.Cover);
                 if (m2 != null)
                 {
-                    ModuleConfig cov = m2.Find(ModuleKind.Cover);
                     if (cov != null) { cov.W = v; cov.H = v; }
                     _card.InvalidateModel();
                     // the cover size is the template's Cover module: persist it, do not just repaint
@@ -93,7 +93,10 @@ namespace Amc
                 }
                 _card.ApplyLook();
                 _cfg.Save();
-                _preview.RefreshFromCard();
+                // patch the draft instead of re-copying the model, so a drag the user has not
+                // applied yet survives the stepper; only fall back when there is no module
+                if (cov != null) _preview.ResizeModule(ModuleKind.Cover, cov.X, cov.Y, cov.W, cov.H);
+                else _preview.RefreshFromCard();
             })));
             // Same story as the cover: these steer the Progress and MusicBars modules, so they
             // sit with the draft controls instead of pretending to be instant repaints.
@@ -104,13 +107,20 @@ namespace Amc
                 // The bar's length is the Progress module's width. Scale the width that is already
                 // there instead of recomputing from a constant, so a width dragged in the board is
                 // kept: newW = oldW * (new / old).
+                // The bar's length is the Progress module's width. Scale the width that is already
+                // there instead of recomputing from a constant, so a width dragged in the board is
+                // kept: newW = oldW * (new / old). "already there" means the draft the user sees,
+                // so a drag that has not been applied yet still counts as the base.
                 CardConfig m2 = _card.Model;
+                ModuleConfig pr = m2 == null ? null : m2.Find(ModuleKind.Progress);
                 if (m2 != null)
                 {
-                    ModuleConfig pr = m2.Find(ModuleKind.Progress);
                     if (pr != null)
                     {
-                        double baseW = pr.W > 0 ? pr.W / oldScale : 320.0;
+                        CardConfig draft = _preview == null ? null : _preview.DraftSnapshot();
+                        ModuleConfig dp = draft == null ? null : draft.Find(ModuleKind.Progress);
+                        double curW = (dp != null && dp.W > 0) ? dp.W : pr.W;
+                        double baseW = curW > 0 ? curW / oldScale : 320.0;
                         pr.W = Math.Max(40.0, Math.Round(baseW * v));
                     }
                     _card.InvalidateModel();
@@ -119,7 +129,8 @@ namespace Amc
                 }
                 _card.ApplyLook();
                 _cfg.Save();
-                _preview.RefreshFromCard();
+                if (pr != null) _preview.ResizeModule(ModuleKind.Progress, pr.X, pr.Y, pr.W, pr.H);
+                else _preview.RefreshFromCard();
             })));
             // The transport row is a template size as well: its height is the button hit box, so
             // the 暂停/播放 box in the board above grows with it (width follows so the three
