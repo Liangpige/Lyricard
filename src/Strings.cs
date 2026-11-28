@@ -147,7 +147,7 @@ namespace Amc
             Both("artshape.square", "方形", "Square");
             Both("page.look.hint", "改动立即生效", "Changes apply instantly");
             Both("page.look.scale", "整体缩放", "Scale");
-            Both("page.look.opacity", "整体透明度", "Opacity");
+            Both("page.look.opacity", "整体不透明度", "Opacity");
             Both("page.look.lyricsize", "歌词字号", "Lyric size");
             Both("page.look.barthick", "进度条粗细", "Bar thickness");
             Both("page.look.clear", "透明背景（只留文字）", "Transparent background");
@@ -301,7 +301,7 @@ namespace Amc
             Both("lbl.textShadow", "文字阴影（浅色壁纸用）", "Text shadow (for light wallpapers)");
 
             Both("lbl.scale", "整体缩放", "Scale");
-            Both("lbl.opacity", "整体透明度", "Opacity");
+            Both("lbl.opacity", "整体不透明度", "Opacity");
             Both("lbl.controlsColor", "下方按钮颜色", "Button colour");
             Both("lbl.controlsX", "下方按钮X轴位置（%）", "Buttons X position (%)");
             Both("lbl.clearBg", "透明背景（只留文字）", "Transparent background");

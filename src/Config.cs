@@ -116,7 +116,7 @@ namespace Amc
         public double BarsThickness = 4.0;     // bar width in DIP
         public double BarsLength = 170.0;      // module width in DIP
         public double BarsMaxHeight = 26.0;    // module height in DIP
-        public string BarsColor = "";          // "" = follow BarFillColor / BarColor
+        public string BarsColor = "";          // "" = white; no longer follows the bar colours
         public double BarScale = 1.0;
         public string BarColor = "";
         public string BarFillColor = "";
@@ -300,7 +300,41 @@ namespace Amc
             }
             catch { }
             c.ClampAll();
+            c.PinFollowedColours();
             return c;
+        }
+
+        /// <summary>
+        /// Both keys behind the "follow" rules used to be derived from another colour: the transport
+        /// row borrowed the lyric colour, the spectrum borrowed the bar colours. That coupling is
+        /// gone, but an old config that never set the key would jump to white — so freeze the value
+        /// it has been showing into its own key, once, and save.
+        /// </summary>
+        void PinFollowedColours()
+        {
+            bool dirty = false;
+            if (string.IsNullOrEmpty(ControlsColor) && !string.IsNullOrEmpty(LyricColor))
+            {
+                ControlsColor = LyricColor;
+                dirty = true;
+            }
+            if (string.IsNullOrEmpty(BarsColor))
+            {
+                if (!string.IsNullOrEmpty(BarFillColor)) { BarsColor = BarFillColor; dirty = true; }
+                else if (!string.IsNullOrEmpty(BarColor)) { BarsColor = Dim(BarColor, 0.8); dirty = true; }
+            }
+            if (dirty) Save();
+        }
+
+        /// <summary>Darkens "#RRGGBB" by k; returns the input untouched when it is not a plain hex colour.</summary>
+        static string Dim(string hex, double k)
+        {
+            if (string.IsNullOrEmpty(hex) || hex.Length != 7 || hex[0] != '#') return hex;
+            int r, g, b;
+            if (!int.TryParse(hex.Substring(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out r)) return hex;
+            if (!int.TryParse(hex.Substring(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out g)) return hex;
+            if (!int.TryParse(hex.Substring(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out b)) return hex;
+            return "#" + ((int)(r * k)).ToString("X2") + ((int)(g * k)).ToString("X2") + ((int)(b * k)).ToString("X2");
         }
 
         void ApplyKey(string k, string v)

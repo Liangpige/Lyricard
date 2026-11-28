@@ -564,15 +564,15 @@ namespace Amc
         {
             Color c = Colors.White, tmp;
             if (ParseHex(_cfg.BarsColor, out tmp)) c = tmp;
-            else if (ParseHex(_cfg.BarFillColor, out tmp)) c = tmp;
-            else if (ParseHex(_cfg.BarColor, out tmp)) c = Color.FromRgb((byte)(tmp.R * 0.8), (byte)(tmp.G * 0.8), (byte)(tmp.B * 0.8));
+            // The spectrum has its own key. It used to borrow the bar colours, which meant editing
+            // 进度条 repainted the bars behind the user's back (2026-11-28 主人报的 bug).
             return c;
         }
 
-        /// <summary>Changes whenever any of the three colours the row can inherit from changes.</summary>
+        /// <summary>Changes whenever the colour the bars are painted with changes.</summary>
         string BarsColourKey()
         {
-            return (_cfg.BarsColor ?? "") + "|" + (_cfg.BarFillColor ?? "") + "|" + (_cfg.BarColor ?? "");
+            return _cfg.BarsColor ?? "";
         }
 
         /// <summary>Sizes and rebuilds the bar row from the template rect.</summary>
@@ -1335,14 +1335,13 @@ namespace Amc
             return new SolidColorBrush(GlyphColor());
         }
 
-        // Unset means "follow the lyric colour", which keeps the icons readable when the
-        // user switched to dark text for a light wallpaper; falling back to white otherwise.
+        // One key, one colour: the transport row no longer borrows the lyric colour, because that
+        // made 歌词颜色 silently repaint the buttons (2026-11-28 主人报的 bug). Old configs keep
+        // their look — Config.PinFollowedColours() freezes the borrowed value once at load.
         Color GlyphColor()
         {
             Color? c = TryHex(_cfg.ControlsColor);
             if (c.HasValue) return c.Value;
-            Color? l = TryHex(_cfg.LyricColor);
-            if (l.HasValue) return l.Value;
             return Colors.White;
         }
 
