@@ -490,159 +490,36 @@ namespace Amc
         /// (see ColorLibraryWindow) for anything the quick row does not cover.</summary>
         UIElement ColorRow(string label, string current, Action<string> apply)
         {
-            if (_kit != null)
+            string sel0 = current ?? "";
+            Color here;
+            Color? picked = (sel0.Length > 0 && TryHex(sel0, out here)) ? (Color?)here : null;
+            var palette = new List<Color>();
+            for (int i = 1; i < Swatches.Length; i++)   // [0] is the reset slot, the kit draws it
             {
-                string sel0 = current ?? "";
-                Color here;
-                Color? picked = (sel0.Length > 0 && TryHex(sel0, out here)) ? (Color?)here : null;
-                var palette = new List<Color>();
-                for (int i = 1; i < Swatches.Length; i++)   // [0] is the reset slot, the kit draws its own
-                {
-                    Color one;
-                    if (TryHex(Swatches[i], out one)) palette.Add(one);
-                }
-                WrapPanel dots = UiKit.ColorSwatches(_kit, picked, palette.ToArray(),
-                    delegate(Color c) { apply("#" + c.ToString().Substring(3)); },
-                    delegate { apply(""); },
-                    delegate { ColorLibraryWindow.Open(label, sel0, delegate(string v) { apply(v ?? ""); }); });
-                return Row(label, dots);
+                Color one;
+                if (TryHex(Swatches[i], out one)) palette.Add(one);
             }
-            var dotsOld = new WrapPanel();
-            string sel = current ?? "";
-            foreach (string hex in Swatches)
-            {
-                string value = hex;
-                bool chosen = string.Equals(value ?? "", sel ?? "", StringComparison.OrdinalIgnoreCase);
-                Color c;
-                Border dot = new Border
-                {
-                    Width = 18,
-                    Height = 18,
-                    CornerRadius = new CornerRadius(9),
-                    Margin = new Thickness(0, 0, 6, 0),
-                    BorderThickness = new Thickness(chosen ? 2 : 1),
-                    BorderBrush = new SolidColorBrush(chosen
-                        ? Color.FromArgb(255, 236, 238, 242)
-                        : Color.FromArgb(40, 255, 255, 255)),
-                    Background = string.IsNullOrEmpty(value)
-                        ? new SolidColorBrush(Color.FromArgb(18, 255, 255, 255))
-                        : new SolidColorBrush(TryHex(value, out c) ? c : Colors.White),
-                    Tag = value
-                };
-                dot.Cursor = Cursors.Hand;
-                if (string.IsNullOrEmpty(value))
-                {
-                    dot.Child = Label("\u00d7", 11, TextDim, FontWeights.SemiBold);
-                    ((TextBlock)dot.Child).HorizontalAlignment = HorizontalAlignment.Center;
-                    ((TextBlock)dot.Child).VerticalAlignment = VerticalAlignment.Center;
-                }
-                dot.MouseLeftButtonUp += delegate
-                {
-                    sel = value ?? "";
-                    apply(sel);
-                    RepaintDots(dotsOld, sel);
-                };
-                dotsOld.Children.Add(dot);
-            }
-
-            var more = new Border
-            {
-                Width = 18,
-                Height = 18,
-                CornerRadius = new CornerRadius(9),
-                Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)),
-                BorderThickness = new Thickness(1),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                Cursor = Cursors.Hand,
-                Child = Label("\u2026", 11, TextDim, FontWeights.SemiBold)
-            };
-            ((TextBlock)more.Child).HorizontalAlignment = HorizontalAlignment.Center;
-            ((TextBlock)more.Child).VerticalAlignment = VerticalAlignment.Center;
-            more.MouseLeftButtonUp += delegate
-            {
-                ColorLibraryWindow.Open(label, sel, delegate(string v)
-                {
-                    sel = v ?? "";
-                    apply(sel);
-                    RepaintDots(dotsOld, sel);
-                });
-            };
-            dotsOld.Children.Add(more);
-
-            var wide = Row(label, dotsOld);
-            wide.Tag = "rowwide";
-            return wide;
+            WrapPanel dots = UiKit.ColorSwatches(_kit, picked, palette.ToArray(),
+                delegate(Color c) { apply("#" + c.ToString().Substring(3)); },
+                delegate { apply(""); },
+                delegate { ColorLibraryWindow.Open(label, sel0, delegate(string v) { apply(v ?? ""); }); });
+            return Row(label, dots);
         }
 
         /// <summary>− value + stepper; every look value in this app uses the same one.</summary>
         UIElement Stepper(double value, double min, double max, double step, string fmt, Action<double> apply)
         {
-            if (_kit != null) return UiKit.Stepper(_kit, value, min, max, step, fmt, apply);
-            var row = new StackPanel { Orientation = Orientation.Horizontal };
-            var val = Label(value.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture), 12, TextDim, FontWeights.Normal);
-            val.Width = 58;
-            val.TextAlignment = TextAlignment.Center;
-            double cur = value;
-
-            Action<double> set = delegate(double v)
-            {
-                if (v < min) v = min;
-                if (v > max) v = max;
-                cur = Math.Round(v, 4);
-                val.Text = cur.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
-                apply(cur);
-            };
-            row.Children.Add(ChromeText("\u2212", delegate { set(cur - step); }));
-            row.Children.Add(val);
-            row.Children.Add(ChromeText("+", delegate { set(cur + step); }));
-            return row;
+            return UiKit.Stepper(_kit, value, min, max, step, fmt, apply);
         }
 
-        Border ChromeText(string text, Action act)
-        {
-            var b = new Border
-            {
-                Width = 28,
-                Height = 26,
-                CornerRadius = new CornerRadius(6),
-                Background = new SolidColorBrush(Color.FromArgb(20, 255, 255, 255)),
-                Child = Label(text, 13, TextMain, FontWeights.Normal)
-            };
-            ((TextBlock)b.Child).HorizontalAlignment = HorizontalAlignment.Center;
-            HoverFill(b, 20, 36);
-            PressScale(b);
-            b.MouseLeftButtonUp += delegate { act(); };
-            return b;
-        }
+
 
         Border Pill(string text, Action act, bool primary)
         {
-            if (_kit != null)
-            {
-                var kb = UiKit.Button(_kit, text, primary ? UiButtonKind.Primary : UiButtonKind.Ghost,
-                                      delegate { try { act(); } catch { } });
-                kb.Margin = new Thickness(0, 0, 8, 0);
-                return kb;
-            }
-            var b = new Border
-            {
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(14, 7, 14, 7),
-                Margin = new Thickness(0, 0, 8, 0),
-                Background = new SolidColorBrush(primary
-                    ? Color.FromArgb(255, 236, 238, 242)
-                    : Color.FromArgb(22, 255, 255, 255)),
-                Child = Label(text, 12, primary ? Color.FromRgb(18, 18, 20) : TextMain, FontWeights.SemiBold)
-            };
-            b.Cursor = Cursors.Hand;
-            var brush = (SolidColorBrush)b.Background;
-            Color rest = brush.Color;
-            Color hot = primary ? Color.FromRgb(255, 255, 255) : Color.FromArgb(34, 255, 255, 255);
-            b.MouseEnter += delegate { AnimateColor(brush, hot, 120); };
-            b.MouseLeave += delegate { AnimateColor(brush, rest, 170); };
-            PressScale(b);
-            b.MouseLeftButtonUp += delegate { try { act(); } catch { } };
-            return b;
+            var kb = UiKit.Button(_kit, text, primary ? UiButtonKind.Primary : UiButtonKind.Ghost,
+                                  delegate { try { act(); } catch { } });
+            kb.Margin = new Thickness(0, 0, 8, 0);
+            return kb;
         }
 
         /// <summary>A 42x22 switch, same shape as the settings panel uses.</summary>
@@ -653,63 +530,7 @@ namespace Amc
 
         UIElement Toggle(bool on, Action<bool> apply, bool enabled)
         {
-            if (_kit != null) return UiKit.Switch(_kit, on, enabled, apply);
-            Color onBg = Color.FromArgb(255, 236, 238, 242);
-            Color offBg = Color.FromArgb(34, 255, 255, 255);
-            var track = new Border
-            {
-                Width = 42,
-                Height = 22,
-                CornerRadius = new CornerRadius(11),
-                Cursor = Cursors.Hand,
-                Background = new SolidColorBrush(on ? onBg : offBg)
-            };
-            var knob = new Ellipse
-            {
-                Width = 16,
-                Height = 16,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(3, 0, 0, 0),
-                Fill = new SolidColorBrush(on ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242))
-            };
-            var tr = new TranslateTransform(on ? 20.0 : 0.0, 0.0);
-            // Scale BEFORE translate: with the translate first the 0.94 press scale also
-            // scaled the 20 px travel, so the knob drifted ~1 px left while held.
-            var knobScale = new ScaleTransform(1.0, 1.0);
-            var knobTf = new TransformGroup();
-            knobTf.Children.Add(knobScale);
-            knobTf.Children.Add(tr);
-            knob.RenderTransformOrigin = new Point(0.5, 0.5);
-            knob.RenderTransform = knobTf;
-            track.Child = knob;
-            // A switch for something that is not installed: keep it visible so the list is stable,
-            // but make it obviously inert -- dimmed, arrow cursor, and no handlers at all.
-            if (!enabled)
-            {
-                track.Cursor = Cursors.Arrow;
-                track.Opacity = 0.28;
-                return track;
-            }
-            // The knob dips while the switch is held, exactly like iOS.
-            track.PreviewMouseLeftButtonDown += delegate { AnimateScale(knobScale, 0.94, 90); };
-            Action release = delegate { AnimateScale(knobScale, 1.0, 160); };
-            track.PreviewMouseLeftButtonUp += delegate { release(); };
-            track.MouseLeave += delegate { release(); };
-            bool state = on;
-            track.MouseLeftButtonUp += delegate
-            {
-                state = !state;
-                // The knob slides and the track cross-fades: 160 ms, ease-out, no bounce. A switch
-                // that snaps feels broken next to the rest of the UI.
-                var sx = new DoubleAnimation(state ? 20.0 : 0.0, TimeSpan.FromMilliseconds(180));
-                sx.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
-                tr.BeginAnimation(TranslateTransform.XProperty, sx);
-                AnimateColor((SolidColorBrush)track.Background, state ? onBg : offBg, 180);
-                AnimateColor((SolidColorBrush)knob.Fill, state ? Color.FromRgb(18, 18, 20) : Color.FromArgb(220, 236, 238, 242), 180);
-                try { apply(state); } catch { }
-            };
-            return track;
+            return UiKit.Switch(_kit, on, enabled, apply);
         }
 
         // ---- shell -------------------------------------------------------------------------
@@ -892,69 +713,6 @@ namespace Amc
             _tabText[key] = t;
             _tabLine[key] = line;
             return box;
-        }
-
-        /// <summary>Fades a border's fill instead of snapping it; Apple-style 120~160 ms.</summary>
-        static void HoverFill(Border b, int restAlpha, int hotAlpha)
-        {
-            var br = new SolidColorBrush(Color.FromArgb((byte)restAlpha, 255, 255, 255));
-            b.Background = br;
-            b.MouseEnter += delegate { AnimateColor(br, Color.FromArgb((byte)hotAlpha, 255, 255, 255), 120); };
-            b.MouseLeave += delegate { AnimateColor(br, Color.FromArgb((byte)restAlpha, 255, 255, 255), 170); };
-        }
-
-        static void AnimateColor(SolidColorBrush br, Color to, int ms)
-        {
-            var a = new ColorAnimation(to, TimeSpan.FromMilliseconds(ms));
-            a.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-            br.BeginAnimation(SolidColorBrush.ColorProperty, a);
-        }
-
-        /// <summary>Press feedback: the target dips to 97 % and springs back. 90 ms down, 160 ms up.</summary>
-        static void PressScale(UIElement el)
-        {
-            var st = new ScaleTransform(1, 1);
-            el.RenderTransform = st;
-            el.RenderTransformOrigin = new Point(0.5, 0.5);
-            bool down = false;
-            // Held buttons also dim slightly: 0.97 scale is invisible on a 28 px chip, the
-            // opacity dip is what actually reads as "pressed".
-            el.PreviewMouseLeftButtonDown += delegate
-            {
-                down = true;
-                AnimateScale(st, 0.97, 90);
-                AnimateOpacity(el, 0.86, 90);
-            };
-            el.PreviewMouseLeftButtonUp += delegate
-            {
-                if (!down) return;
-                down = false;
-                AnimateScale(st, 1.0, 160);
-                AnimateOpacity(el, 1.0, 160);
-            };
-            el.MouseLeave += delegate
-            {
-                if (!down) return;
-                down = false;
-                AnimateScale(st, 1.0, 160);
-                AnimateOpacity(el, 1.0, 160);
-            };
-        }
-
-        static void AnimateOpacity(UIElement el, double to, int ms)
-        {
-            var a = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms));
-            a.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
-            el.BeginAnimation(UIElement.OpacityProperty, a);
-        }
-
-        static void AnimateScale(ScaleTransform st, double to, int ms)
-        {
-            var e = new CubicEase { EasingMode = EasingMode.EaseOut };
-            var sx = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms));
-            sx.EasingFunction = e;
-            st.BeginAnimation(ScaleTransform.ScaleXProperty, sx);
-            st.BeginAnimation(ScaleTransform.ScaleYProperty, sx.Clone());
         }
 
         void SetPage(string key)
@@ -1362,47 +1120,7 @@ namespace Amc
 
         UIElement Segmented(string[] labels, int selected, Action<int> pick)
         {
-            if (_kit != null) return UiKit.Segmented(_kit, labels, selected, pick);
-            var row = new StackPanel { Orientation = Orientation.Horizontal };
-            // Every pill needs to be reachable from every other pill: clicking one has to move the
-            // highlight, and the caller only reports "index N was chosen", so the row repaints itself.
-            var pills = new List<Border>();
-            var brushes = new List<SolidColorBrush>();
-            for (int i = 0; i < labels.Length; i++)
-            {
-                int idx = i;
-                bool on = (i == selected);
-                var b = new Border
-                {
-                    CornerRadius = new CornerRadius(7),
-                    Padding = new Thickness(12, 5, 12, 5),
-                    Margin = new Thickness(0, 0, 6, 0),
-                    Background = new SolidColorBrush(on
-                        ? Color.FromArgb(255, 236, 238, 242)
-                        : Color.FromArgb(20, 255, 255, 255)),
-                    Child = Label(labels[i], 11.5, on ? Color.FromRgb(20, 20, 22) : TextDim,
-                        on ? FontWeights.SemiBold : FontWeights.Normal)
-                };
-                b.Cursor = Cursors.Hand;
-                var segBrush = (SolidColorBrush)b.Background;
-                Color segRest = segBrush.Color;
-                Color segHot = on
-                    ? Color.FromArgb(255, 255, 255, 255)
-                    : Color.FromArgb(34, 255, 255, 255);
-                b.MouseEnter += delegate { AnimateColor(segBrush, segHot, 120); };
-                b.MouseLeave += delegate { AnimateColor(segBrush, segRest, 170); };
-                PressScale(b);
-                int captured = idx;
-                b.MouseLeftButtonUp += delegate
-                {
-                    pick(captured);
-                    SelectInRow(row, captured);
-                };
-                pills.Add(b);
-                brushes.Add(segBrush);
-                row.Children.Add(b);
-            }
-            return row;
+            return UiKit.Segmented(_kit, labels, selected, pick);
         }
 
         /// <summary>Repaint a segmented row so the chosen pill is the lit one.</summary>
@@ -1844,58 +1562,16 @@ namespace Amc
 
         Border PresetChip(Config.LookPreset p)
         {
-            if (_kit != null)
+            var kc = UiKit.Chip(_kit, p.Name, delegate
             {
-                var kc = UiKit.Chip(_kit, p.Name, delegate
-                {
-                    _cfg.Presets.Remove(p);
-                    _cfg.Save();
-                    SetPage("look");
-                });
-                // Chip's delete callback fires on the cross only, so the chip body is free to
-                // apply; the old handler had to guess with IsMouseOver.
-                kc.MouseLeftButtonUp += delegate { ApplyPreset(p); };
-                kc.Margin = new Thickness(0, 0, 6, 6);
-                return kc;
-            }
-            Color idle = Color.FromArgb(22, 255, 255, 255);
-            Color hot = Color.FromArgb(38, 255, 255, 255);
-            var b = new Border
-            {
-                Height = 27,
-                CornerRadius = new CornerRadius(14),
-                Background = new SolidColorBrush(idle),
-                Cursor = Cursors.Hand,
-                Margin = new Thickness(0, 0, 6, 6),
-                Padding = new Thickness(12, 0, 9, 0)
-            };
-            var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            var nm = Label(p.Name, 12, TextMain, FontWeights.Normal);
-            nm.VerticalAlignment = VerticalAlignment.Center;
-            var del = Label("\u00d7", 13, TextDim, FontWeights.Normal);
-            del.Margin = new Thickness(9, 0, 0, 0);
-            del.VerticalAlignment = VerticalAlignment.Center;
-            del.Cursor = Cursors.Hand;
-            sp.Children.Add(nm);
-            sp.Children.Add(del);
-            b.Child = sp;
-            var chipBrush = (SolidColorBrush)b.Background;
-            b.MouseEnter += delegate { AnimateColor(chipBrush, hot, 120); };
-            b.MouseLeave += delegate { AnimateColor(chipBrush, idle, 170); };
-            PressScale(b);
-            del.MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs args)
-            {
-                args.Handled = true;   // the chip's own handler must not apply the preset as well
                 _cfg.Presets.Remove(p);
                 _cfg.Save();
                 SetPage("look");
-            };
-            b.MouseLeftButtonUp += delegate
-            {
-                if (del.IsMouseOver) return;
-                ApplyPreset(p);
-            };
-            return b;
+            });
+            // Chip's delete callback fires on the cross only, so the chip body is free to apply.
+            kc.MouseLeftButtonUp += delegate { ApplyPreset(p); };
+            kc.Margin = new Thickness(0, 0, 6, 6);
+            return kc;
         }
 
         UIElement LyricsPage()
@@ -2216,7 +1892,7 @@ namespace Amc
             {
                 // Minimising or hiding swallows the mouse-up that would undo the press dim,
                 // so put it back before acting -- otherwise the button stays at 0.86.
-                AnimateOpacity(host, 1.0, 120);
+                UiMotion.Opacity(host, 1.0, _kit.MotionFast);
                 act();
             };
             return host;

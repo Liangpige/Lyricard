@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace Amc
 {
@@ -20,6 +21,19 @@ namespace Amc
         public static readonly IEasingFunction InOut = new CubicEase { EasingMode = EasingMode.EaseInOut };
         /// <summary>Snappier than Cubic: slides arrive without a long tail of travel.</summary>
         public static readonly IEasingFunction Quick = new QuinticEase { EasingMode = EasingMode.EaseOut };
+
+        /// <summary>Runs work once a tween of the given length has had time to land.</summary>
+        internal static void Defer(int ms, Action work)
+        {
+            var timer = new DispatcherTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(ms + 15);
+            timer.Tick += delegate(object s, EventArgs e)
+            {
+                timer.Stop();
+                if (work != null) work();
+            };
+            timer.Start();
+        }
 
         /// <summary>Animate a brush's colour. The brush must be unfrozen (created for one control).</summary>
         public static void Color(SolidColorBrush brush, Color to, int ms)
@@ -410,7 +424,10 @@ namespace Amc
                 UiMotion.Slide(kt, state ? (W - K - PAD * 2) : 0, 0, 150, UiMotion.Quick);
                 UiMotion.Color(knobFill, state ? t.OnSolid : Color.FromArgb(235, 232, 234, 240), t.MotionBase);
                 applyColours();
-                if (changed != null) changed(state);
+                // The caller usually rebuilds; rebuilding on this frame would turn the slide into a
+                // jump, so report once the knob has arrived.
+                bool settled = state;
+                UiMotion.Defer(t.MotionBase, delegate { if (changed != null) changed(settled); });
             };
             host.MouseLeftButtonUp += delegate { toggle(); };
             host.KeyDown += delegate(object s, KeyEventArgs e)
@@ -540,7 +557,9 @@ namespace Amc
                     var fg = new SolidColorBrush(t.TextTertiary);
                     labels[idx].Foreground = fg;
                     UiMotion.Color(fg, t.OnSolid, 150);
-                    if (changed != null) changed(idx);
+                    // Almost every caller rebuilds the page, which would replace this control in the
+                    // middle of the slide. Let the highlight land first, then report.
+                    UiMotion.Defer(t.MotionBase, delegate { if (changed != null) changed(idx); });
                 };
                 strip.Children.Add(cell);
             }
