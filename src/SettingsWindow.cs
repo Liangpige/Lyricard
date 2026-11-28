@@ -581,11 +581,6 @@ namespace Amc
             });
             StepRow(Strings.T("lbl.artSat"), _cfg.ArtSat, 0, 1, 0.05, "0.00", delegate(double v) { _cfg.ArtSat = v; _card.RefreshArt(); });
             StepRow(Strings.T("lbl.artHiCut"), _cfg.ArtHiCut, 0, 0.4, 0.02, "0.00", delegate(double v) { _cfg.ArtHiCut = v; _card.RefreshArt(); });
-            ToggleRow(Strings.T("lbl.artShadow"), _cfg.ArtShadow, delegate(bool v)
-            {
-                _cfg.ArtShadow = v;
-                _card.RefreshArt();
-            });
             ToggleRow(Strings.T("lbl.textShadow"), _cfg.TextShadow, delegate(bool v)
             {
                 _cfg.TextShadow = v;

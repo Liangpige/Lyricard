@@ -312,6 +312,9 @@ namespace Amc
 
             Both("preset.prompt", "给这套外观起个名字", "Name this look");
             Both("preset.save", "保存当前", "Save current");
+            Both("preset.reset", "恢复默认", "Reset defaults");
+            Both("preset.resetHint", "只把外观数值恢复成默认，不动卡片布局，也不删预设。",
+                 "Resets the look values only; the card layout and the presets stay as they are.");
             Both("preset.defaultName", "预设 {0}", "Preset {0}");
             Both("preset.empty", "还没有预设 —— 上面起个名字，点「保存当前」把现在这套外观存下来",
                  "No presets yet — type a name above, then hit “Save current”.");

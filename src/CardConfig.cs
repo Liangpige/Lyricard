@@ -165,49 +165,70 @@ namespace Amc
         /// </summary>
         public static CardConfig Default()
         {
+            // 2026-11-28: a fresh install opens on the owner's own card, not on an invented
+            // "factory" look -- a new user should see exactly what he sees after first launch.
+            // Numbers mirror data\layout.ini as of that date; Update/Cover module keeps its own
+            // defaults because it only exists for the album-art swap.
             CardConfig c = new CardConfig();
-            c.Modules.Add(new ModuleConfig(ModuleKind.Cover));
+            c.TitleArtistInline = true;
+
+            ModuleConfig cover = new ModuleConfig(ModuleKind.Cover);
+            cover.X = 356;
+            cover.Y = 40;
+            cover.W = 96;
+            cover.H = 96;
+            c.Modules.Add(cover);
+
             ModuleConfig title = new ModuleConfig(ModuleKind.Title);
-            title.X = 16;
-            // Explicit Y. With an auto Y the title is centred against the whole content box, so
-            // making the cover bigger pushed the title down -- resizing one module moved another.
-            title.Y = 5;
+            title.X = 40;
+            title.Y = 40;
+            title.W = 320;
+            title.Align = ModuleAlign.Right;
+            title.MaxChars = 34;
             c.Modules.Add(title);
-            // The artist is a module of its own: its own line, its own box, freely placeable.
-            // (The old card glued it to the title with a Run; that is gone.)
+
+            // With TitleArtistInline the artist rides the title line; its own box still carries
+            // the character cap, so the numbers are kept even though they no longer place it.
             ModuleConfig artist = new ModuleConfig(ModuleKind.Artist);
-            artist.X = 16;
-            artist.Y = 46;
+            artist.X = 32;
+            artist.Y = 100;
             artist.W = 200;
+            artist.Align = ModuleAlign.Right;
+            artist.MaxChars = 16;
             c.Modules.Add(artist);
+
             ModuleConfig album = new ModuleConfig(ModuleKind.Album);
             album.Enabled = false;
             c.Modules.Add(album);
+
             ModuleConfig lyrics = new ModuleConfig(ModuleKind.Lyrics);
-            lyrics.X = 16;
-            lyrics.Y = 68;
+            lyrics.X = 24;
+            lyrics.Y = 64;
             lyrics.W = 320;
+            lyrics.Align = ModuleAlign.Right;
+            lyrics.MaxChars = 42;
             c.Modules.Add(lyrics);
 
             ModuleConfig bar = new ModuleConfig(ModuleKind.Progress);
             bar.X = 16;
-            bar.Y = 96;
+            bar.Y = 92;
             bar.W = 320;
+            bar.H = 3;
             c.Modules.Add(bar);
 
-            // Three buttons wide, not the whole column: the editor box must look like the row.
             ModuleConfig controls = new ModuleConfig(ModuleKind.Controls);
-            controls.X = 16;
-            controls.Y = 104;
+            controls.X = 236;
+            controls.Y = 100;
             controls.W = 102;
+            controls.H = 30;
             c.Modules.Add(controls);
 
             ModuleConfig bars = new ModuleConfig(ModuleKind.MusicBars);
             bars.Enabled = false;
-            bars.X = 16;
-            bars.Y = 104;
-            bars.W = 160;
-            bars.H = 24;
+            bars.X = 130;
+            bars.Y = 100;
+            bars.W = 300;
+            bars.H = 18;
             c.Modules.Add(bars);
             return c;
         }

@@ -24,7 +24,7 @@ namespace Amc
         public double Top = double.NaN;
         // ---- defaults: the owner's tuned look (2026-11-22), used for a fresh install
         //      and by the "restore defaults" button ----
-        public double Scale = 0.85;
+        public double Scale = 0.73;
         public double Opacity = 0.94;
         // Click-through: the card ignores the mouse entirely and clicks fall through to
         // whatever is underneath it. Replaces the old "lock position" flag (which only
@@ -41,7 +41,7 @@ namespace Amc
         // mis-detection here looks exactly like "the card vanished for no reason".
         public bool HideFullscreen = false;
         /// <summary>What a mouse-wheel notch over the card does: scale | volume | off.</summary>
-        public string WheelAction = "scale";
+        public string WheelAction = "off";
         // Default off: a fresh copy should never touch somebody else's Run key on first launch.
         public bool AutoStart = false;
         // Update policy: one silent check at startup (never a poller), and a version the user
@@ -54,16 +54,16 @@ namespace Amc
         public double LyricOffset = 0.0;
         // Housekeeping: lyric cache is cheap to rebuild, so let the user throw it away on a
         // schedule instead of watching data\ grow forever.
-        public bool AutoCleanCache = false;
+        public bool AutoCleanCache = true;
         public int CacheCleanDays = 30;
         public string LastCacheClean = "";
         public bool ListenAll = false;
         public bool ClearBg = true;
         // Cover treatment: saturation kept (0..1) and the lowest opacity that the
         // darkest pixels of the cover may fall to (0..1). 1.0 / 1.0 = untouched.
-        public double ArtSat = 0.1;
+        public double ArtSat = 0.2;
         public double ArtBlackAlpha = 1.0;
-        public double ArtHiCut = 0.06;
+        public double ArtHiCut = 0.08;
         public bool ArtSpin = true;
 
         /// <summary>"circle" (the disc) or "square" (a plain sleeve). A square sleeve does not turn:
@@ -74,7 +74,7 @@ namespace Amc
         /// wallpapers); turn it on when the desktop is light and white text disappears.</summary>
         public bool TextShadow;
         /// <summary>Colour of the bottom transport buttons ("" = built-in white).</summary>
-        public string ControlsColor = "";
+        public string ControlsColor = "#FFC9CCD2";
 
         /// <summary>
         /// Media apps allowed to drive the card (PlayerInfo.Key, or "aumid:..." / "exe:..." for
@@ -100,7 +100,7 @@ namespace Amc
         // ---- personalisation (all defaults reproduce the original look) ----
         public double TitleScale = 1.0;
         public double ArtistScale = 1.0;
-        public double LyricScale = 1.0;
+        public double LyricScale = 1.05;
         public string TitleColor = "";
         public string ArtistColor = "";
         public string LyricColor = "";
@@ -111,11 +111,11 @@ namespace Amc
         // the per-frame easing factors, thickness is the bar width in DIP, and BarsColor is "" when
         // the row should follow the progress-bar colours instead.
         public int BarsCount = 0;              // 0 = as many as the width allows
-        public double BarsAttack = 0.55;       // 0..1, higher = snappier rise
-        public double BarsRelease = 0.14;      // 0..1, higher = faster fall
-        public double BarsThickness = 4.0;     // bar width in DIP
-        public double BarsLength = 170.0;      // module width in DIP
-        public double BarsMaxHeight = 26.0;    // module height in DIP
+        public double BarsAttack = 0.6;       // 0..1, higher = snappier rise
+        public double BarsRelease = 0.4;      // 0..1, higher = faster fall
+        public double BarsThickness = 5.0;     // bar width in DIP
+        public double BarsLength = 300.0;      // module width in DIP
+        public double BarsMaxHeight = 18.0;    // module height in DIP
         public string BarsColor = "";          // "" = white; no longer follows the bar colours
         public double BarScale = 1.0;
         public string BarColor = "";
@@ -137,7 +137,7 @@ namespace Amc
         public string ArtTintLight = "#FFB4B4";
         public double ArtTintMix = 1.0;
         /// <summary>Legacy: superseded by ModuleConfig.MaxChars. Parsed so old files still load, never applied.</summary>
-        public int ArtistMaxChars = 0;
+        public int ArtistMaxChars = 15;
 
         // user saved looks (settings panel -> 预设). Data is a "k=v;k=v;" blob of the
         // look fields, so adding a field later does not need a new file format.
@@ -154,8 +154,9 @@ namespace Amc
         // (no config.ini yet), so deleting them later stays deleted.
         static readonly string[] BuiltInPresets =
         {
-            "\u9ED8\u8BA42|Scale=0.73;Opacity=0.94;ClearBg=True;ArtSat=0.2;ArtBlackAlpha=1;ArtHiCut=0.08;ArtSpin=True;ArtShape=circle;ArtShadow=True;TextShadow=False;ControlsColor=;TitleScale=1;ArtistScale=1;LyricScale=1;TitleColor=;ArtistColor=;LyricColor=;BarThickness=3;BarScale=1;BarColor=;BarFillColor=;ArtSize=100;ArtBrightness=1;ArtContrast=1;ArtWarmth=0;ArtHue=0;ArtVignette=0;ArtTint=False;ArtTintDark=#3A0A0A;ArtTintLight=#FFB4B4;ArtTintMix=1;BarsCount=0;BarsAttack=0.6;BarsRelease=0.4;BarsThickness=5;BarsLength=300;BarsMaxHeight=18;BarsColor=;ArtistMaxChars=15;Template=IyBMeXJpY2FyZCBjYXJkIGxheW91dA0KU2NoZW1hVmVyc2lvbj0yDQpDYXJkVz0wDQpUaXRsZUFydGlzdElubGluZT1UcnVlDQpDYXJkSD0wDQoNCltDb3Zlcl0NCkVuYWJsZWQ9VHJ1ZQ0KWD0zNTYNClk9MjgNClc9OTYNCkg9OTYNCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249QXV0bw0KWkluZGV4PTANCk1heENoYXJzPTANCg0KW1RpdGxlXQ0KRW5hYmxlZD1UcnVlDQpYPTM2DQpZPTI4DQpXPTMyMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTENCk1heENoYXJzPTM0DQoNCltBcnRpc3RdDQpFbmFibGVkPVRydWUNClg9MzINClk9MTAwDQpXPTIwMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTINCk1heENoYXJzPTE2DQoNCltMeXJpY3NdDQpFbmFibGVkPVRydWUNClg9MjQNClk9NjANClc9MzIwDQpIPS0xDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPVJpZ2h0DQpaSW5kZXg9Mw0KTWF4Q2hhcnM9NDINCg0KW1Byb2dyZXNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTkyDQpXPTMyMA0KSD0zDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD00DQpNYXhDaGFycz0wDQoNCltDb250cm9sc10NCkVuYWJsZWQ9VHJ1ZQ0KWD0yMzINClk9OTYNClc9MTAyDQpIPTMwDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD01DQpNYXhDaGFycz0wDQoNCltNdXNpY0JhcnNdDQpFbmFibGVkPUZhbHNlDQpYPTEzMA0KWT0xMDANClc9MzAwDQpIPTE4DQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD02DQpNYXhDaGFycz0wDQo=",
-            "\u9ED8\u8BA41|Scale=0.85;Opacity=0.94;ClearBg=True;ArtSat=0.2;ArtBlackAlpha=1;ArtHiCut=0.08;ArtSpin=True;ArtShape=square;ArtShadow=True;TextShadow=False;ControlsColor=;TitleScale=1;ArtistScale=1;LyricScale=1;TitleColor=;ArtistColor=;LyricColor=;BarThickness=3;BarScale=1;BarColor=;BarFillColor=;ArtSize=84;ArtBrightness=1;ArtContrast=1;ArtWarmth=0;ArtHue=0;ArtVignette=0;ArtTint=False;ArtTintDark=#3A0A0A;ArtTintLight=#FFB4B4;ArtTintMix=1;BarsCount=0;BarsAttack=0.6;BarsRelease=0.4;BarsThickness=5;BarsLength=290;BarsMaxHeight=16;BarsColor=;ArtistMaxChars=15;Template=IyBMeXJpY2FyZCBjYXJkIGxheW91dA0KU2NoZW1hVmVyc2lvbj0yDQpDYXJkVz0wDQpUaXRsZUFydGlzdElubGluZT1GYWxzZQ0KQ2FyZEg9MA0KDQpbQ292ZXJdDQpFbmFibGVkPVRydWUNClg9MzQwDQpZPTIwDQpXPTg0DQpIPTg0DQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD0wDQpNYXhDaGFycz0wDQoNCltUaXRsZV0NCkVuYWJsZWQ9VHJ1ZQ0KWD0xNg0KWT0yMA0KVz0zMjANCkg9LTENCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249TGVmdA0KWkluZGV4PTENCk1heENoYXJzPTM0DQoNCltBcnRpc3RdDQpFbmFibGVkPVRydWUNClg9MTYNClk9NDgNClc9MjAwDQpIPS0xDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUxlZnQNClpJbmRleD0yDQpNYXhDaGFycz00Mg0KDQpbTHlyaWNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTY4DQpXPTMyMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1MZWZ0DQpaSW5kZXg9Mw0KTWF4Q2hhcnM9NDINCg0KW1Byb2dyZXNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTkyDQpXPTMyMA0KSD0zDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD00DQpNYXhDaGFycz0wDQoNCltDb250cm9sc10NCkVuYWJsZWQ9VHJ1ZQ0KWD0xNg0KWT0xMDANClc9MTAyDQpIPTMwDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD01DQpNYXhDaGFycz0wDQoNCltNdXNpY0JhcnNdDQpFbmFibGVkPVRydWUNClg9MTIwDQpZPTEwMA0KVz0zMDANCkg9MTgNCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249QXV0bw0KWkluZGV4PTYNCk1heENoYXJzPTANCg=="
+            "\u8001\u7248\u672C\u5E03\u5C40|Scale=0.73;Opacity=0.94;ClearBg=True;ArtSat=0.2;ArtBlackAlpha=1;ArtHiCut=0.08;ArtSpin=True;ArtShape=circle;ArtShadow=True;TextShadow=False;ControlsColor=#FFC9CCD2;TitleScale=1;ArtistScale=1;LyricScale=1.05;TitleColor=;ArtistColor=;LyricColor=;BarThickness=3;BarScale=1;BarColor=;BarFillColor=;ArtSize=96;ArtBrightness=1;ArtContrast=1;ArtWarmth=0;ArtHue=0;ArtVignette=0;ArtTint=False;ArtTintDark=#3A0A0A;ArtTintLight=#FFB4B4;ArtTintMix=1;BarsCount=0;BarsAttack=0.6;BarsRelease=0.4;BarsThickness=5;BarsLength=300;BarsMaxHeight=18;BarsColor=;ArtistMaxChars=15;Template=IyBMeXJpY2FyZCBjYXJkIGxheW91dA0KU2NoZW1hVmVyc2lvbj0yDQpDYXJkVz0wDQpUaXRsZUFydGlzdElubGluZT1UcnVlDQpDYXJkSD0wDQoNCltDb3Zlcl0NCkVuYWJsZWQ9VHJ1ZQ0KWD0zNTYNClk9NDANClc9OTYNCkg9OTYNCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249QXV0bw0KWkluZGV4PTANCk1heENoYXJzPTANCg0KW1RpdGxlXQ0KRW5hYmxlZD1UcnVlDQpYPTQwDQpZPTQwDQpXPTMyMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTENCk1heENoYXJzPTM0DQoNCltBcnRpc3RdDQpFbmFibGVkPVRydWUNClg9MzINClk9MTAwDQpXPTIwMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTINCk1heENoYXJzPTE2DQoNCltMeXJpY3NdDQpFbmFibGVkPVRydWUNClg9MjQNClk9NjQNClc9MzIwDQpIPS0xDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPVJpZ2h0DQpaSW5kZXg9Mw0KTWF4Q2hhcnM9NDINCg0KW1Byb2dyZXNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTkyDQpXPTMyMA0KSD0zDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD00DQpNYXhDaGFycz0wDQoNCltDb250cm9sc10NCkVuYWJsZWQ9VHJ1ZQ0KWD0yMzYNClk9MTAwDQpXPTEwMg0KSD0zMA0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1BdXRvDQpaSW5kZXg9NQ0KTWF4Q2hhcnM9MA0KDQpbTXVzaWNCYXJzXQ0KRW5hYmxlZD1GYWxzZQ0KWD0xMzANClk9MTAwDQpXPTMwMA0KSD0xOA0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1BdXRvDQpaSW5kZXg9Ng0KTWF4Q2hhcnM9MA0K",
+            "\u9ED8\u8BA42|Scale=0.73;Opacity=0.94;ClearBg=True;ArtSat=0.2;ArtBlackAlpha=1;ArtHiCut=0.08;ArtSpin=True;ArtShape=circle;ArtShadow=True;TextShadow=False;ControlsColor=;TitleScale=1;ArtistScale=1;LyricScale=1;TitleColor=;ArtistColor=;LyricColor=;BarThickness=3;BarScale=1;BarColor=;BarFillColor=;ArtSize=100;ArtBrightness=1;ArtContrast=1;ArtWarmth=0;ArtHue=0;ArtVignette=0;ArtTint=False;ArtTintDark=#3A0A0A;ArtTintLight=#FFB4B4;ArtTintMix=1;BarsCount=0;BarsAttack=0.6;BarsRelease=0.4;BarsThickness=4;BarsLength=320;BarsMaxHeight=16;BarsColor=;ArtistMaxChars=15;Template=IyBMeXJpY2FyZCBjYXJkIGxheW91dA0KU2NoZW1hVmVyc2lvbj0yDQpDYXJkVz0wDQpUaXRsZUFydGlzdElubGluZT1UcnVlDQpDYXJkSD0wDQoNCltDb3Zlcl0NCkVuYWJsZWQ9VHJ1ZQ0KWD0zNTYNClk9MzINClc9OTYNCkg9OTYNCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249QXV0bw0KWkluZGV4PTANCk1heENoYXJzPTANCg0KW1RpdGxlXQ0KRW5hYmxlZD1UcnVlDQpYPTQwDQpZPTMyDQpXPTMyMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTENCk1heENoYXJzPTM0DQoNCltBcnRpc3RdDQpFbmFibGVkPVRydWUNClg9MzINClk9MTAwDQpXPTIwMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1SaWdodA0KWkluZGV4PTINCk1heENoYXJzPTE2DQoNCltMeXJpY3NdDQpFbmFibGVkPVRydWUNClg9MjgNClk9NTYNClc9MzIwDQpIPS0xDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPVJpZ2h0DQpaSW5kZXg9Mw0KTWF4Q2hhcnM9NDINCg0KW1Byb2dyZXNzXQ0KRW5hYmxlZD1UcnVlDQpYPTIwDQpZPTk2DQpXPTMyMA0KSD0zDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD00DQpNYXhDaGFycz0wDQoNCltDb250cm9sc10NCkVuYWJsZWQ9VHJ1ZQ0KWD0yNDANClk9MTAwDQpXPTEwMg0KSD0zMA0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1BdXRvDQpaSW5kZXg9NQ0KTWF4Q2hhcnM9MA0KDQpbTXVzaWNCYXJzXQ0KRW5hYmxlZD1UcnVlDQpYPTI0DQpZPTc2DQpXPTMyMA0KSD0xNg0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1BdXRvDQpaSW5kZXg9Ng0KTWF4Q2hhcnM9MA0K",
+            "\u9ED8\u8BA43|Scale=0.79;Opacity=0.94;ClearBg=True;ArtSat=0.2;ArtBlackAlpha=1;ArtHiCut=0.08;ArtSpin=True;ArtShape=square;ArtShadow=True;TextShadow=False;ControlsColor=;TitleScale=1;ArtistScale=1;LyricScale=1;TitleColor=;ArtistColor=;LyricColor=;BarThickness=3;BarScale=1;BarColor=;BarFillColor=;ArtSize=84;ArtBrightness=1;ArtContrast=1;ArtWarmth=0;ArtHue=0;ArtVignette=0;ArtTint=False;ArtTintDark=#3A0A0A;ArtTintLight=#FFB4B4;ArtTintMix=1;BarsCount=0;BarsAttack=0.6;BarsRelease=0.4;BarsThickness=5;BarsLength=290;BarsMaxHeight=16;BarsColor=;ArtistMaxChars=15;Template=IyBMeXJpY2FyZCBjYXJkIGxheW91dA0KU2NoZW1hVmVyc2lvbj0yDQpDYXJkVz0wDQpUaXRsZUFydGlzdElubGluZT1GYWxzZQ0KQ2FyZEg9MA0KDQpbQ292ZXJdDQpFbmFibGVkPVRydWUNClg9MzQwDQpZPTIwDQpXPTg0DQpIPTg0DQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD0wDQpNYXhDaGFycz0wDQoNCltUaXRsZV0NCkVuYWJsZWQ9VHJ1ZQ0KWD0xNg0KWT0yMA0KVz0zMjANCkg9LTENCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249TGVmdA0KWkluZGV4PTENCk1heENoYXJzPTM0DQoNCltBcnRpc3RdDQpFbmFibGVkPVRydWUNClg9MTYNClk9NDgNClc9MjAwDQpIPS0xDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUxlZnQNClpJbmRleD0yDQpNYXhDaGFycz00Mg0KDQpbTHlyaWNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTY4DQpXPTMyMA0KSD0tMQ0KRm9udFNpemU9MA0KQ29sb3I9DQpBbGlnbj1MZWZ0DQpaSW5kZXg9Mw0KTWF4Q2hhcnM9NDINCg0KW1Byb2dyZXNzXQ0KRW5hYmxlZD1UcnVlDQpYPTE2DQpZPTkyDQpXPTMyMA0KSD0zDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD00DQpNYXhDaGFycz0wDQoNCltDb250cm9sc10NCkVuYWJsZWQ9VHJ1ZQ0KWD0xNg0KWT0xMDANClc9MTAyDQpIPTMwDQpGb250U2l6ZT0wDQpDb2xvcj0NCkFsaWduPUF1dG8NClpJbmRleD01DQpNYXhDaGFycz0wDQoNCltNdXNpY0JhcnNdDQpFbmFibGVkPVRydWUNClg9MTIwDQpZPTEwMA0KVz0zMDANCkg9MTgNCkZvbnRTaXplPTANCkNvbG9yPQ0KQWxpZ249QXV0bw0KWkluZGV4PTYNCk1heENoYXJzPTANCg=="
         };
 
         // Give a brand-new install the two presets above. Only called when there is no
@@ -176,7 +177,7 @@ namespace Amc
         // restore every appearance / behaviour value to the tuned defaults (position is kept)
         public void ResetLookDefaults()
         {
-            Scale = 0.85;
+            Scale = 0.73;
             Opacity = 0.94;
             LyricOffset = 0.0;
             ClearBg = true;
@@ -184,13 +185,13 @@ namespace Amc
             ArtShape = "circle";
             ArtShadow = false;
             TextShadow = false;
-            ControlsColor = "";
-            ArtSat = 0.1;
+            ControlsColor = "#FFC9CCD2";
+            ArtSat = 0.2;
             ArtBlackAlpha = 1.0;
-            ArtHiCut = 0.06;
+            ArtHiCut = 0.08;
             TitleScale = 1.0;
             ArtistScale = 1.0;
-            LyricScale = 1.0;
+            LyricScale = 1.05;
             TitleColor = "";
             ArtistColor = "";
             LyricColor = "";
@@ -209,6 +210,13 @@ namespace Amc
             ArtTintLight = "#FFB4B4";
             ArtTintMix = 1.0;
             ArtistMaxChars = 15;
+            BarsCount = 0;
+            BarsAttack = 0.6;
+            BarsRelease = 0.4;
+            BarsThickness = 5.0;
+            BarsLength = 300.0;
+            BarsMaxHeight = 18.0;
+            BarsColor = "";
         }
 
         static string _dir;

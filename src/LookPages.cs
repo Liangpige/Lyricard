@@ -382,6 +382,21 @@ namespace Amc
             saveRow.Children.Add(savePill);
             box.Children.Add(saveRow);
 
+            var resetPill = Pill(Strings.T("preset.reset"), delegate
+            {
+                _cfg.ResetLookDefaults();
+                _cfg.Save();
+                _card.ApplyLook();
+                _card.ApplyCurrentScale();
+                _card.ApplyCurrentOpacity();
+                _card.RefreshArt();
+                RebuildAll();
+            }, false);
+            var resetRow = new StackPanel { Orientation = Orientation.Horizontal };
+            resetRow.Children.Add(resetPill);
+            box.Children.Add(resetRow);
+            box.Children.Add(Hint(Strings.T("preset.resetHint")));
+
             var chips = new WrapPanel { Margin = new Thickness(0, 0, 0, 4) };
             if (_cfg.Presets.Count == 0) chips.Children.Add(Hint(Strings.T("preset.empty")));
             else for (int i = 0; i < _cfg.Presets.Count; i++) chips.Children.Add(PresetChip(_cfg.Presets[i]));
