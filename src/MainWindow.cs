@@ -869,16 +869,23 @@ namespace Amc
             box.Background = hoverBrush;
             box.MouseEnter += delegate
             {
-                AnimateColor(hoverBrush, Color.FromArgb((byte)(key == _page ? 0 : 18), 255, 255, 255), 120);
+                UiMotion.Color(hoverBrush, Color.FromArgb((byte)(key == _page ? 0 : 18), 255, 255, 255), _kit.MotionFast);
                 // The word lifts towards full white too: a background wash alone reads as a
                 // tooltip, the text shift is what makes the strip feel alive.
-                AnimateColor((SolidColorBrush)t.Foreground, TextMain, 120);
+                UiMotion.Color((SolidColorBrush)t.Foreground, TextMain, _kit.MotionFast);
             };
             box.MouseLeave += delegate
             {
-                AnimateColor(hoverBrush, Color.FromArgb(0, 255, 255, 255), 170);
-                AnimateColor((SolidColorBrush)t.Foreground, key == _page ? TextMain : TextDim, 170);
+                UiMotion.Color(hoverBrush, Color.FromArgb(0, 255, 255, 255), _kit.MotionBase);
+                UiMotion.Color((SolidColorBrush)t.Foreground, key == _page ? TextMain : TextDim, _kit.MotionBase);
             };
+
+            // Same rubber as a kit button: quick dip on press, slower spring back.
+            var tabScale = new ScaleTransform(1, 1);
+            box.RenderTransformOrigin = new Point(0.5, 0.5);
+            box.RenderTransform = tabScale;
+            box.PreviewMouseLeftButtonDown += delegate { UiMotion.Scale(tabScale, 0.96, 90); };
+            box.PreviewMouseLeftButtonUp += delegate { UiMotion.Scale(tabScale, 1.0, 200); };
 
             box.MouseLeftButtonUp += delegate { SetPage(key); };
             _tabBoxes.Add(box);
@@ -1016,17 +1023,8 @@ namespace Amc
                 return;
             }
 
-            // Page transition: the new page fades in while lifting 6 px. Short enough to read as
-            // "the content was there all along" rather than as an effect.
-            _host.Opacity = 1.0;
-            var tt = new TranslateTransform(0, 6);
-            _host.RenderTransform = tt;
-            var fo = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(140));
-            fo.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-            _host.BeginAnimation(UIElement.OpacityProperty, fo);
-            var fy = new DoubleAnimation(6.0, 0.0, TimeSpan.FromMilliseconds(180));
-            fy.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
-            tt.BeginAnimation(TranslateTransform.YProperty, fy);
+            // Page transition: the kit entrance, so a tab change moves like everything else.
+            UiMotion.Enter(_host, _kit.MotionSlow, 8);
         }
 
         bool _showOthers;
@@ -2189,10 +2187,31 @@ namespace Amc
             }
 
             host.Child = canvas;
-            // Same 120/170 ms fade and press dip as the rest of the chrome, instead of the
-            // instant background swap these two used to do.
-            HoverFill(host, 0, 26);
-            PressScale(host);
+            // Kit motion: a fast wash on the way in, a slower one going out, and the glyph
+            // brightens with it so the button reads as one surface.
+            var chromeBg = new SolidColorBrush(Color.FromArgb(0, 255, 255, 255));
+            host.Background = chromeBg;
+            var glyphInk = new SolidColorBrush(TextDim);
+            foreach (var child in canvas.Children)
+            {
+                var ln = child as Line;
+                if (ln != null) ln.Stroke = glyphInk;
+            }
+            host.MouseEnter += delegate
+            {
+                UiMotion.Color(chromeBg, Color.FromArgb(26, 255, 255, 255), _kit.MotionFast);
+                UiMotion.Color(glyphInk, TextMain, _kit.MotionFast);
+            };
+            host.MouseLeave += delegate
+            {
+                UiMotion.Color(chromeBg, Color.FromArgb(0, 255, 255, 255), _kit.MotionBase);
+                UiMotion.Color(glyphInk, TextDim, _kit.MotionBase);
+            };
+            var chromeScale = new ScaleTransform(1, 1);
+            host.RenderTransformOrigin = new Point(0.5, 0.5);
+            host.RenderTransform = chromeScale;
+            host.PreviewMouseLeftButtonDown += delegate { UiMotion.Scale(chromeScale, 0.92, 90); };
+            host.PreviewMouseLeftButtonUp += delegate { UiMotion.Scale(chromeScale, 1.0, 200); };
             host.MouseLeftButtonUp += delegate
             {
                 // Minimising or hiding swallows the mouse-up that would undo the press dim,
